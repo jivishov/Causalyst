@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vite/
+coverage/
+.env
+.env.*
+!.env.example
+*.local
+*.log
+client_secret*.json
+*.apps.googleusercontent.com.json
+playwright-report/
+test-results/
+tmp-pages-smoke/

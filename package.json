@@ -1,0 +1,20 @@
+{
+  "name": "causalyst-student",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace shared && npm run build --workspace frontend",
+    "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace frontend",
+    "security:repo": "node scripts/check-repo-secrets.mjs",
+    "security:dist": "node scripts/check-dist-secrets.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  }
+}

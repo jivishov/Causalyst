@@ -1,0 +1,266 @@
+:root {
+  color-scheme: light;
+  --ink: #17201b;
+  --muted: #647067;
+  --paper: #f5f1e8;
+  --panel: #fffcf5;
+  --line: #d9d0bf;
+  --accent: #146c57;
+  --accent-strong: #0b493d;
+  --danger: #9a2f2f;
+  --focus: #d59d25;
+  font-family: Aptos, "Segoe UI", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, rgba(23, 32, 27, 0.055) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(23, 32, 27, 0.055) 1px, transparent 1px),
+    var(--paper);
+  background-size: 38px 38px;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: 44px;
+}
+
+a {
+  color: inherit;
+}
+
+.auth-shell,
+.app-shell {
+  width: min(100% - 32px, 980px);
+  min-height: 100vh;
+  margin: 0 auto;
+  display: grid;
+  align-items: center;
+  padding: 48px 0;
+}
+
+.auth-panel {
+  width: min(100%, 520px);
+  padding: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 10px 10px 0 rgba(20, 108, 87, 0.16);
+}
+
+.auth-panel.compact {
+  width: min(100%, 440px);
+}
+
+.auth-kicker {
+  margin: 0 0 14px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 2.6rem, 2.6rem);
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.auth-lede {
+  margin: 18px 0 28px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.google-login-button-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.google-login-button,
+.secondary-action,
+.text-action {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.google-login-button {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid #14201b;
+  border-radius: 6px;
+  background: #17201b;
+  color: #fffaf0;
+  font-weight: 800;
+}
+
+.google-login-button:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.google-login-button:disabled,
+.secondary-action:disabled,
+.text-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.google-login-mark {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 50%;
+  background: #fffaf0;
+  color: #17201b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 800;
+}
+
+.auth-status {
+  min-height: 24px;
+  margin: 18px 0 0;
+  color: var(--muted);
+}
+
+.auth-error {
+  margin: 14px 0 0;
+  color: var(--danger);
+  line-height: 1.45;
+}
+
+.text-action {
+  margin-top: 18px;
+  padding: 0;
+  min-height: auto;
+  color: var(--accent-strong);
+  background: transparent;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.loading-mark {
+  width: 34px;
+  height: 34px;
+  margin-bottom: 18px;
+  border: 3px solid rgba(20, 108, 87, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+.app-shell {
+  align-content: center;
+  gap: 24px;
+}
+
+.app-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.secondary-action {
+  padding: 10px 16px;
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.secondary-action:hover {
+  background: var(--ink);
+  color: var(--panel);
+}
+
+.identity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.identity-tile {
+  min-height: 118px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 252, 245, 0.78);
+  overflow-wrap: anywhere;
+}
+
+.identity-tile.wide {
+  grid-column: 1 / -1;
+}
+
+.identity-tile span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.identity-tile strong {
+  font-size: 1.02rem;
+  line-height: 1.45;
+}
+
+button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-shell,
+  .app-shell {
+    width: min(100% - 24px, 980px);
+    padding: 24px 0;
+  }
+
+  .auth-panel,
+  .app-header {
+    padding: 24px;
+  }
+
+  .app-header {
+    display: grid;
+  }
+
+  .identity-grid {
+    grid-template-columns: 1fr;
+  }
+}

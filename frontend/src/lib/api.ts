@@ -20,7 +20,7 @@ import {
   studentSupabase
 } from "./supabase";
 
-const workerUrl = (import.meta.env.VITE_WORKER_URL as string | undefined) ?? "http://localhost:8787";
+const workerUrl = normalizeEnvValue(import.meta.env.VITE_WORKER_URL as string | undefined) || "http://localhost:8787";
 const SESSION_TIMEOUT_MS = 20000;
 const SESSION_RECOVERY_TIMEOUT_MS = 3000;
 const REQUEST_TIMEOUT_MS = 12000;
@@ -542,6 +542,10 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: s
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function normalizeEnvValue(value: string | undefined): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function toApiRequestError(payload: unknown, status: number): ApiRequestError {

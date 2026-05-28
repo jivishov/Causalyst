@@ -1,8 +1,8 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { getCanonicalLocalUrl } from "./localAuthOrigin";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const supabaseUrl = normalizeEnvValue(import.meta.env.VITE_SUPABASE_URL as string | undefined);
+const supabaseAnonKey = normalizeEnvValue(import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined);
 const STUDENT_AUTH_STORAGE_KEY = "alt-assessment.student-auth";
 const STUDENT_AUTH_STORAGE_PREFIXES = [STUDENT_AUTH_STORAGE_KEY] as const;
 const STUDENT_AUTH_STORAGE_FALLBACK_KEYS = STUDENT_AUTH_STORAGE_PREFIXES.flatMap((key) => [
@@ -49,7 +49,7 @@ if (!isSupabaseConfigured) {
 }
 
 function createBrowserSupabaseClient(storageKey: string) {
-  return createClient(supabaseUrl ?? "https://example.supabase.co", supabaseAnonKey ?? "missing", {
+  return createClient(supabaseUrl || "https://example.supabase.co", supabaseAnonKey || "missing", {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
@@ -58,6 +58,10 @@ function createBrowserSupabaseClient(storageKey: string) {
       storageKey
     }
   });
+}
+
+function normalizeEnvValue(value: string | undefined): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 export const studentSupabase = createBrowserSupabaseClient(

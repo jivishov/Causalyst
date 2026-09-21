@@ -1,8 +1,15 @@
-name: Deploy Student Frontend
+name: Deploy Frontend
 
 on:
   push:
     branches: [main]
+    paths:
+      - ".github/workflows/deploy-frontend.yml"
+      - "frontend/**"
+      - "shared/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
   workflow_dispatch:
 
 permissions:
@@ -24,7 +31,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Validate deployment configuration
+        run: node scripts/validate-deploy-env.mjs frontend
+        env:
+          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/Causalyst/' }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_WORKER_URL: ${{ vars.VITE_WORKER_URL }}
       - run: npm run typecheck
+      - run: npm test
       - run: npm run build
         env:
           VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/Causalyst/' }}
@@ -33,7 +48,7 @@ jobs:
           VITE_WORKER_URL: ${{ vars.VITE_WORKER_URL }}
       - name: Enable SPA fallback
         run: cp frontend/dist/index.html frontend/dist/404.html
-      - run: npm run security:dist
+      - run: npm run security
       - uses: actions/upload-pages-artifact@v4
         with:
           path: frontend/dist

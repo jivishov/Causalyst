@@ -1,20 +1,26 @@
 {
-  "name": "causalyst-student",
+  "name": "causalyst",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "workspaces": [
     "shared",
-    "frontend"
+    "frontend",
+    "worker"
   ],
   "scripts": {
-    "build": "npm run build --workspace shared && npm run build --workspace frontend",
-    "typecheck": "npm run typecheck --workspace shared && npm run typecheck --workspace frontend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "dev:worker": "npm run dev --workspace worker",
+    "build": "npm run build --workspace shared && npm run build --workspace frontend && npm run build --workspace worker",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "security": "npm run security:repo && npm run security:dist",
     "security:repo": "node scripts/check-repo-secrets.mjs",
     "security:dist": "node scripts/check-dist-secrets.mjs"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.14"
+    "jsdom": "27.3.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.14"
   }
 }

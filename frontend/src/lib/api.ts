@@ -7,7 +7,26 @@ import type {
   StudentSessionResponse,
   StudentSimulationGenerationJob,
   StudentSimulationPreview,
-  StudentPublishedFinalResultResponse
+  StudentPublishedFinalResultResponse,
+  TeacherAssessment,
+  TeacherAssessmentsResponse,
+  TeacherAttemptReviewDetailResponse,
+  TeacherAttemptReviewListResponse,
+  TeacherAssignment,
+  TeacherAssignmentsResponse,
+  TeacherGradebookEntry,
+  TeacherGradebookExportRequest,
+  TeacherGradebookExportResponse,
+  TeacherGradebookListResponse,
+  TeacherGradebookRebuildResponse,
+  TeacherCourse,
+  TeacherCoursesResponse,
+  TeacherRosterImportCommitResponse,
+  TeacherRosterDeleteResponse,
+  TeacherRosterImportPreviewResponse,
+  TeacherRosterResponse,
+  TeacherSessionResponse,
+  TeacherSetupStatusResponse
 } from "@alt-assessment/shared";
 import type { Session } from "@supabase/supabase-js";
 import { getCanonicalLocalOrigin, getLocalAuthOriginIssue } from "./localAuthOrigin";
@@ -17,7 +36,8 @@ import {
   readStudentSupabaseSessionFallback,
   rememberStudentSupabaseSession,
   resetStudentSupabaseAuthState,
-  studentSupabase
+  studentSupabase,
+  teacherSupabase
 } from "./supabase";
 
 const workerUrl = normalizeEnvValue(import.meta.env.VITE_WORKER_URL as string | undefined) || "http://localhost:8787";
@@ -156,6 +176,29 @@ export async function publicApiFetch<T>(path: string, init: RequestInit = {}, ti
   return payload as T;
 }
 
+export async function teacherApiFetch<T>(path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
+  if (!isSupabaseConfigured) {
+    throw new Error("Configure frontend Supabase environment variables before using teacher login.");
+  }
+  const { data } = await withTimeout(teacherSupabase.auth.getSession(), SESSION_TIMEOUT_MS, "Session check timed out.");
+  if (!data.session) {
+    throw new Error("Teacher sign-in required");
+  }
+  const response = await fetchWithTimeout(`${workerUrl}/api${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${data.session.access_token}`,
+      ...init.headers
+    }
+  }, timeoutMs);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw toApiRequestError(payload, response.status);
+  }
+  return payload as T;
+}
+
 export function loginStudent(input: { classCode: string; pin: string }) {
   return apiFetch<unknown>("/student/login", {
     method: "POST",
@@ -165,6 +208,377 @@ export function loginStudent(input: { classCode: string; pin: string }) {
 
 export function getStudentSession() {
   return apiFetch<StudentSessionResponse>("/student/me");
+}
+
+export function getTeacherSetupStatus() {
+  return publicApiFetch<TeacherSetupStatusResponse>("/teacher/setup-status");
+}
+
+export async function requestTeacherPasswordReset(input: { email: string }) {
+  if (!isSupabaseConfigured) {
+    throw new Error("Configure frontend Supabase environment variables before using teacher password reset.");
+  }
+  const email = input.email.trim().toLowerCase();
+  if (!email) {
+    throw new Error("Enter the teacher email address first.");
+  }
+
+  const { error } = await withTimeout(
+    teacherSupabase.auth.resetPasswordForEmail(email, {
+      redirectTo: resolveAppUrl("teacher/reset-password")
+    }),
+    SESSION_TIMEOUT_MS,
+    "Teacher password reset email timed out."
+  );
+  if (error) throw new Error(resolveTeacherResetStartErrorMessage(error.message));
+}
+
+export async function completeTeacherPasswordRecovery() {
+  if (!isSupabaseConfigured) {
+    throw new Error("Configure frontend Supabase environment variables before using teacher password reset.");
+  }
+  if (typeof window === "undefined") {
+    throw new Error("Teacher password reset must be completed in a browser.");
+  }
+
+  const url = new URL(window.location.href);
+  const hashParams = parseUrlHash(url);
+  const providerError = readTeacherRecoveryProviderError(url, hashParams);
+  if (providerError) {
+    clearAuthCallbackUrl(url);
+    throw new Error(providerError);
+  }
+
+  try {
+    const code = url.searchParams.get("code");
+    if (code) {
+      const { data, error } = await withTimeout(
+        teacherSupabase.auth.exchangeCodeForSession(code),
+        SESSION_TIMEOUT_MS,
+        "Teacher recovery link timed out."
+      );
+      if (error) throw new Error(error.message);
+      if (!data.session) throw new Error("Teacher recovery link did not create a session.");
+      return;
+    }
+
+    const accessToken = hashParams.get("access_token");
+    const refreshToken = hashParams.get("refresh_token");
+    if (accessToken && refreshToken) {
+      const { data, error } = await withTimeout(
+        teacherSupabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        }),
+        SESSION_TIMEOUT_MS,
+        "Teacher recovery link timed out."
+      );
+      if (error) throw new Error(error.message);
+      if (!data.session) throw new Error("Teacher recovery link did not create a session.");
+      return;
+    }
+
+    const { data } = await withTimeout(
+      teacherSupabase.auth.getSession(),
+      SESSION_TIMEOUT_MS,
+      "Teacher recovery session check timed out."
+    );
+    if (data.session) return;
+
+    throw new Error("Open the latest teacher password reset email, or request a new reset link from /teacher.");
+  } finally {
+    clearAuthCallbackUrl(url);
+  }
+}
+
+export async function updateTeacherPassword(input: { password: string }) {
+  if (!isSupabaseConfigured) {
+    throw new Error("Configure frontend Supabase environment variables before using teacher password reset.");
+  }
+  if (!input.password) {
+    throw new Error("Enter a new password.");
+  }
+
+  const { error } = await withTimeout(
+    teacherSupabase.auth.updateUser({ password: input.password }),
+    SESSION_TIMEOUT_MS,
+    "Teacher password update timed out."
+  );
+  if (error) throw new Error(error.message);
+}
+
+export async function signInTeacher(input: { email: string; password: string }) {
+  const { error } = await withTimeout(
+    teacherSupabase.auth.signInWithPassword(input),
+    SESSION_TIMEOUT_MS,
+    "Teacher sign-in timed out."
+  );
+  if (error) throw new Error(error.message);
+  return getTeacherSession();
+}
+
+export async function createTeacherAccount(input: { email: string; password: string }) {
+  const { data, error } = await withTimeout(
+    teacherSupabase.auth.signUp({
+      ...input,
+      options: { emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL || "/"}teacher` }
+    }),
+    SESSION_TIMEOUT_MS,
+    "Teacher account creation timed out."
+  );
+  if (error) throw new Error(error.message);
+  if (!data.session) {
+    throw new Error("Account created. Confirm the email address, then sign in to finish setup.");
+  }
+}
+
+export async function ensureTeacherSetupSession(input: { email: string; password: string }) {
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const existing = await withTimeout(teacherSupabase.auth.getSession(), SESSION_TIMEOUT_MS, "Session check timed out.");
+  if (existing.data.session?.user.email?.toLowerCase() === normalizedEmail) {
+    return;
+  }
+  if (existing.data.session) {
+    await teacherSupabase.auth.signOut();
+  }
+
+  const signedIn = await withTimeout(
+    teacherSupabase.auth.signInWithPassword(input),
+    SESSION_TIMEOUT_MS,
+    "Teacher sign-in timed out."
+  );
+  if (!signedIn.error && signedIn.data.session) return;
+
+  await createTeacherAccount(input);
+}
+
+export function setupTeacher(input: { setupCode: string; displayName?: string }) {
+  return teacherApiFetch<TeacherSessionResponse>("/teacher/setup", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export function getTeacherSession() {
+  return teacherApiFetch<TeacherSessionResponse>("/teacher/me");
+}
+
+export function listTeacherCourses(includeArchived = false) {
+  const query = includeArchived ? "?includeArchived=true" : "";
+  return teacherApiFetch<TeacherCoursesResponse>(`/teacher/courses${query}`);
+}
+
+export function createTeacherCourse(input: { code: string; name: string; section?: string; term?: string }) {
+  return teacherApiFetch<{ course: TeacherCourse }>("/teacher/courses", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export function updateTeacherCourse(courseId: string, input: { code?: string; name?: string; section?: string | null; term?: string | null }) {
+  return teacherApiFetch<{ course: TeacherCourse }>(`/teacher/courses/${courseId}`, {
+    method: "PUT",
+    body: JSON.stringify(input)
+  });
+}
+
+export function archiveTeacherCourse(courseId: string) {
+  return teacherApiFetch<{ course: TeacherCourse }>(`/teacher/courses/${courseId}/archive`, { method: "POST" });
+}
+
+export function unarchiveTeacherCourse(courseId: string) {
+  return teacherApiFetch<{ course: TeacherCourse }>(`/teacher/courses/${courseId}/unarchive`, { method: "POST" });
+}
+
+export function previewTeacherRosterImport(courseId: string, csvText: string) {
+  return teacherApiFetch<TeacherRosterImportPreviewResponse>(`/teacher/courses/${courseId}/roster/preview`, {
+    method: "POST",
+    body: JSON.stringify({ csvText })
+  });
+}
+
+export function commitTeacherRosterImport(courseId: string, csvText: string) {
+  return teacherApiFetch<TeacherRosterImportCommitResponse>(`/teacher/courses/${courseId}/roster/commit`, {
+    method: "POST",
+    body: JSON.stringify({ csvText })
+  });
+}
+
+export function listTeacherRoster(courseId: string) {
+  return teacherApiFetch<TeacherRosterResponse>(`/teacher/courses/${courseId}/roster`);
+}
+
+export function deleteTeacherRoster(courseId: string, confirmationText: string) {
+  return teacherApiFetch<TeacherRosterDeleteResponse>(`/teacher/courses/${courseId}/roster/delete`, {
+    method: "POST",
+    body: JSON.stringify({ confirmationText })
+  });
+}
+
+export function listTeacherAssessments(includeArchived = false) {
+  const query = includeArchived ? "?includeArchived=true" : "";
+  return teacherApiFetch<TeacherAssessmentsResponse>(`/teacher/assessments${query}`);
+}
+
+export function createTeacherAssessment(input: {
+  type: TeacherAssessment["type"];
+  title: string;
+  prompt: string;
+  expectedAnswer?: string | null;
+  rubric: TeacherAssessment["rubric"];
+  config?: Record<string, unknown>;
+}) {
+  return teacherApiFetch<{ assessment: TeacherAssessment }>("/teacher/assessments", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export function updateTeacherAssessment(assessmentId: string, input: {
+  type?: TeacherAssessment["type"];
+  title?: string;
+  prompt?: string;
+  expectedAnswer?: string | null;
+  rubric?: TeacherAssessment["rubric"];
+  config?: Record<string, unknown>;
+}) {
+  return teacherApiFetch<{ assessment: TeacherAssessment }>(`/teacher/assessments/${assessmentId}`, {
+    method: "PUT",
+    body: JSON.stringify(input)
+  });
+}
+
+export function archiveTeacherAssessment(assessmentId: string) {
+  return teacherApiFetch<{ assessment: TeacherAssessment }>(`/teacher/assessments/${assessmentId}/archive`, { method: "POST" });
+}
+
+export function unarchiveTeacherAssessment(assessmentId: string) {
+  return teacherApiFetch<{ assessment: TeacherAssessment }>(`/teacher/assessments/${assessmentId}/unarchive`, { method: "POST" });
+}
+
+export function listTeacherAssignments(input?: { includeArchived?: boolean; courseId?: string }) {
+  const query = new URLSearchParams();
+  if (input?.includeArchived) query.set("includeArchived", "true");
+  if (input?.courseId) query.set("courseId", input.courseId);
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return teacherApiFetch<TeacherAssignmentsResponse>(`/teacher/assignments${suffix}`);
+}
+
+export function listTeacherAttempts(input?: {
+  courseId?: string;
+  assignmentId?: string;
+  student?: string;
+  status?: "draft" | "submitted" | "graded" | "error";
+}) {
+  const query = new URLSearchParams();
+  if (input?.courseId) query.set("courseId", input.courseId);
+  if (input?.assignmentId) query.set("assignmentId", input.assignmentId);
+  if (input?.student) query.set("student", input.student);
+  if (input?.status) query.set("status", input.status);
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return teacherApiFetch<TeacherAttemptReviewListResponse>(`/teacher/attempts${suffix}`);
+}
+
+export function getTeacherAttemptDetail(attemptId: string) {
+  return teacherApiFetch<TeacherAttemptReviewDetailResponse>(`/teacher/attempts/${attemptId}`);
+}
+
+export function listTeacherGradebook(input: {
+  courseId?: string;
+  assignmentId?: string;
+  includeArchivedAssignments?: boolean;
+  includeInactiveStudents?: boolean;
+}) {
+  const query = new URLSearchParams();
+  if (input.courseId) query.set("courseId", input.courseId);
+  if (input.assignmentId) query.set("assignmentId", input.assignmentId);
+  if (input.includeArchivedAssignments) query.set("includeArchivedAssignments", "true");
+  if (input.includeInactiveStudents) query.set("includeInactiveStudents", "true");
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return teacherApiFetch<TeacherGradebookListResponse>(`/teacher/gradebook${suffix}`);
+}
+
+export function rebuildTeacherGradebook(courseId: string) {
+  return teacherApiFetch<TeacherGradebookRebuildResponse>("/teacher/gradebook/rebuild", {
+    method: "POST",
+    body: JSON.stringify({ courseId })
+  });
+}
+
+export function exportTeacherGradebook(input: TeacherGradebookExportRequest) {
+  return teacherApiFetch<TeacherGradebookExportResponse>("/teacher/gradebook/export", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export function approveTeacherAttemptScore(attemptId: string) {
+  return teacherApiFetch<{ entry: TeacherGradebookEntry }>(`/teacher/attempts/${attemptId}/approve-score`, {
+    method: "POST"
+  });
+}
+
+export function setTeacherGradebookOverride(entryId: string, input: { score: number; note?: string }) {
+  return teacherApiFetch<{ entry: TeacherGradebookEntry }>(`/teacher/gradebook/entries/${entryId}/override`, {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export function markTeacherGradebookMissing(entryId: string) {
+  return teacherApiFetch<{ entry: TeacherGradebookEntry }>(`/teacher/gradebook/entries/${entryId}/missing`, {
+    method: "POST"
+  });
+}
+
+export function clearTeacherGradebookGrade(entryId: string) {
+  return teacherApiFetch<{ entry: TeacherGradebookEntry }>(`/teacher/gradebook/entries/${entryId}/clear`, {
+    method: "POST"
+  });
+}
+
+export function publishTeacherGradebookEntry(entryId: string) {
+  return teacherApiFetch<{ entry: TeacherGradebookEntry }>(`/teacher/gradebook/entries/${entryId}/publish`, {
+    method: "POST"
+  });
+}
+
+export function unpublishTeacherGradebookEntry(entryId: string) {
+  return teacherApiFetch<{ entry: TeacherGradebookEntry }>(`/teacher/gradebook/entries/${entryId}/unpublish`, {
+    method: "POST"
+  });
+}
+
+export function createTeacherAssignment(input: {
+  assessmentId: string;
+  courseId: string;
+  opensAt?: string | null;
+  dueAt?: string | null;
+}) {
+  return teacherApiFetch<{ assignment: TeacherAssignment }>("/teacher/assignments", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export function updateTeacherAssignment(assignmentId: string, input: {
+  assessmentId?: string;
+  courseId?: string;
+  opensAt?: string | null;
+  dueAt?: string | null;
+}) {
+  return teacherApiFetch<{ assignment: TeacherAssignment }>(`/teacher/assignments/${assignmentId}`, {
+    method: "PUT",
+    body: JSON.stringify(input)
+  });
+}
+
+export function archiveTeacherAssignment(assignmentId: string) {
+  return teacherApiFetch<{ assignment: TeacherAssignment }>(`/teacher/assignments/${assignmentId}/archive`, { method: "POST" });
+}
+
+export function unarchiveTeacherAssignment(assignmentId: string) {
+  return teacherApiFetch<{ assignment: TeacherAssignment }>(`/teacher/assignments/${assignmentId}/unarchive`, { method: "POST" });
 }
 
 export function validateStudentSessionResponse(payload: unknown): StudentSessionResponse {
@@ -413,6 +827,12 @@ export function getPublishedFinalResult(assignmentId: string) {
   return apiFetch<StudentPublishedFinalResultResponse>(`/assignments/${assignmentId}/final`);
 }
 
+export async function getTeacherArtifactPreviewUrl(artifactId: string): Promise<string> {
+  const response = await fetchTeacherArtifact(`/teacher/artifacts/${artifactId}/preview`);
+  const blob = await response.blob();
+  return createSimulationPreviewObjectUrl(blob);
+}
+
 function isHtmlPreviewBlob(blob: Blob): boolean {
   const mimeType = blob.type.split(";")[0]?.trim().toLowerCase();
   return mimeType === "text/html" || mimeType === "application/xhtml+xml";
@@ -511,6 +931,15 @@ function simulationPreviewHealthScript(healthNonce: string): string {
 </script>`;
 }
 
+export async function getTeacherArtifactDownload(artifactId: string): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetchTeacherArtifact(`/teacher/artifacts/${artifactId}/download`);
+  const blob = await response.blob();
+  return {
+    blob,
+    filename: parseDownloadFilename(response.headers.get("Content-Disposition")) || "artifact.bin"
+  };
+}
+
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -564,6 +993,35 @@ function toApiRequestError(payload: unknown, status: number): ApiRequestError {
     ? payload.details
     : undefined;
   return new ApiRequestError(message, status, code, details);
+}
+
+async function fetchTeacherArtifact(path: string): Promise<Response> {
+  if (!isSupabaseConfigured) {
+    throw new Error("Configure frontend Supabase environment variables before using teacher review.");
+  }
+  const { data } = await withTimeout(teacherSupabase.auth.getSession(), SESSION_TIMEOUT_MS, "Session check timed out.");
+  if (!data.session) {
+    throw new Error("Teacher sign-in required");
+  }
+  const response = await fetchWithTimeout(`${workerUrl}/api${path}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${data.session.access_token}`
+    }
+  }, REQUEST_TIMEOUT_MS);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw toApiRequestError(payload, response.status);
+  }
+  return response;
+}
+
+function parseDownloadFilename(contentDisposition: string | null): string | null {
+  if (!contentDisposition) return null;
+  const match = contentDisposition.match(/filename="([^"]+)"/i);
+  if (!match) return null;
+  const filename = match[1].trim();
+  return filename || null;
 }
 
 async function getStudentAuthSession(): Promise<Session | null> {
@@ -674,9 +1132,28 @@ function resolveOAuthStartErrorMessage(message: string): string {
   return trimmed || "Google sign-in could not start.";
 }
 
+function resolveTeacherResetStartErrorMessage(message: string): string {
+  const trimmed = message.trim();
+  const suffix = typeof window === "undefined" ? "" : ` Confirm Supabase Auth redirect URLs include ${resolveAppUrl("teacher/reset-password")}.`;
+  if (/redirect|allow.?list|not allowed|site url/i.test(trimmed)) {
+    return `${trimmed || "Teacher password reset could not start."}${suffix}`;
+  }
+  return trimmed || "Teacher password reset could not start.";
+}
+
 function parseUrlHash(url: URL): URLSearchParams {
   const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
   return new URLSearchParams(hash);
+}
+
+function readTeacherRecoveryProviderError(url: URL, hashParams: URLSearchParams): string | null {
+  const message = url.searchParams.get("error_description")
+    ?? hashParams.get("error_description")
+    ?? url.searchParams.get("error")
+    ?? hashParams.get("error")
+    ?? url.searchParams.get("error_code")
+    ?? hashParams.get("error_code");
+  return message ? `Teacher password reset failed: ${message}` : null;
 }
 
 function clearAuthCallbackUrl(url: URL): void {

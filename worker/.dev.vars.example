@@ -1,0 +1,10 @@
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=replace-with-service-role-key
+SUPABASE_JWKS_URL=https://YOUR_PROJECT.supabase.co/auth/v1/.well-known/jwks.json
+OPENAI_API_KEY=replace-with-openai-key
+MOONSHOT_API_KEY=replace-with-moonshot-key
+ZAI_API_KEY=replace-with-zai-key
+APP_ENV=development
+PIN_PEPPER=dev-pepper
+TEACHER_SETUP_CODE=replace-with-setup-code
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173

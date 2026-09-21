@@ -4,7 +4,13 @@ import { getCanonicalLocalUrl } from "./localAuthOrigin";
 const supabaseUrl = normalizeEnvValue(import.meta.env.VITE_SUPABASE_URL as string | undefined);
 const supabaseAnonKey = normalizeEnvValue(import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined);
 const STUDENT_AUTH_STORAGE_KEY = "alt-assessment.student-auth";
+const TEACHER_AUTH_STORAGE_KEY = "alt-assessment.teacher-auth";
 const STUDENT_AUTH_STORAGE_PREFIXES = [STUDENT_AUTH_STORAGE_KEY] as const;
+const ALL_AUTH_STORAGE_PREFIXES = [STUDENT_AUTH_STORAGE_KEY, TEACHER_AUTH_STORAGE_KEY] as const;
+const AUTH_STORAGE_FALLBACK_KEYS = ALL_AUTH_STORAGE_PREFIXES.flatMap((key) => [
+  key,
+  `${key}-code-verifier`
+]);
 const STUDENT_AUTH_STORAGE_FALLBACK_KEYS = STUDENT_AUTH_STORAGE_PREFIXES.flatMap((key) => [
   key,
   `${key}-code-verifier`
@@ -67,6 +73,17 @@ function normalizeEnvValue(value: string | undefined): string {
 export const studentSupabase = createBrowserSupabaseClient(
   STUDENT_AUTH_STORAGE_KEY
 );
+export const teacherSupabase = createBrowserSupabaseClient(
+  TEACHER_AUTH_STORAGE_KEY
+);
+
+export function resetSupabaseAuthState(storage?: AuthStorage): void {
+  resetAuthCompletionState();
+  const storages = storage ? [storage] : getBrowserAuthStorages();
+  for (const authStorage of storages) {
+    removeAppAuthStorageKeys(authStorage, ALL_AUTH_STORAGE_PREFIXES, AUTH_STORAGE_FALLBACK_KEYS);
+  }
+}
 
 export function resetStudentSupabaseAuthState(storage?: AuthStorage): void {
   resetAuthCompletionState();

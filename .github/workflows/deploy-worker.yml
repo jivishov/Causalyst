@@ -1,0 +1,79 @@
+name: Deploy Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-worker.yml"
+      - "worker/**"
+      - "shared/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: worker-production
+  cancel-in-progress: false
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate deployment configuration
+        run: node scripts/validate-deploy-env.mjs worker
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_JWKS_URL: ${{ vars.SUPABASE_JWKS_URL }}
+          APP_ENV: ${{ vars.APP_ENV }}
+          ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PIN_PEPPER: ${{ secrets.PIN_PEPPER }}
+          TEACHER_SETUP_CODE: ${{ secrets.TEACHER_SETUP_CODE }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - run: npm run typecheck
+      - run: npm test
+      - id: deploy
+        name: Deploy Cloudflare Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          wranglerVersion: "4.54.0"
+          command: >-
+            deploy
+            --var SUPABASE_URL:${{ vars.SUPABASE_URL }}
+            --var SUPABASE_JWKS_URL:${{ vars.SUPABASE_JWKS_URL }}
+            --var APP_ENV:${{ vars.APP_ENV }}
+            --var ALLOWED_ORIGINS:${{ vars.ALLOWED_ORIGINS }}
+          secrets: |
+            SUPABASE_SERVICE_ROLE_KEY
+            OPENAI_API_KEY
+            PIN_PEPPER
+            TEACHER_SETUP_CODE
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PIN_PEPPER: ${{ secrets.PIN_PEPPER }}
+          TEACHER_SETUP_CODE: ${{ secrets.TEACHER_SETUP_CODE }}
+      - name: Connect frontend to deployed Worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKER_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          node scripts/validate-worker-url.mjs "$WORKER_URL"
+          gh variable set VITE_WORKER_URL --body "$WORKER_URL"
+          gh workflow run deploy-frontend.yml --ref "$GITHUB_REF_NAME"

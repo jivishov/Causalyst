@@ -1,0 +1,8 @@
+name = "alt-assessment-student-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-28"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.txt"]
+fallthrough = true

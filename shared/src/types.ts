@@ -191,6 +191,336 @@ export interface StudentPublishedFinalResultResponse {
   latestAttempt?: StudentAttemptSummary | null;
 }
 
+export interface TeacherProfile {
+  id: string;
+  email: string | null;
+  displayName: string;
+}
+
+export interface TeacherSetupStatusResponse {
+  setupAvailable: boolean;
+}
+
+export interface TeacherSessionResponse {
+  profile: TeacherProfile;
+}
+
+export interface TeacherCourse {
+  id: string;
+  code: string;
+  name: string;
+  section: string | null;
+  term: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeacherCoursesResponse {
+  courses: TeacherCourse[];
+}
+
+export interface TeacherAssessment {
+  id: string;
+  type: AssessmentType;
+  title: string;
+  prompt: string;
+  expectedAnswer: string | null;
+  rubric: RubricCriterion[];
+  config: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface TeacherAssessmentsResponse {
+  assessments: TeacherAssessment[];
+}
+
+export interface TeacherAssignment {
+  id: string;
+  assessmentId: string;
+  classId: string;
+  opensAt: string | null;
+  dueAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+  assessment: {
+    id: string;
+    type: AssessmentType;
+    title: string;
+    archivedAt: string | null;
+  };
+  course: {
+    id: string;
+    code: string;
+    name: string;
+    archivedAt: string | null;
+  };
+}
+
+export interface TeacherAssignmentsResponse {
+  assignments: TeacherAssignment[];
+}
+
+export interface TeacherAttemptReviewArtifact {
+  id: string;
+  kind: "audio" | "writing" | "simulation-derived" | "simulation-sketch";
+  mimeType: string;
+  byteSize: number;
+  originalFilename: string;
+  uploadState: "pending" | "uploaded" | "processed" | "deleted";
+  previewPath: string | null;
+  downloadPath: string;
+  htmlViewport?: SimulationHtmlViewport;
+}
+
+export interface TeacherRealtimeEvent {
+  id: string;
+  sessionId: string;
+  sequence: number;
+  eventType: string;
+  role: "student" | "assistant" | "system" | "status" | null;
+  text: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface TeacherRealtimeTrustHistory {
+  sessionId: string;
+  status: "connecting" | "active" | "finalizing" | "finalized" | "error";
+  startedAt: string;
+  endedAt: string | null;
+  expiresAt: string | null;
+  eventCount: number;
+  studentTurnCount: number;
+  assistantTurnCount: number;
+  statusTurnCount: number;
+  gapCount: number;
+  duplicateCount: number;
+  flags: string[];
+  score: number;
+}
+
+export interface TeacherRealtimeTrust {
+  score: number;
+  level: "low" | "medium" | "high";
+  flags: string[];
+  summary: string;
+  history: TeacherRealtimeTrustHistory[];
+}
+
+export interface TeacherAttemptReviewListItem {
+  attemptId: string;
+  assignmentId: string | null;
+  assessmentId: string;
+  assessmentType: AssessmentType;
+  assessmentTitle: string;
+  status: AttemptStatus;
+  submittedAt: string | null;
+  provisionalScore: number | null;
+  reviewFlags: string[];
+  student: {
+    id: string;
+    displayName: string;
+  };
+  course: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  assignment: {
+    id: string | null;
+    opensAt: string | null;
+    dueAt: string | null;
+  };
+}
+
+export interface TeacherAttemptReviewListResponse {
+  attempts: TeacherAttemptReviewListItem[];
+}
+
+export interface TeacherAttemptReviewDetail {
+  attemptId: string;
+  assignmentId: string | null;
+  status: AttemptStatus;
+  submittedAt: string | null;
+  provisionalScore: number | null;
+  provisionalFeedback: GradeFeedback | null;
+  reviewFlags: string[];
+  transcript: string | null;
+  ocrText: string | null;
+  simulationDescription: string | null;
+  simulationSpec: SimulationSpec | null;
+  gradebookEntry: TeacherGradebookEntry | null;
+  student: {
+    id: string;
+    displayName: string;
+  };
+  course: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  assignment: {
+    id: string | null;
+    opensAt: string | null;
+    dueAt: string | null;
+  };
+  assessment: AssessmentSummary;
+  artifacts: TeacherAttemptReviewArtifact[];
+  realtimeEvents: TeacherRealtimeEvent[];
+  realtimeTrust?: TeacherRealtimeTrust | null;
+}
+
+export interface TeacherAttemptReviewDetailResponse {
+  attempt: TeacherAttemptReviewDetail;
+}
+
+export type TeacherGradebookFinalStatus = "teacher_override" | "approved_ai" | "missing" | "blank";
+
+export interface TeacherGradebookEntry {
+  id: string;
+  assignmentId: string;
+  rosterStudentId: string;
+  approvedAttemptId: string | null;
+  approvedScore: number | null;
+  teacherOverrideScore: number | null;
+  teacherOverrideNote: string | null;
+  missing: boolean;
+  publishedAt: string | null;
+  finalScore: number | null;
+  finalStatus: TeacherGradebookFinalStatus;
+  createdAt: string;
+  updatedAt: string;
+  student: {
+    id: string;
+    displayName: string;
+    studentIdentifier: string | null;
+    email: string | null;
+    section: string | null;
+    active: boolean;
+    claimed: boolean;
+  };
+  course: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  assignment: {
+    id: string;
+    opensAt: string | null;
+    dueAt: string | null;
+    archivedAt: string | null;
+    assessmentId: string;
+    assessmentType: AssessmentType;
+    assessmentTitle: string;
+  };
+  latestAttempt: {
+    attemptId: string;
+    status: AttemptStatus;
+    submittedAt: string | null;
+    provisionalScore: number | null;
+  } | null;
+}
+
+export interface TeacherGradebookListResponse {
+  entries: TeacherGradebookEntry[];
+}
+
+export interface TeacherGradebookRebuildResponse {
+  courseId: string;
+  insertedRows: number;
+  touchedAssignments: number;
+  touchedStudents: number;
+}
+
+export type TeacherGradeExportFormat = "long" | "wide";
+export type TeacherGradeExportMissingMode = "blank" | "zero";
+
+export interface TeacherGradebookExportRequest {
+  format: TeacherGradeExportFormat;
+  courseId: string;
+  assignmentIds?: string[];
+  includeUnpublished?: boolean;
+  missingMode?: TeacherGradeExportMissingMode;
+  columns?: string[];
+  columnLabels?: Record<string, string>;
+  previewOnly?: boolean;
+}
+
+export interface TeacherGradebookExportResponse {
+  format: TeacherGradeExportFormat;
+  filename: string;
+  rowCount: number;
+  previewCount: number;
+  columnKeys: string[];
+  auditId: string | null;
+  csv: string | null;
+}
+
+export interface TeacherRosterImportPreviewRow {
+  rowNumber: number;
+  displayName: string;
+  studentIdentifier: string | null;
+  email: string | null;
+  section: string | null;
+}
+
+export interface TeacherRosterImportPreviewError {
+  rowNumber: number;
+  field: "display_name" | "student_identifier" | "email" | "section" | "csv";
+  message: string;
+}
+
+export interface TeacherRosterImportPreviewResponse {
+  courseId: string;
+  totalRows: number;
+  acceptedRows: TeacherRosterImportPreviewRow[];
+  errors: TeacherRosterImportPreviewError[];
+}
+
+export interface TeacherRosterStudent {
+  id: string;
+  displayName: string;
+  studentIdentifier: string | null;
+  email: string | null;
+  section: string | null;
+  claimed: boolean;
+  claimedBy: string | null;
+  claimedAt: string | null;
+  createdAt: string;
+}
+
+export interface TeacherRosterResponse {
+  courseId: string;
+  students: TeacherRosterStudent[];
+}
+
+export interface TeacherRosterIssuedPin {
+  rosterStudentId: string;
+  displayName: string;
+  studentIdentifier: string | null;
+  email: string | null;
+  section: string | null;
+  pin: string;
+}
+
+export interface TeacherRosterImportCommitResponse {
+  courseId: string;
+  createdCount: number;
+  pins: TeacherRosterIssuedPin[];
+}
+
+export interface TeacherRosterDeleteResponse {
+  courseId: string;
+  deletedRosterStudents: number;
+  deletedAccessCodes: number;
+  retainedClaimedStudents: number;
+  confirmationPhrase: string;
+}
+
 export interface SimulationSpec {
   title: string;
   descriptionSummary: string;

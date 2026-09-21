@@ -62,24 +62,7 @@ export function requireTeacherAuthSession(auth: AuthContext): AuthContext {
   if (auth.isAnonymous || !auth.email) {
     throw new HttpError(403, "Teacher email session required");
   }
-  if (usesKnownNonTeacherProvider(auth)) {
-    throw new HttpError(403, "Teacher email/password session required");
-  }
   return auth;
-}
-
-function usesKnownNonTeacherProvider(auth: AuthContext): boolean {
-  const primaryProvider = normalizeAuthSignal(auth.authProvider);
-  if (primaryProvider && primaryProvider !== "email") return true;
-
-  if (!primaryProvider && auth.authProviders.length > 0) {
-    const providers = auth.authProviders.map(normalizeAuthSignal).filter(Boolean);
-    if (providers.length > 0 && !providers.includes("email")) return true;
-  }
-
-  return auth.authMethods
-    .map(normalizeAuthSignal)
-    .some((method) => method === "oauth" || method === "sso" || method === "anonymous");
 }
 
 function readAuthProvider(payload: Record<string, unknown>): string | null {
@@ -111,9 +94,4 @@ function readRecord(value: unknown): Record<string, unknown> | null {
 
 function readString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function normalizeAuthSignal(value: string | null): string | null {
-  const normalized = value?.trim().toLowerCase();
-  return normalized || null;
 }

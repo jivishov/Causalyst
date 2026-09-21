@@ -37,7 +37,7 @@ describe("auth role guards", () => {
     expect(requireTeacherAuthSession(auth)).toBe(auth);
   });
 
-  it("rejects Google auth contexts from teacher routes", () => {
+  it("allows Google sessions to proceed to the teacher-profile authorization check", () => {
     const auth = {
       ...baseAuth,
       isAnonymous: false,
@@ -46,6 +46,6 @@ describe("auth role guards", () => {
       authProviders: ["google"],
       authMethods: ["oauth"]
     };
-    expect(() => requireTeacherAuthSession(auth)).toThrow("Teacher email/password session required");
+    expect(requireTeacherAuthSession(auth)).toBe(auth);
   });
 });

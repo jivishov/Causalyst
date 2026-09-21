@@ -29,6 +29,7 @@ export interface AuthCallbackSnapshot {
 
 export const initialAuthCallbackSnapshot = createAuthCallbackSnapshot();
 let studentAuthCallbackCompletion: Promise<Session | null> | null = null;
+let teacherAuthCallbackCompletion: Promise<Session | null> | null = null;
 let lastCompletedStudentSession: Session | null = null;
 
 export function getCurrentAuthCallbackSnapshot(): AuthCallbackSnapshot {
@@ -41,6 +42,10 @@ export function hasActionableAuthCallbackSignal(snapshot: AuthCallbackSnapshot):
 
 export function isStudentAuthCallbackSnapshot(snapshot: AuthCallbackSnapshot): boolean {
   return isStudentAuthCallbackPath(snapshot.path) && hasActionableAuthCallbackSignal(snapshot);
+}
+
+export function isTeacherAuthCallbackSnapshot(snapshot: AuthCallbackSnapshot): boolean {
+  return isTeacherAuthCallbackPath(snapshot.path) && hasActionableAuthCallbackSignal(snapshot);
 }
 
 export const isSupabaseConfigured = Boolean(
@@ -95,6 +100,7 @@ export function resetStudentSupabaseAuthState(storage?: AuthStorage): void {
 
 function resetAuthCompletionState(): void {
   studentAuthCallbackCompletion = null;
+  teacherAuthCallbackCompletion = null;
   lastCompletedStudentSession = null;
 }
 
@@ -105,6 +111,15 @@ export async function completeStudentAuthCallbackIfPresent(
   if (!isStudentAuthCallbackSnapshot(snapshot)) return null;
   studentAuthCallbackCompletion ??= completeStudentAuthCallback();
   return studentAuthCallbackCompletion;
+}
+
+export async function completeTeacherAuthCallbackIfPresent(
+  snapshot: AuthCallbackSnapshot = getCurrentAuthCallbackSnapshot()
+): Promise<Session | null> {
+  if (!isSupabaseConfigured || typeof window === "undefined") return null;
+  if (!isTeacherAuthCallbackSnapshot(snapshot)) return null;
+  teacherAuthCallbackCompletion ??= completeTeacherAuthCallback();
+  return teacherAuthCallbackCompletion;
 }
 
 export function readStudentSupabaseSessionFallback(): Session | null {
@@ -151,6 +166,11 @@ function currentAppPath(): string {
 function isStudentAuthCallbackPath(path: string): boolean {
   const normalizedPath = path.replace(/\/+$/, "") || "/";
   return normalizedPath === "/" || normalizedPath === "/login";
+}
+
+function isTeacherAuthCallbackPath(path: string): boolean {
+  const normalizedPath = path.replace(/\/+$/, "") || "/";
+  return normalizedPath === "/teacher";
 }
 
 function createAuthCallbackSnapshot(): AuthCallbackSnapshot {
@@ -213,19 +233,54 @@ async function completeStudentAuthCallback(): Promise<Session | null> {
   }
 }
 
+async function completeTeacherAuthCallback(): Promise<Session | null> {
+  const url = new URL(window.location.href);
+  const hashParams = parseUrlHash(url);
+  const providerError = readProviderError(url, hashParams, "Teacher Google sign-in");
+  if (providerError) {
+    clearAuthCallbackUrl(url);
+    throw new Error(providerError);
+  }
+
+  try {
+    const code = url.searchParams.get("code");
+    if (code) {
+      const { data, error } = await teacherSupabase.auth.exchangeCodeForSession(code);
+      if (error) throw new Error(error.message);
+      if (!data?.session) throw new Error("Teacher Google sign-in returned an invalid session.");
+      return data.session;
+    }
+
+    const accessToken = hashParams.get("access_token");
+    const refreshToken = hashParams.get("refresh_token");
+    if (accessToken && refreshToken) {
+      const { data, error } = await teacherSupabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.session) throw new Error("Teacher Google sign-in returned an invalid session.");
+      return data.session;
+    }
+    return null;
+  } finally {
+    clearAuthCallbackUrl(url);
+  }
+}
+
 function parseUrlHash(url: URL): URLSearchParams {
   const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
   return new URLSearchParams(hash);
 }
 
-function readProviderError(url: URL, hashParams: URLSearchParams): string | null {
+function readProviderError(url: URL, hashParams: URLSearchParams, action = "Google sign-in"): string | null {
   const message = url.searchParams.get("error_description")
     ?? hashParams.get("error_description")
     ?? url.searchParams.get("error")
     ?? hashParams.get("error")
     ?? url.searchParams.get("error_code")
     ?? hashParams.get("error_code");
-  return message ? `Google sign-in failed: ${message}` : null;
+  return message ? `${action} failed: ${message}` : null;
 }
 
 function clearAuthCallbackUrl(url: URL): void {

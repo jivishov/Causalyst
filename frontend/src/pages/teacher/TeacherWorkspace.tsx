@@ -21,9 +21,10 @@ import {
   getTeacherSetupStatus,
   requestTeacherPasswordReset,
   setupTeacher,
+  signInTeacherWithGoogle,
   signInTeacher
 } from "../../lib/api";
-import { isSupabaseConfigured, teacherSupabase } from "../../lib/supabase";
+import { completeTeacherAuthCallbackIfPresent, isSupabaseConfigured, teacherSupabase } from "../../lib/supabase";
 import { TeacherWorkspaceDataProvider, useTeacherWorkspaceData } from "./TeacherWorkspaceData";
 
 type Mode = "signin" | "setup";
@@ -53,14 +54,30 @@ export function TeacherWorkspace() {
       .catch((err) => setError(err instanceof Error ? err.message : "Could not load teacher setup status"));
 
     if (isSupabaseConfigured) {
-      getTeacherSession()
+      completeTeacherAuthCallbackIfPresent()
+        .then(() => getTeacherSession())
         .then((session) => {
           setProfile(session.profile);
           setAuthStatus("authenticated");
         })
-        .catch(() => setAuthStatus("signed_out"));
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : "Teacher sign-in could not be completed.");
+          setAuthStatus("signed_out");
+        });
     }
   }, []);
+
+  async function startGoogleSignIn() {
+    setSubmitting(true);
+    setError(null);
+    setResetMessage(null);
+    try {
+      await signInTeacherWithGoogle();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Teacher Google sign-in could not start.");
+      setSubmitting(false);
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -118,7 +135,7 @@ export function TeacherWorkspace() {
             <span className="login-mark teacher-mark"><KeyRound size={24} /></span>
             <div>
               <h1>Teacher Workspace</h1>
-              <p>{profile ? teacherIdentitySummary(profile) : "Sign in with your teacher email account."}</p>
+              <p>{profile ? teacherIdentitySummary(profile) : "Sign in with your teacher Google or email account."}</p>
             </div>
           </div>
           {profile && (
@@ -156,6 +173,21 @@ export function TeacherWorkspace() {
                   <UserPlus size={16} /> First setup
                 </button>
               </div>
+            )}
+
+            {mode === "signin" && (
+              <>
+                <button
+                  type="button"
+                  className="google-oauth-button teacher-google-button"
+                  onClick={startGoogleSignIn}
+                  disabled={submitting || !isSupabaseConfigured}
+                >
+                  <span className="google-oauth-icon" aria-hidden="true">G</span>
+                  <span>{submitting ? "Starting Google sign-in" : "Continue with Google"}</span>
+                </button>
+                <div className="teacher-auth-divider" aria-hidden="true"><span>or use email</span></div>
+              </>
             )}
 
             <form onSubmit={submit} className="login-form">

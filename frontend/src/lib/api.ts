@@ -139,6 +139,26 @@ export async function signInStudentWithGoogle() {
   if (error) throw new Error(resolveOAuthStartErrorMessage(error.message));
 }
 
+export async function signInTeacherWithGoogle() {
+  if (!isSupabaseConfigured) {
+    throw new Error("Configure frontend Supabase environment variables before using teacher login.");
+  }
+  assertSupportedLocalAuthOrigin();
+  if (redirectToCanonicalLocalTeacherIfNeeded()) return;
+  const { error } = await withTimeout(
+    teacherSupabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: resolveAppUrl("teacher"),
+        queryParams: { prompt: "select_account" }
+      }
+    }),
+    SESSION_TIMEOUT_MS,
+    "Teacher Google sign-in timed out."
+  );
+  if (error) throw new Error(resolveTeacherOAuthStartErrorMessage(error.message));
+}
+
 export async function signOutStudent() {
   if (!isSupabaseConfigured) return;
   await studentSupabase.auth.signOut();
@@ -1141,6 +1161,15 @@ function resolveTeacherResetStartErrorMessage(message: string): string {
   return trimmed || "Teacher password reset could not start.";
 }
 
+function resolveTeacherOAuthStartErrorMessage(message: string): string {
+  const trimmed = message.trim();
+  const suffix = typeof window === "undefined" ? "" : ` Confirm Supabase Auth redirect URLs include ${resolveAppUrl("teacher")}.`;
+  if (/redirect|allow.?list|not allowed|site url/i.test(trimmed)) {
+    return `${trimmed || "Teacher Google sign-in could not start."}${suffix}`;
+  }
+  return trimmed || "Teacher Google sign-in could not start.";
+}
+
 function parseUrlHash(url: URL): URLSearchParams {
   const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
   return new URLSearchParams(hash);
@@ -1177,5 +1206,15 @@ function redirectToCanonicalLocalLoginIfNeeded(): boolean {
   const base = import.meta.env.BASE_URL || "/";
   const normalizedBase = base.endsWith("/") ? base : `${base}/`;
   window.location.replace(new URL(`${normalizedBase}login?resetAuth=1`, canonicalOrigin).toString());
+  return true;
+}
+
+function redirectToCanonicalLocalTeacherIfNeeded(): boolean {
+  if (typeof window === "undefined") return false;
+  const canonicalOrigin = getCanonicalLocalOrigin(window.location.origin);
+  if (canonicalOrigin === window.location.origin) return false;
+  const base = import.meta.env.BASE_URL || "/";
+  const normalizedBase = base.endsWith("/") ? base : `${base}/`;
+  window.location.replace(new URL(`${normalizedBase}teacher`, canonicalOrigin).toString());
   return true;
 }

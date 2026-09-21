@@ -69,11 +69,27 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PIN_PEPPER: ${{ secrets.PIN_PEPPER }}
           TEACHER_SETUP_CODE: ${{ secrets.TEACHER_SETUP_CODE }}
-      - name: Connect frontend to deployed Worker
+      - name: Verify deployed Worker
         env:
-          GH_TOKEN: ${{ github.token }}
           WORKER_URL: ${{ steps.deploy.outputs.deployment-url }}
+          FRONTEND_WORKER_URL: ${{ vars.VITE_WORKER_URL }}
         run: |
           node scripts/validate-worker-url.mjs "$WORKER_URL"
-          gh variable set VITE_WORKER_URL --body "$WORKER_URL"
+          node scripts/validate-worker-url.mjs "$FRONTEND_WORKER_URL"
+          if [ "$WORKER_URL" != "$FRONTEND_WORKER_URL" ]; then
+            echo "VITE_WORKER_URL does not match the deployed Worker URL."
+            exit 1
+          fi
+          node - <<'NODE'
+          const response = await fetch(`${process.env.WORKER_URL}/api/health`);
+          const payload = await response.json();
+          if (!response.ok || payload?.ok !== true) {
+            throw new Error(`Worker health check failed with HTTP ${response.status}`);
+          }
+          console.log("Worker health check passed.");
+          NODE
+      - name: Trigger frontend deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
           gh workflow run deploy-frontend.yml --ref "$GITHUB_REF_NAME"

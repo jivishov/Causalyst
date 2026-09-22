@@ -28,6 +28,7 @@ export interface SimulationGenerationJobRow {
 }
 
 export async function reserveSimulationJob(db: SupabaseClient, input: {
+  requestId?: unknown;
   userId: string;
   attemptId: string;
   operation: StudentSimulationGenerationJobOperation;
@@ -38,6 +39,9 @@ export async function reserveSimulationJob(db: SupabaseClient, input: {
   provider: string;
   requestedModel: string;
 }): Promise<{ claimed: boolean; job: SimulationGenerationJobRow }> {
+  if (input.requestId !== undefined && (typeof input.requestId !== "string" || !/^[a-zA-Z0-9_-]{8,128}$/.test(input.requestId))) {
+    throw new HttpError(400, "Invalid generation request ID");
+  }
   const key = await contentDigest(new TextEncoder().encode(JSON.stringify(input)));
   const { data, error } = await db.rpc("reserve_simulation_job", {
     p_user_id: input.userId, p_attempt_id: input.attemptId, p_key: key, p_input: input

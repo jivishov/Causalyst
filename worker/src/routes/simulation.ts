@@ -129,6 +129,7 @@ export async function generateSimulation(request: Request, env: Env, db: Supabas
   let reservedId: string | null = null;
   try {
     const reservation = await reserveSimulationJob(db, {
+      requestId: body.requestId,
       userId,
       attemptId: attempt.id,
       operation: "generate",
@@ -242,6 +243,7 @@ export async function refineSimulation(request: Request, env: Env, db: SupabaseC
   let reservedId: string | null = null;
   try {
     const reservation = await reserveSimulationJob(db, {
+      requestId: body.requestId,
       userId,
       attemptId: attempt.id,
       operation: "refine",

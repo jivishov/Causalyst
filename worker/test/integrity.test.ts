@@ -90,5 +90,10 @@ describe("bounded transports", () => {
     await reserveSimulationJob({ rpc } as never, input);
     expect(rpc.mock.calls[0][0]).toBe("reserve_simulation_job");
     expect(rpc.mock.calls[0][1].p_key).toBe(rpc.mock.calls[1][1].p_key);
+    await reserveSimulationJob({ rpc } as never, { ...input, requestId: "explicit-regeneration-1" });
+    await reserveSimulationJob({ rpc } as never, { ...input, requestId: "explicit-regeneration-1" });
+    expect(rpc.mock.calls[2][1].p_key).toBe(rpc.mock.calls[3][1].p_key);
+    expect(rpc.mock.calls[2][1].p_key).not.toBe(rpc.mock.calls[0][1].p_key);
+    await expect(reserveSimulationJob({ rpc } as never, { ...input, requestId: {} })).rejects.toMatchObject({ status: 400 });
   });
 });

@@ -1,3 +1,4 @@
+import { reserveAiBudget } from "../lib/aiBudget";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { openaiClient, enforceModelConfirmation, gradeVoice, transcribeAudio } from "../lib/openai";
 import { requireArtifact, requireAttempt, logAudit } from "../lib/db";
@@ -22,7 +23,8 @@ export async function gradeVoiceAttempt(request: Request, env: Env, db: Supabase
   }
 
   const now = new Date().toISOString();
-  await claimAttemptSubmission(db, userId, attempt.id, now);
+  await reserveAiBudget(db, userId, attempt.id, "voice_grade", 3);
+  await claimAttemptSubmission(db, userId, attempt.id, now, [artifact.id]);
 
   try {
     const { data, error } = await db.storage.from(artifact.bucket).download(artifact.storage_key);
@@ -31,11 +33,13 @@ export async function gradeVoiceAttempt(request: Request, env: Env, db: Supabase
     const client = openaiClient(env.OPENAI_API_KEY);
     const audioFile = new File([await data.arrayBuffer()], artifact.original_filename, { type: artifact.mime_type });
     const transcript = await transcribeAudio(client, audioFile);
-    const finalTranscript = transcript.trim() || browserTranscript || "";
+    const finalTranscript = transcript.trim();
+    if (!finalTranscript) throw new HttpError(422, "No speech was transcribed. Please record a new attempt or ask your teacher to review the recording.");
     const feedback = await gradeVoice(client, {
       prompt: assessment.prompt,
       expectedAnswer: assessment.expectedAnswer ?? null,
       rubric: assessment.rubric,
+      scoringPolicy: assessment.config.scoringPolicy,
       transcript: finalTranscript
     });
 
@@ -50,6 +54,7 @@ export async function gradeVoiceAttempt(request: Request, env: Env, db: Supabase
 
     const { error: updateError } = await db.from("attempts").update({
       status: "graded",
+      grading_metadata: { model: getModel("grading").id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() },
       transcript: finalTranscript,
       provisional_score: feedback.score,
       provisional_feedback: feedback

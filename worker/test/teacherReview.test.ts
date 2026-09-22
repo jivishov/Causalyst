@@ -1,3 +1,4 @@
+import { reconcileFixture } from "./helpers/rpcFixtures";
 import { describe, expect, it } from "vitest";
 import { SIMULATION_HTML_VIEWPORT } from "@alt-assessment/shared";
 import type { Env } from "../src/lib/env";
@@ -321,7 +322,7 @@ function createState(): State {
         mime_type: "text/html; charset=utf-8",
         byte_size: 120,
         original_filename: "simulation.html",
-        upload_state: "uploaded",
+        upload_state: "uploaded", frozen_at: "2026-05-01T12:00:00.000Z",
         simulation_html_viewport_width: SIMULATION_HTML_VIEWPORT.width,
         simulation_html_viewport_height: SIMULATION_HTML_VIEWPORT.height
       },
@@ -360,6 +361,7 @@ function createState(): State {
 
 function createDb(state: State) {
   return {
+    async rpc(_name: string, args: Record<string, any>) { return reconcileFixture(state, args); },
     storage: {
       from(bucket: string) {
         return {
@@ -382,6 +384,9 @@ class Query {
   private filters: Array<(row: Row) => boolean> = [];
   private inFilters: Array<(row: Row) => boolean> = [];
   private isFilters: Array<(row: Row) => boolean> = [];
+  private pageFrom = 0;
+  private pageTo = Infinity;
+  range(from: number, to: number) { this.pageFrom = from; this.pageTo = to; return this; }
   private orderKey = "";
   private orderAscending = true;
 
@@ -419,10 +424,15 @@ class Query {
 
   then(resolve: (value: { data: unknown[]; error: null }) => void) {
     const rows = this.applyOrder(this.matchRows(this.tableData())).map((row) => this.decorate(row));
-    resolve({ data: rows, error: null });
+    resolve({ data: rows.slice(this.pageFrom, this.pageTo + 1), error: null });
   }
 
   private decorate(row: Row): Row {
+    if (this.table === "attempts") {
+      const assignment = this.state.assessment_assignments.find((a) => a.id === row.assignment_id);
+      const assessment = this.state.assessments.find((a) => a.id === assignment?.assessment_id);
+      return { ...row, assessment_versions: { definition: structuredClone(assessment), legacy_capture: false } };
+    }
     if (this.table === "assessment_assignments") {
       const course = this.state.classes.find((item) => item.id === row.class_id) ?? null;
       const assessment = this.state.assessments.find((item) => item.id === row.assessment_id) ?? null;

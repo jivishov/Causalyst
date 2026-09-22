@@ -1,3 +1,4 @@
+import { reserveAiBudget } from "../lib/aiBudget";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { enforceModelConfirmation, gradeWriting, openaiClient, uploadUserDataFile } from "../lib/openai";
 import { requireArtifact, requireAttempt, logAudit } from "../lib/db";
@@ -21,7 +22,8 @@ export async function gradeWritingAttempt(request: Request, env: Env, db: Supaba
   }
 
   const now = new Date().toISOString();
-  await claimAttemptSubmission(db, userId, attempt.id, now);
+  await reserveAiBudget(db, userId, attempt.id, "writing_grade", 3);
+  await claimAttemptSubmission(db, userId, attempt.id, now, [artifact.id]);
 
   try {
     const client = openaiClient(env.OPENAI_API_KEY);
@@ -34,7 +36,7 @@ export async function gradeWritingAttempt(request: Request, env: Env, db: Supaba
       openaiFileId = await uploadUserDataFile(client, file);
       const { error: cacheError } = await db
         .from("attempt_artifacts")
-        .update({ openai_file_id: openaiFileId })
+        .update({ openai_file_id: openaiFileId, provider_cleanup_at: new Date(Date.now() + 3600_000).toISOString() })
         .eq("id", artifact.id)
         .eq("student_id", userId);
       if (cacheError) throw new HttpError(500, "Failed to cache writing artifact file handle", cacheError.message);
@@ -44,7 +46,8 @@ export async function gradeWritingAttempt(request: Request, env: Env, db: Supaba
       fileId: openaiFileId,
       prompt: assessment.prompt,
       expectedAnswer: assessment.expectedAnswer ?? null,
-      rubric: assessment.rubric
+      rubric: assessment.rubric,
+      scoringPolicy: assessment.config.scoringPolicy
     });
 
     await logAudit(db, {
@@ -58,6 +61,7 @@ export async function gradeWritingAttempt(request: Request, env: Env, db: Supaba
 
     const { error: updateError } = await db.from("attempts").update({
       status: "graded",
+      grading_metadata: { model: getModel("visionGrading").id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() },
       ocr_text: result.transcribedText,
       provisional_score: result.feedback.score,
       provisional_feedback: result.feedback

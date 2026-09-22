@@ -1,3 +1,4 @@
+import * as budgetLib from "../src/lib/aiBudget";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as attemptLifecycleLib from "../src/lib/attemptLifecycle";
 import * as dbLib from "../src/lib/db";
@@ -10,6 +11,7 @@ import { gradeWritingAttempt } from "../src/routes/writing";
 describe("submission lifecycle routing", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(budgetLib, "reserveAiBudget").mockResolvedValue();
   });
 
   it("marks voice attempts as error when provider processing fails after claim", async () => {

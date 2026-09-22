@@ -21,6 +21,7 @@ import { useTeacherWorkspaceData } from "./TeacherWorkspaceData";
 type AssessmentEditorMode = "create" | "edit";
 
 interface RubricDraftRow {
+  id?: string;
   name: string;
   maxPoints: string;
   description: string;
@@ -45,6 +46,13 @@ export function TeacherAssessmentsPage() {
   const [assessmentTitle, setAssessmentTitle] = useState("");
   const [assessmentPrompt, setAssessmentPrompt] = useState("");
   const [assessmentExpectedAnswer, setAssessmentExpectedAnswer] = useState("");
+  const [scoringMode, setScoringMode] = useState("additive");
+  const [scoringCaps, setScoringCaps] = useState<Array<{ id: string; condition: string; maximumPercent: number }>>([]);
+  function loadScoringPolicy(value: unknown) {
+    const policy = value as { mode?: string; caps?: typeof scoringCaps } | undefined;
+    setScoringMode(policy?.mode ?? "review_adjustments");
+    setScoringCaps(policy?.caps ?? []);
+  }
   const [rubricRows, setRubricRows] = useState<RubricDraftRow[]>([
     { name: "", maxPoints: "5", description: "" }
   ]);
@@ -70,6 +78,8 @@ export function TeacherAssessmentsPage() {
     setAssessmentTitle("");
     setAssessmentPrompt("");
     setAssessmentExpectedAnswer("");
+    setScoringMode("additive");
+    setScoringCaps([]);
     setRubricRows([{ name: "", maxPoints: "5", description: "" }]);
     setVoiceMaxRecordingSec(String(DEFAULT_VOICE_MAX_RECORDING_SEC));
     setRealtimeVoiceMaxSessionSec(String(DEFAULT_REALTIME_VOICE_MAX_SESSION_SEC));
@@ -87,7 +97,9 @@ export function TeacherAssessmentsPage() {
     setAssessmentTitle(template.title);
     setAssessmentPrompt(template.prompt);
     setAssessmentExpectedAnswer(template.expectedAnswer);
+    loadScoringPolicy(template.config.scoringPolicy);
     setRubricRows(template.rubric.map((row) => ({
+      id: row.id,
       name: row.name,
       maxPoints: String(row.maxPoints),
       description: row.description
@@ -114,9 +126,10 @@ export function TeacherAssessmentsPage() {
     setAssessmentTitle(assessment.title);
     setAssessmentPrompt(assessment.prompt);
     setAssessmentExpectedAnswer(assessment.expectedAnswer ?? "");
+    loadScoringPolicy(assessment.config.scoringPolicy);
     setRubricRows(
       assessment.rubric.length > 0
-        ? assessment.rubric.map((row) => ({ name: row.name, maxPoints: String(row.maxPoints), description: row.description }))
+        ? assessment.rubric.map((row) => ({ id: row.id, name: row.name, maxPoints: String(row.maxPoints), description: row.description }))
         : [{ name: "", maxPoints: "5", description: "" }]
     );
     if (assessment.type === "voice") {
@@ -157,6 +170,7 @@ export function TeacherAssessmentsPage() {
   function buildRubricPayload(): RubricCriterion[] {
     return rubricRows
       .map((row) => ({
+        id: row.id,
         name: row.name.trim(),
         description: row.description.trim(),
         maxPoints: Number.parseInt(row.maxPoints, 10)
@@ -216,7 +230,7 @@ export function TeacherAssessmentsPage() {
         prompt: assessmentPrompt,
         expectedAnswer: assessmentExpectedAnswer.trim() ? assessmentExpectedAnswer.trim() : null,
         rubric,
-        config: buildConfigPayload(assessmentType)
+        config: { ...buildConfigPayload(assessmentType), scoringPolicy: { mode: scoringMode, caps: scoringMode === "capped" ? scoringCaps : [] } }
       };
       if (assessmentMode === "edit" && editingAssessmentId) {
         await updateAssessmentById(editingAssessmentId, payload);
@@ -338,6 +352,28 @@ export function TeacherAssessmentsPage() {
             <ChevronUp size={18} aria-hidden="true" />
           </div>
           <form className="assessment-builder-form compact-assessment-builder" onSubmit={submitAssessment}>
+            <section className="assessment-builder-section assessment-span-full">
+              <h4>Scoring</h4>
+              <label>Total calculation
+                <select value={scoringMode} onChange={(event) => setScoringMode(event.target.value)}>
+                  <option value="additive">Percentage of rubric points</option>
+                  <option value="capped">Rubric percentage with score caps</option>
+                  <option value="review_adjustments">Teacher reviews any total adjustment</option>
+                </select>
+              </label>
+              {scoringMode === "capped" && <>
+                {scoringCaps.map((cap, index) => <div className="assessment-builder-section-grid" key={cap.id}>
+                  <label>Apply this cap when
+                    <input required value={cap.condition} onChange={(event) => setScoringCaps((caps) => caps.map((c, i) => i === index ? { ...c, condition: event.target.value } : c))} />
+                  </label>
+                  <label>Maximum total (%)
+                    <input required type="number" min="0" max="100" value={cap.maximumPercent} onChange={(event) => setScoringCaps((caps) => caps.map((c, i) => i === index ? { ...c, maximumPercent: Number(event.target.value) } : c))} />
+                  </label>
+                  <button type="button" onClick={() => setScoringCaps((caps) => caps.filter((_, i) => i !== index))}>Remove cap</button>
+                </div>)}
+                <button type="button" onClick={() => setScoringCaps((caps) => [...caps, { id: crypto.randomUUID(), condition: "", maximumPercent: 50 }])}>Add score cap</button>
+              </>}
+            </section>
             <section className="assessment-builder-section assessment-span-full">
               <h4>Basics</h4>
               <div className="assessment-builder-section-grid">

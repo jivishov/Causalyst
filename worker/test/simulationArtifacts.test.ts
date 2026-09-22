@@ -1,3 +1,6 @@
+import * as jobsLib from "../src/lib/simulationJobs";
+import * as budgetLib from "../src/lib/aiBudget";
+import * as evidenceLib from "../src/lib/evidence";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_AUDIO_MAX_BYTES, SIMULATION_HTML_VIEWPORT } from "@alt-assessment/shared";
 import { createUploadToken, previewArtifact, uploadArtifact } from "../src/routes/artifacts";
@@ -11,6 +14,21 @@ import { fallbackSimulation, generateSimulation, generateSimulationSketch, getSi
 describe("simulation artifact flow", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(budgetLib, "reserveAiBudget").mockResolvedValue();
+    vi.spyOn(evidenceLib, "completeArtifact").mockImplementation(async (db, userId, artifactId, hash) => {
+      await db.from("attempt_artifacts").update({ upload_state: "uploaded", content_sha256: hash }).eq("id", artifactId).eq("student_id", userId);
+    });
+    vi.spyOn(jobsLib, "reserveSimulationJob").mockImplementation(async (db, input) => {
+      const table = db.from("simulation_generation_jobs");
+      const { data: active, error } = await table.select("*").eq("attempt_id", input.attemptId).eq("reasoning_effort", input.htmlReasoningEffort).maybeSingle();
+      if (error) throw new HttpError(503, "Simulation generation job storage is not ready. Apply the latest Supabase database update and try again.");
+      if (active) return { claimed: false, job: active };
+      const { data: job } = await table.insert({ attempt_id: input.attemptId, student_id: input.userId, operation: input.operation,
+        status: "queued", provider: input.provider, requested_model: input.requestedModel, reasoning_effort: input.htmlReasoningEffort,
+        sketch_artifact_id: input.sketchArtifactId, input_html_artifact_id: input.inputHtmlArtifactId ?? null,
+        source_description_sha256: input.sourceDescriptionSha256, expires_at: new Date(Date.now() + 1200000).toISOString() }).select("*").single();
+      return { claimed: true, job };
+    });
   });
 
   it("starts generated HTML as a draft background job without claiming submission", async () => {
@@ -489,12 +507,7 @@ describe("simulation artifact flow", () => {
       simulation_html_viewport_width: SIMULATION_HTML_VIEWPORT.width,
       simulation_html_viewport_height: SIMULATION_HTML_VIEWPORT.height
     });
-    expect(updatedArtifactRows.at(-1)).toMatchObject({
-      upload_state: "uploaded",
-      source_description_sha256: jobRow.source_description_sha256,
-      simulation_html_viewport_width: SIMULATION_HTML_VIEWPORT.width,
-      simulation_html_viewport_height: SIMULATION_HTML_VIEWPORT.height
-    });
+    expect(updatedArtifactRows.at(-1)).toMatchObject({ upload_state: "uploaded", content_sha256: expect.stringMatching(/^[a-f0-9]{64}$/) });
     expect(jobRow.result_artifact_id).toBe(result.preview?.artifactId);
     expect(JSON.stringify(result)).not.toContain("resp-secret");
   });
@@ -625,11 +638,7 @@ describe("simulation artifact flow", () => {
       mime_type: "image/png"
     });
     expect(updatedArtifactRows).toHaveLength(1);
-    expect(updatedArtifactRows[0]).toMatchObject({
-      bucket: "simulation-sketch",
-      openai_file_id: null,
-      upload_state: "uploaded"
-    });
+    expect(updatedArtifactRows[0]).toMatchObject({ upload_state: "uploaded", content_sha256: expect.stringMatching(/^[a-f0-9]{64}$/) });
 
     const auditPayload = auditSpy.mock.calls[0][1] as any;
     expect(auditPayload.rawResponse).toMatchObject({
@@ -824,12 +833,7 @@ describe("simulation artifact flow", () => {
       simulation_html_viewport_width: SIMULATION_HTML_VIEWPORT.width,
       simulation_html_viewport_height: SIMULATION_HTML_VIEWPORT.height
     });
-    expect(updatedArtifactRows.at(-1)).toMatchObject({
-      upload_state: "uploaded",
-      source_description_sha256: sourceDescriptionSha256,
-      simulation_html_viewport_width: SIMULATION_HTML_VIEWPORT.width,
-      simulation_html_viewport_height: SIMULATION_HTML_VIEWPORT.height
-    });
+    expect(updatedArtifactRows.at(-1)).toMatchObject({ upload_state: "uploaded", content_sha256: expect.stringMatching(/^[a-f0-9]{64}$/) });
     expect(updatedAttempts).toHaveLength(1);
     expect(updatedAttempts[0]).toMatchObject({ simulation_description: description });
     expect(uploadedHtml[0]).toContain("Gay-Lussac");
@@ -1012,7 +1016,7 @@ describe("simulation artifact flow", () => {
     expect(db.from).not.toHaveBeenCalled();
   });
 
-  it("replaces stale sketch artifacts and best-effort deletes cached OpenAI file handles", async () => {
+  it("creates a new sketch version and preserves previous artifact handles", async () => {
     const client = {} as any;
     vi.spyOn(openaiLib, "enforceModelConfirmation").mockImplementation(() => {});
     vi.spyOn(openaiLib, "openaiClient").mockReturnValue(client);
@@ -1065,17 +1069,13 @@ describe("simulation artifact flow", () => {
       WORKER_PUBLIC_BASE_URL: "https://worker.test"
     } as any, db, "student-1");
 
-    expect(result.artifactId).toBe("sketch-existing");
-    expect(insertedArtifacts).toHaveLength(0);
-    expect(openaiLib.deleteOpenAIFile).toHaveBeenCalledWith(client, "file-old");
-    expect(updatedArtifactRows).toHaveLength(2);
-    expect(updatedArtifactRows[0]).toMatchObject({
-      openai_file_id: null
-    });
-    expect(updatedArtifactRows[1]).toMatchObject({
-      openai_file_id: null,
-      upload_state: "uploaded"
-    });
+    expect(result.artifactId).not.toBe("sketch-existing");
+    expect(insertedArtifacts).toHaveLength(1);
+    expect(insertedArtifacts[0]).toMatchObject({ id: result.artifactId });
+    expect(insertedArtifacts[0].openai_file_id).toBeUndefined();
+    expect(openaiLib.deleteOpenAIFile).not.toHaveBeenCalled();
+    expect(updatedArtifactRows).toHaveLength(1);
+    expect(updatedArtifactRows[0]).toMatchObject({ upload_state: "uploaded" });
   });
 
   it("rejects HTML generation when the sketch was generated for different text", async () => {
@@ -1800,7 +1800,8 @@ describe("simulation artifact flow", () => {
     expect(download).toHaveBeenCalledTimes(2);
   });
 
-  it("clears cached openai file handles when an artifact is re-uploaded", async () => {
+  it("rejects replacement of completed evidence without deleting provider handles", async () => {
+    vi.spyOn(dbLib, "requireAttempt").mockResolvedValue({ attempt: draftAttempt("attempt-1"), assessment: { type: "writing" } } as any);
     const client = {} as any;
     vi.spyOn(openaiLib, "openaiClient").mockReturnValue(client);
     vi.spyOn(openaiLib, "deleteOpenAIFile").mockResolvedValue();
@@ -1843,17 +1844,13 @@ describe("simulation artifact flow", () => {
       body: "png-bytes"
     });
 
-    const result = await uploadArtifact(request, { OPENAI_API_KEY: "key", PIN_PEPPER: "pepper" } as any, db, "student-1", "artifact-1");
-    expect(result).toEqual({ artifactId: "artifact-1", state: "uploaded" });
-    expect(uploadedPayloads).toHaveLength(1);
-    expect(uploadedPayloads[0]).toMatchObject({
-      upload_state: "uploaded",
-      openai_file_id: null
-    });
-    expect(openaiLib.deleteOpenAIFile).toHaveBeenCalledWith(client, "file-old123");
+    await expect(uploadArtifact(request, { OPENAI_API_KEY: "key", PIN_PEPPER: "pepper" } as any, db, "student-1", "artifact-1")).rejects.toMatchObject({ status: 409 });
+    expect(uploadedPayloads).toHaveLength(0);
+    expect(openaiLib.deleteOpenAIFile).not.toHaveBeenCalled();
   });
 
   it("rejects artifact upload when uploaded bytes do not match the reservation", async () => {
+    vi.spyOn(dbLib, "requireAttempt").mockResolvedValue({ attempt: draftAttempt("attempt-1"), assessment: { type: "writing" } } as any);
     vi.spyOn(cryptoLib, "verifyUploadToken").mockResolvedValue(true);
     vi.spyOn(dbLib, "requireArtifact").mockResolvedValue({
       id: "artifact-2",
@@ -2114,10 +2111,8 @@ describe("simulation artifact flow", () => {
     await expect(submitSimulation(request, { OPENAI_API_KEY: "key" } as any, db, "student-1")).resolves.toEqual({
       attemptId: "attempt-claim"
     });
-    expect(claimSpy).toHaveBeenCalledWith(db, "student-1", "attempt-claim", expect.any(String));
-    expect(updatedAttempts).toHaveLength(1);
-    expect(updatedAttempts[0]).toMatchObject({ simulation_description: description });
-    expect(updatedAttempts[0]).not.toHaveProperty("status");
+    expect(claimSpy).toHaveBeenCalledWith(db, "student-1", "attempt-claim", expect.any(String), ["sketch-claim", "html-claim"], expect.objectContaining({ description }));
+    expect(updatedAttempts).toHaveLength(0); // The claim RPC freezes the description with the manifest.
   });
 
   it("returns a public retry message for non-HTTP provider failures before submission claim", async () => {
@@ -2281,6 +2276,15 @@ function attemptsTable(updatedAttempts: Record<string, unknown>[]) {
 
 function simulationJobTable(insertedJobs: Record<string, unknown>[]) {
   return {
+    update(payload: Record<string, unknown>) {
+      const row = insertedJobs[0];
+      if (row) Object.assign(row, payload);
+      return {
+        eq() { return this; }, in() { return this; }, select() { return this; },
+        async single() { return { data: row, error: null }; },
+        then(resolve: (value: { error: null }) => void) { resolve({ error: null }); }
+      };
+    },
     select() {
       return {
         eq() {
@@ -2380,6 +2384,8 @@ function simulationJobStateTable(row: Record<string, unknown>) {
         eq() {
           return this;
         },
+        in() { return this; },
+        then(resolve: (value: { error: null }) => void) { resolve({ error: null }); },
         is() {
           return this;
         },
@@ -2420,3 +2426,25 @@ async function descriptionHash(description: string): Promise<string> {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
+
+describe("generation failure recovery", () => {
+  it("makes invalid completed provider output terminal before the next poll", async () => {
+    vi.restoreAllMocks();
+    vi.spyOn(openaiLib, "openaiClient").mockReturnValue({} as never);
+    const retrieve = vi.spyOn(openaiLib, "retrieveSimulationBackgroundResponse").mockResolvedValue({ status: "completed", model: "synthetic" } as never);
+    vi.spyOn(openaiLib, "parseSimulationHtmlResponse").mockReturnValue('<!doctype html><html><body><img src=https://resource.invalid/leak></body></html>');
+    const row = { id: "job-invalid", attempt_id: "attempt", student_id: "student", status: "in_progress", provider: "openai", provider_response_id: "response", expires_at: "2099-01-01T00:00:00Z" };
+    const db = { from() { return simulationJobStateTable(row); } };
+    await expect(getSimulationGenerationJob(new Request("https://worker.test"), {} as never, db as never, "student", "job-invalid")).rejects.toMatchObject({ status: 502 });
+    expect(row.status).toBe("failed");
+    expect((await getSimulationGenerationJob(new Request("https://worker.test"), {} as never, db as never, "student", "job-invalid")).status).toBe("failed");
+    expect(retrieve).toHaveBeenCalledTimes(1);
+  });
+  it("rejects retained upload capabilities after submission before writing storage", async () => {
+    vi.restoreAllMocks();
+    vi.spyOn(cryptoLib, "verifyUploadToken").mockResolvedValue(true);
+    vi.spyOn(dbLib, "requireArtifact").mockResolvedValue({ attempt_id: "attempt" } as never);
+    vi.spyOn(dbLib, "requireAttempt").mockResolvedValue({ attempt: { id: "attempt", status: "graded" } } as never);
+    await expect(uploadArtifact(new Request("https://worker.test", { method: "PUT", body: "replacement" }), {} as never, {} as never, "student", "artifact")).rejects.toMatchObject({ status: 409 });
+  });
+});

@@ -265,7 +265,7 @@ describe("attempt result lifecycle projection", () => {
       attempt_id: "attempt-1",
       student_id: "student-1",
       kind: "simulation-derived",
-      upload_state: "uploaded",
+      upload_state: "uploaded", frozen_at: "2026-05-01T12:00:00.000Z",
       original_filename: "simulation.html",
       simulation_html_viewport_width: SIMULATION_HTML_VIEWPORT.width,
       simulation_html_viewport_height: SIMULATION_HTML_VIEWPORT.height,
@@ -326,7 +326,7 @@ describe("attempt result lifecycle projection", () => {
       attempt_id: "attempt-fallback",
       student_id: "student-1",
       kind: "simulation-derived",
-      upload_state: "uploaded",
+      upload_state: "uploaded", frozen_at: "2026-05-01T12:00:00.000Z",
       original_filename: "simulation-fallback.html",
       created_at: "2026-04-30T11:05:00.000Z"
     });
@@ -610,6 +610,8 @@ class Query {
   private pendingInsert: Row | null = null;
   private pendingUpdate: Row | null = null;
   private selected = "";
+
+  not(key: string, _operator: string, _value: unknown) { this.filters.push((row) => Boolean(row[key])); return this; }
   private limitValue: number | null = null;
 
   constructor(private state: State, private table: StateTable) {}
@@ -780,6 +782,7 @@ class Query {
       return {
         ...row,
         assessments: directAssessment,
+        assessment_versions: { definition: structuredClone(directAssessment), legacy_capture: false },
         assessment_assignments: assignment
           ? {
               ...assignment,

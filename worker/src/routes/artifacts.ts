@@ -1,9 +1,11 @@
+import { completeArtifact, contentDigest } from "../lib/evidence";
+import { assertDraftAttemptStatus } from "../lib/attemptLifecycle";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_AUDIO_MAX_BYTES, DEFAULT_WRITING_ACCEPTED_MIME, DEFAULT_WRITING_MAX_BYTES } from "@alt-assessment/shared";
 import type { Env } from "../lib/env";
 import { signUploadToken, verifyPreviewToken, verifyUploadToken } from "../lib/crypto";
 import { requireArtifact, requireAttempt } from "../lib/db";
-import { corsHeaders, HttpError, getOptionalString, getRequiredString, readJson, safeFilename } from "../lib/http";
+import { corsHeaders, HttpError, getOptionalString, getRequiredString, readJson, readBoundedBody, safeFilename } from "../lib/http";
 import { deleteOpenAIFile, openaiClient } from "../lib/openai";
 
 const bucketByKind = {
@@ -25,7 +27,8 @@ export async function createUploadToken(request: Request, env: Env, db: Supabase
     throw new HttpError(400, "Invalid byte size");
   }
 
-  const { assessment } = await requireAttempt(db, userId, attemptId);
+  const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
+  assertDraftAttemptStatus(attempt.id, attempt.status);
   switch (kind) {
     case "audio":
       if (assessment.type !== "voice") {
@@ -56,7 +59,8 @@ export async function createUploadToken(request: Request, env: Env, db: Supabase
     mime_type: mimeType,
     byte_size: byteSize,
     original_filename: filename,
-    upload_state: "pending"
+    upload_state: "pending",
+    cleanup_at: new Date(Date.now() + 7 * 86400000).toISOString()
   });
   if (error) throw new HttpError(500, "Failed to create artifact", error.message);
 
@@ -121,31 +125,29 @@ export async function uploadArtifact(request: Request, env: Env, db: SupabaseCli
   }
 
   const artifact = await requireArtifact(db, userId, artifactId);
-  const bytes = await request.arrayBuffer();
+  const { attempt } = await requireAttempt(db, userId, artifact.attempt_id);
+  assertDraftAttemptStatus(attempt.id, attempt.status);
+  const bytes = await readBoundedBody(request, artifact.byte_size, new HttpError(400, "Uploaded byte size does not match artifact reservation"));
   if (bytes.byteLength !== artifact.byte_size) {
     throw new HttpError(400, "Uploaded byte size does not match artifact reservation");
   }
 
-  const { error: uploadError } = await db.storage
-    .from(artifact.bucket)
-    .upload(artifact.storage_key, bytes, { contentType: artifact.mime_type, upsert: true });
-  if (uploadError) throw new HttpError(500, "Failed to upload artifact", uploadError.message);
-
-  const { error: updateError } = await db
-    .from("attempt_artifacts")
-    .update({
-      upload_state: "uploaded",
-      byte_size: bytes.byteLength,
-      // Force fresh provider upload if the artifact is re-uploaded.
-      openai_file_id: null
-    })
-    .eq("id", artifactId)
-    .eq("student_id", userId);
-  if (updateError) throw new HttpError(500, "Failed to finalize artifact", updateError.message);
-
-  if (artifact.openai_file_id) {
-    await deleteOpenAIFileBestEffort(env, artifact.openai_file_id, artifact.id);
+  const hash = await contentDigest(bytes);
+  if (artifact.upload_state === "uploaded") {
+    if (artifact.content_sha256 === hash) return { artifactId, state: "uploaded" };
+    throw new HttpError(409, "Uploaded evidence cannot be replaced; create a new upload");
   }
+  if (artifact.upload_state !== "pending") throw new HttpError(409, "Upload is no longer available");
+  const bucket = db.storage.from(artifact.bucket);
+  const { error: uploadError } = await bucket.upload(artifact.storage_key, bytes, { contentType: artifact.mime_type, upsert: false });
+  if (uploadError) {
+    // Recover a lost completion response without allowing a different payload.
+    const { data: existing, error: readError } = await bucket.download(artifact.storage_key);
+    if (readError || !existing || await contentDigest(await existing.arrayBuffer()) !== hash) {
+      throw new HttpError(409, "Upload could not be completed; use a new upload reservation");
+    }
+  }
+  await completeArtifact(db, userId, artifactId, hash);
 
   return { artifactId, state: "uploaded" };
 }

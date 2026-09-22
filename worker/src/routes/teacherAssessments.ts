@@ -1,3 +1,4 @@
+import { parseScoringPolicy } from "../lib/gradingPolicy";
 import {
   DEFAULT_REALTIME_VOICE_MAX_SESSION_SEC,
   DEFAULT_SIMULATION_CODE_MODEL_ID,
@@ -466,7 +467,7 @@ function parseRubric(value: unknown): RubricCriterion[] {
   if (value.length === 0) {
     throw new HttpError(400, "Rubric must include at least one criterion");
   }
-  return value.map((entry, index) => {
+  const rows = value.map((entry, index) => {
     if (!isRecord(entry)) {
       throw new HttpError(400, `Rubric row ${index + 1} must be an object`);
     }
@@ -479,11 +480,14 @@ function parseRubric(value: unknown): RubricCriterion[] {
       throw new HttpError(400, `Rubric row ${index + 1} maxPoints must be greater than zero`);
     }
     return {
+      id: typeof entry.id === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(entry.id) ? entry.id : crypto.randomUUID(),
       name,
       description,
-      maxPoints: Math.round(maxPoints)
+      maxPoints
     };
   });
+  if (new Set(rows.map((row) => row.id)).size !== rows.length) throw new HttpError(400, "Rubric criterion IDs must be unique");
+  return rows;
 }
 
 function coerceRubric(value: unknown): RubricCriterion[] {
@@ -495,12 +499,16 @@ function coerceRubric(value: unknown): RubricCriterion[] {
     const description = typeof entry.description === "string" ? entry.description : "";
     const maxPoints = typeof entry.maxPoints === "number" ? entry.maxPoints : 0;
     if (!name || !description || maxPoints <= 0) continue;
-    rows.push({ name, description, maxPoints });
+    rows.push({ id: typeof entry.id === "string" ? entry.id : `criterion-${rows.length + 1}`, name, description, maxPoints });
   }
   return rows;
 }
 
 function parseAssessmentConfig(type: AssessmentType, value: unknown): Record<string, unknown> {
+  return { ...parseModalityConfig(type, value), scoringPolicy: parseScoringPolicy(isRecord(value) ? value.scoringPolicy : undefined) };
+}
+
+function parseModalityConfig(type: AssessmentType, value: unknown): Record<string, unknown> {
   if (!isRecord(value)) return defaultConfigForType(type);
   switch (type) {
     case "voice": {

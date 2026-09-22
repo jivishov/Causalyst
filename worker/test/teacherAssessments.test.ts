@@ -1,3 +1,4 @@
+import { reconcileFixture } from "./helpers/rpcFixtures";
 import { describe, expect, it } from "vitest";
 import { listStudentCourseAssignments, requireAssignedAssignment } from "../src/lib/db";
 import { createTeacherAssessment, createTeacherAssignment, setTeacherAssignmentArchived } from "../src/routes/teacherAssessments";
@@ -219,6 +220,10 @@ function createState(input?: Partial<State>): State {
 
 function createDb(state: State) {
   return {
+    async rpc(name: string, args: Record<string, any>) {
+      if (name === "reconcile_course_gradebook") return reconcileFixture(state, args);
+      throw new Error(`Unexpected RPC ${name}`);
+    },
     from(table: keyof State) {
       return new Query(table, state);
     }

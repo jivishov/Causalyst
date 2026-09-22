@@ -40,6 +40,7 @@ export interface AttemptRecord {
   simulation_spec: unknown | null;
   submitted_at: string | null;
   submitted_after_due?: boolean;
+  assessment_version_id?: string;
 }
 
 export interface ArtifactRecord {
@@ -56,6 +57,8 @@ export interface ArtifactRecord {
   source_description_sha256?: string | null;
   simulation_html_viewport_width?: number | null;
   simulation_html_viewport_height?: number | null;
+  content_sha256?: string | null;
+  frozen_at?: string | null;
   upload_state: "pending" | "uploaded" | "processed" | "deleted";
 }
 
@@ -91,6 +94,7 @@ interface GradebookPublishedRow {
 }
 
 interface AttemptJoinRow extends AttemptRecord {
+  assessment_versions?: { definition: AssessmentRecord; legacy_capture: boolean } | null;
   assessments: AssessmentRecord | null;
   assessment_assignments: AssignmentRow | null;
 }
@@ -455,7 +459,7 @@ export async function requireAssignedAssignment(db: SupabaseClient, userId: stri
 export async function requireAttempt(db: SupabaseClient, userId: string, attemptId: string): Promise<{ attempt: AttemptRecord; assessment: GradingAssessment }> {
   const { data, error } = await db
     .from("attempts")
-    .select("*, assessments(id,type,title,prompt,expected_answer,rubric,config), assessment_assignments(id,class_id,due_at,opens_at,classes(code,name),assessments(id,type,title,prompt,expected_answer,rubric,config))")
+    .select("*, assessment_versions(definition,legacy_capture), assessments(id,type,title,prompt,expected_answer,rubric,config), assessment_assignments(id,class_id,due_at,opens_at,classes(code,name),assessments(id,type,title,prompt,expected_answer,rubric,config))")
     .eq("id", attemptId)
     .eq("student_id", userId)
     .maybeSingle();
@@ -464,11 +468,9 @@ export async function requireAttempt(db: SupabaseClient, userId: string, attempt
   if (!data) throw new HttpError(404, "Attempt not found");
 
   const row = data as unknown as AttemptJoinRow;
-  const assignmentAssessment = row.assessment_assignments?.assessments;
-  const directAssessment = row.assessments;
-  const resolvedAssessment = assignmentAssessment ?? directAssessment;
+  const resolvedAssessment = row.assessment_versions?.definition;
   if (!resolvedAssessment?.id) {
-    throw new HttpError(500, "Attempt is missing assessment linkage");
+    throw new HttpError(500, "Attempt is missing its frozen assessment definition");
   }
 
   return {
@@ -503,7 +505,7 @@ export async function logAudit(db: SupabaseClient, payload: {
   rawResponse?: unknown;
   error?: string;
 }): Promise<void> {
-  await db.from("attempt_audit_logs").insert({
+  const { error } = await db.from("attempt_audit_logs").insert({
     attempt_id: payload.attemptId,
     route: payload.route,
     provider: payload.provider,
@@ -512,6 +514,7 @@ export async function logAudit(db: SupabaseClient, payload: {
     raw_response: payload.rawResponse ?? null,
     error: payload.error ?? null
   });
+  if (error) throw new HttpError(500, "Failed to record assessment audit", error.message);
 }
 
 export function toGradeFeedback(value: unknown): GradeFeedback | null {
@@ -532,7 +535,15 @@ export function toGradeFeedback(value: unknown): GradeFeedback | null {
     if (typeof flag !== "string") return null;
   }
 
-  return value as unknown as GradeFeedback;
+  return {
+    score: value.score, overallComment: value.overallComment, confidence: value.confidence,
+    criteria: value.criteria.map((entry) => ({
+      ...(typeof entry.id === "string" ? { id: entry.id } : {}), name: entry.name,
+      score: entry.score, maxPoints: entry.maxPoints, comment: entry.comment
+    })), reviewFlags: value.reviewFlags as string[],
+    ...(typeof value.policyVersion === "string" ? { policyVersion: value.policyVersion } : {}),
+    ...(Array.isArray(value.appliedCaps) ? { appliedCaps: value.appliedCaps.filter((cap) => isRecord(cap) && typeof cap.id === "string" && typeof cap.reason === "string").map((cap) => ({ id: cap.id, reason: cap.reason })) } : {})
+  };
 }
 
 function isFiniteNumber(value: unknown): value is number {

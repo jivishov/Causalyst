@@ -6,3 +6,6 @@ compatibility_date = "2026-04-28"
 type = "Text"
 globs = ["**/*.txt"]
 fallthrough = true
+
+[triggers]
+crons = ["*/10 * * * *"]

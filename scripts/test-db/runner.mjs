@@ -1,6 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import pg from 'pg';
+import { runConcurrency } from './concurrency.mjs';
 
 // Refuse remote targets: this command creates roles and fixture schemas.
 const url = process.env.TEST_DATABASE_URL;
@@ -26,7 +27,11 @@ try {
     await exec(await readFile(new URL(file, import.meta.url), 'utf8'));
     console.log(`PASS ${file}`);
   }
+  if (url) await runConcurrency(url);
   console.log(`Replayed ${files.length} migrations; ${checks.length} SQL suites passed (${url ? 'native PostgreSQL' : 'PGlite PostgreSQL; pgcrypto declaration skipped'}).`);
+} catch (error) {
+  console.error(`${error.code ?? "ERROR"}: ${error.message}; ${error.where ?? ""}`);
+  process.exitCode = 1;
 } finally {
   if (url) await db.end(); else await db.close();
 }

@@ -9,12 +9,14 @@ export interface SourceSpan {
 }
 
 export interface RubricCriterion {
+  id?: string;
   name: string;
   maxPoints: number;
   description: string;
 }
 
 export interface RubricScore {
+  id?: string;
   name: string;
   score: number;
   maxPoints: number;
@@ -22,6 +24,8 @@ export interface RubricScore {
 }
 
 export interface GradeFeedback {
+  policyVersion?: string;
+  appliedCaps?: Array<{ id: string; reason: string }>;
   score: number;
   overallComment: string;
   criteria: RubricScore[];
@@ -345,6 +349,7 @@ export interface TeacherAttemptReviewListResponse {
 }
 
 export interface TeacherAttemptReviewDetail {
+  legacyContextCapture?: boolean;
   attemptId: string;
   assignmentId: string | null;
   status: AttemptStatus;

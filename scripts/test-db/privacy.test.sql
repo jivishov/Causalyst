@@ -13,3 +13,18 @@ begin
   raise exception 'Student role can bypass Worker attempt creation';
  end if;
 end $$;
+
+begin;
+set local role authenticated;
+do $$ begin
+ begin perform expected_answer from public.assessments limit 1;
+  raise exception 'Student queried private assessment keys';
+ exception when insufficient_privilege then null; end;
+ begin perform definition from public.assessment_versions limit 1;
+  raise exception 'Student queried private frozen keys';
+ exception when insufficient_privilege then null; end;
+ begin perform public.consume_ai_budget(gen_random_uuid(),gen_random_uuid(),'test',1);
+  raise exception 'Student invoked privileged RPC';
+ exception when insufficient_privilege then null; end;
+end $$;
+rollback;

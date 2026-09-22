@@ -1,3 +1,4 @@
+import { runRetention } from "./lib/retention";
 import { requireStudentAuth, requireTeacherAuthSession, requireUser, type AuthContext } from "./lib/auth";
 import { corsHeaders, jsonResponse, toErrorResponse } from "./lib/http";
 import { serviceSupabase } from "./lib/supabase";
@@ -303,6 +304,9 @@ const routes: readonly RouteDefinition[] = [
 export const routeMetadata: readonly RouteMetadata[] = routes.map(({ method, path, auth }) => ({ method, path, auth }));
 
 export default {
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(runRetention(serviceSupabase(env), env));
+  },
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
       validateWorkerSecrets(env);

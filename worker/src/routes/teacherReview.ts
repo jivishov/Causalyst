@@ -47,6 +47,7 @@ interface AssessmentRow {
 }
 
 interface AttemptRow {
+  assessment_versions?: { definition: AssessmentRow; legacy_capture: boolean };
   id: string;
   assignment_id: string | null;
   student_id: string;
@@ -77,6 +78,7 @@ interface ArtifactRow {
   byte_size: number;
   original_filename: string;
   upload_state: TeacherAttemptReviewArtifact["uploadState"];
+  frozen_at?: string | null;
   simulation_html_viewport_width: number | null;
   simulation_html_viewport_height: number | null;
 }
@@ -106,8 +108,8 @@ interface RealtimeSessionRow {
 
 const ASSESSMENT_SELECT = "id, type, title, prompt, expected_answer, rubric, config";
 const ASSIGNMENT_SELECT = `id, class_id, assessment_id, opens_at, due_at, classes(id,code,name,teacher_id), assessments(${ASSESSMENT_SELECT})`;
-const ATTEMPT_SELECT = "id, assignment_id, student_id, status, submitted_after_due, provisional_score, provisional_feedback, transcript, ocr_text, simulation_description, simulation_spec, submitted_at, created_at";
-const ARTIFACT_SELECT = "id, attempt_id, kind, bucket, storage_key, mime_type, byte_size, original_filename, upload_state, simulation_html_viewport_width, simulation_html_viewport_height";
+const ATTEMPT_SELECT = "assessment_versions(definition,legacy_capture), id, assignment_id, student_id, status, submitted_after_due, provisional_score, provisional_feedback, transcript, ocr_text, simulation_description, simulation_spec, submitted_at, created_at";
+const ARTIFACT_SELECT = "frozen_at, id, attempt_id, kind, bucket, storage_key, mime_type, byte_size, original_filename, upload_state, simulation_html_viewport_width, simulation_html_viewport_height";
 const REALTIME_EVENT_SELECT = "id, session_id, sequence, event_type, role, text, metadata, created_at";
 const REALTIME_SESSION_SELECT = "id, attempt_id, status, started_at, ended_at, expires_at, continuity_diagnostics, finalized_at, finalize_error";
 export async function listTeacherAttempts(request: Request, db: SupabaseClient, userId: string): Promise<TeacherAttemptReviewListResponse> {
@@ -143,7 +145,7 @@ export async function listTeacherAttempts(request: Request, db: SupabaseClient, 
   }
   const { data: attemptsData, error: attemptsError } = await attemptsQuery;
   if (attemptsError) throw new HttpError(500, "Failed to load attempts", attemptsError.message);
-  const attempts = (attemptsData ?? []) as AttemptRow[];
+  const attempts = (attemptsData ?? []) as unknown as AttemptRow[];
   if (attempts.length === 0) {
     return { attempts: [] };
   }
@@ -168,9 +170,9 @@ export async function listTeacherAttempts(request: Request, db: SupabaseClient, 
       return {
         attemptId: attempt.id,
         assignmentId: attempt.assignment_id,
-        assessmentId: assignmentAssessment.id,
-        assessmentType: assignmentAssessment.type,
-        assessmentTitle: assignmentAssessment.title,
+        assessmentId: attempt.assessment_versions?.definition.id ?? assignmentAssessment.id,
+        assessmentType: attempt.assessment_versions?.definition.type ?? assignmentAssessment.type,
+        assessmentTitle: attempt.assessment_versions?.definition.title ?? assignmentAssessment.title,
         status: attempt.status,
         submittedAt: attempt.submitted_at,
         provisionalScore: attempt.provisional_score,
@@ -210,7 +212,9 @@ export async function teacherAttemptDetail(db: SupabaseClient, userId: string, a
 
   const profile = await loadProfile(db, attempt.student_id);
   const displayName = profile?.display_name?.trim() || "Student";
-  const assessment = toReviewAssessmentSummary(assignmentAssessment, assignment.due_at);
+  const definition = attempt.assessment_versions?.definition;
+  if (!definition) throw new HttpError(409, "Frozen assessment definition is unavailable");
+  const assessment = toReviewAssessmentSummary(definition, assignment.due_at);
   await reconcileGradebookForCourse(db, userId, assignmentCourse.id);
   const gradebookEntry = await loadAttemptGradebookEntry(db, userId, assignment.id, assignmentCourse.id, attempt.student_id);
 
@@ -247,7 +251,8 @@ export async function teacherAttemptDetail(db: SupabaseClient, userId: string, a
         dueAt: assignment.due_at
       },
       assessment,
-      artifacts: artifacts.map(toTeacherArtifact),
+      legacyContextCapture: attempt.assessment_versions?.legacy_capture === true,
+      artifacts: artifacts.filter(artifact => attempt.status === "draft" || artifact.frozen_at).map(toTeacherArtifact),
       realtimeEvents: realtimeEvents.map(toTeacherRealtimeEvent),
       realtimeTrust
     }
@@ -363,7 +368,7 @@ async function loadAttemptById(db: SupabaseClient, attemptId: string): Promise<A
     .maybeSingle();
   if (error) throw new HttpError(500, "Failed to load attempt", error.message);
   if (!data) throw new HttpError(404, "Attempt not found");
-  return data as AttemptRow;
+  return data as unknown as AttemptRow;
 }
 
 async function loadProfiles(db: SupabaseClient, profileIds: string[]): Promise<ProfileRow[]> {

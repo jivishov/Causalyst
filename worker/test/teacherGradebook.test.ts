@@ -1,3 +1,4 @@
+import { reconcileFixture } from "./helpers/rpcFixtures";
 import { describe, expect, it } from "vitest";
 import { createTeacherAssignment, setTeacherAssignmentArchived } from "../src/routes/teacherAssessments";
 import {
@@ -78,7 +79,7 @@ describe("teacher gradebook finalization", () => {
       assessment_assignments: [{ id: "assignment-1", class_id: "class-1", assessment_id: "assessment-1", archived_at: null }],
       roster_students: [{ id: "roster-1", class_id: "class-1", display_name: "Student", student_identifier: "S-1", email: null, section: null, claimed_by: "student-1", deactivated_at: null }],
       class_memberships: [{ class_id: "class-1", student_id: "student-1", roster_student_id: "roster-1" }],
-      attempts: [{ id: "attempt-1", assignment_id: "assignment-1", student_id: "student-1", status: "graded", provisional_score: 88, provisional_feedback: {}, submitted_at: "2026-04-01T10:00:00.000Z", created_at: "2026-04-01T09:59:00.000Z" }]
+      attempts: [{ id: "attempt-1", assignment_id: "assignment-1", student_id: "student-1", status: "graded", provisional_score: 88, provisional_feedback: { policyVersion: "rubric-v2" }, submitted_at: "2026-04-01T10:00:00.000Z", created_at: "2026-04-01T09:59:00.000Z" }]
     });
     const db = createDb(state);
 
@@ -93,7 +94,7 @@ describe("teacher gradebook finalization", () => {
       student_id: "student-1",
       status: "graded",
       provisional_score: 99,
-      provisional_feedback: {},
+      provisional_feedback: { policyVersion: "rubric-v2" },
       submitted_at: "2026-04-02T10:00:00.000Z",
       created_at: "2026-04-02T09:59:00.000Z"
     });
@@ -156,7 +157,7 @@ describe("teacher gradebook finalization", () => {
           student_id: "student-1",
           status: "graded",
           provisional_score: 86,
-          provisional_feedback: {},
+          provisional_feedback: { policyVersion: "rubric-v2" },
           submitted_at: "2026-04-01T10:00:00.000Z",
           created_at: "2026-04-01T09:59:00.000Z"
         },
@@ -261,7 +262,7 @@ describe("teacher gradebook finalization", () => {
     const db = createDb(state);
 
     await expect(
-      setTeacherGradebookOverride(jsonRequest({ score: 80 }), db as never, "teacher-1", "entry-foreign")
+      setTeacherGradebookOverride(jsonRequest({ score: 80, note: "Ownership test" }), db as never, "teacher-1", "entry-foreign")
     ).rejects.toMatchObject({
       status: 403,
       message: "Teacher does not own this assignment"
@@ -270,6 +271,28 @@ describe("teacher gradebook finalization", () => {
 });
 
 describe("teacher grade export", () => {
+  it("exports every student and selects the latest grade when all collection responses are capped", async () => {
+    const roster = Array.from({ length: 1201 }, (_, i) => ({ id: `roster-${i}`, class_id: "class-1", display_name: `Student ${i}`, claimed_by: `student-${i}`, deactivated_at: null }));
+    const state = createState({
+      classes: [{ id: "class-1", code: "BIO101", name: "Biology", teacher_id: "teacher-1" }],
+      assessments: [{ id: "assessment-1", type: "voice", title: "Voice", prompt: "Prompt", created_by: "teacher-1" }],
+      assessment_assignments: [{ id: "assignment-1", class_id: "class-1", assessment_id: "assessment-1", archived_at: null }],
+      roster_students: roster,
+      class_memberships: roster.map((r, i) => ({ id: `member-${i}`, class_id: "class-1", student_id: r.claimed_by, roster_student_id: r.id })),
+      gradebook_entries: roster.map((r, i) => ({ id: `entry-${i}`, assignment_id: "assignment-1", roster_student_id: r.id, approved_score: 80, published_at: "2026-01-01T00:00:00Z" })),
+      attempts: roster.flatMap((r, i) => [1, 2].map(day => ({ id: `attempt-${i}-${day}`, assignment_id: "assignment-1", student_id: r.claimed_by,
+        status: "graded", provisional_score: 70 + day, submitted_at: `2026-01-0${day}T00:00:00Z`, created_at: `2026-01-0${day}T00:00:00Z` })))
+    });
+    const db = createDb(state, 73);
+    const gradebook = await listTeacherGradebook(new Request("https://worker.test/api/teacher/gradebook?courseId=class-1"), db as never, "teacher-1");
+    expect(gradebook.entries).toHaveLength(1201);
+    expect(gradebook.entries.every(e => e.latestAttempt?.provisionalScore === 72)).toBe(true);
+    const exported = await exportTeacherGradebook(jsonRequest({ format: "long", courseId: "class-1", columns: ["student_name", "final_score"] }), db as never, "teacher-1");
+    expect(exported.rowCount).toBe(1201);
+    expect(exported.csv?.trim().split(/\r?\n/)).toHaveLength(1202);
+    expect(exported.csv).toContain("Student 1200");
+  });
+
   it("exports long and wide CSV with options, escaping, and audit metadata only", async () => {
     const state = createState({
       classes: [{ id: "class-1", code: "BIO,101", name: "Biology", teacher_id: "teacher-1" }],
@@ -482,10 +505,14 @@ function createState(input?: Partial<State>): State {
   };
 }
 
-function createDb(state: State) {
+function createDb(state: State, apiCap = Infinity) {
   return {
+    async rpc(name: string, args: Record<string, any>) {
+      if (name === "reconcile_course_gradebook") return reconcileFixture(state, args);
+      throw new Error(`Unexpected RPC ${name}`);
+    },
     from(table: keyof State) {
-      return new Query(table, state);
+      return new Query(table, state, apiCap);
     }
   };
 }
@@ -498,8 +525,12 @@ class Query {
   private pendingInsert: Row[] | null = null;
   private pendingUpdate: Row | null = null;
   private selected = "";
+  private pageFrom = 0;
+  private pageTo = Infinity;
 
-  constructor(private table: keyof State, private state: State) {}
+  range(from: number, to: number) { this.pageFrom = from; this.pageTo = to; return this; }
+
+  constructor(private table: keyof State, private state: State, private apiCap: number) {}
 
   select(columns = "") {
     this.selected = columns;
@@ -574,7 +605,7 @@ class Query {
 
     const rows = this.applyOrder(this.matchRows(this.tableData()));
     this.applyUpdate(rows);
-    resolve({ data: rows.map((row) => this.decorate(row)), error: null });
+    resolve({ data: rows.slice(this.pageFrom, Math.min(this.pageTo + 1, this.pageFrom + this.apiCap)).map((row) => this.decorate(row)), error: null });
   }
 
   private commitInsert(): Row[] {

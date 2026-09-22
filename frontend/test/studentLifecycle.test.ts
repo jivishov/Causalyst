@@ -127,7 +127,6 @@ function makeAssignment(partial: Partial<StudentAssignmentSummary>): StudentAssi
       type: "writing",
       title: "Lab writeup",
       prompt: "Explain findings",
-      expectedAnswer: null,
       rubric: [],
       config: {},
       dueAt: null

@@ -404,7 +404,7 @@ async function requireRealtimeSession(db: SupabaseClient, userId: string, sessio
   return data as RealtimeSessionRow;
 }
 
-function buildRealtimeInstructions(input: {
+export function buildRealtimeInstructions(input: {
   prompt: string;
   expectedAnswer: string | null;
   rubric: unknown;
@@ -417,7 +417,6 @@ function buildRealtimeInstructions(input: {
     "Do not invent evidence not stated by the student.",
     "At the end, summarize strengths and gaps in a classroom-appropriate tone.",
     `Assessment prompt: ${input.prompt}`,
-    `Expected answer: ${input.expectedAnswer ?? "No expected answer provided."}`,
     `Rubric: ${JSON.stringify(input.rubric ?? [])}`
   ].join("\n");
 }

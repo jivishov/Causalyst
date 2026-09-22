@@ -34,10 +34,13 @@ export interface AssessmentSummary {
   type: AssessmentType;
   title: string;
   prompt: string;
-  expectedAnswer?: string | null;
   rubric: RubricCriterion[];
   config: Record<string, unknown>;
   dueAt?: string | null;
+}
+
+export interface GradingAssessment extends AssessmentSummary {
+  expectedAnswer: string | null;
 }
 
 export type StudentAssignmentState =
@@ -368,7 +371,7 @@ export interface TeacherAttemptReviewDetail {
     opensAt: string | null;
     dueAt: string | null;
   };
-  assessment: AssessmentSummary;
+  assessment: GradingAssessment;
   artifacts: TeacherAttemptReviewArtifact[];
   realtimeEvents: TeacherRealtimeEvent[];
   realtimeTrust?: TeacherRealtimeTrust | null;

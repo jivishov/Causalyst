@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AssessmentSummary,
   GradeFeedback,
+  GradingAssessment,
   RubricCriterion,
   StudentAssignmentSummary,
   StudentAssignmentState,
@@ -110,10 +111,23 @@ export function toAssessmentSummary(record: AssessmentRecord & { due_at?: string
     type: record.type,
     title: record.title,
     prompt: record.prompt,
-    expectedAnswer: record.expected_answer,
     rubric: record.rubric ?? [],
     config: record.config ?? {},
     dueAt: record.due_at ?? null
+  };
+}
+
+/** Only trusted Worker grading/teacher paths receive this contract. */
+export function toGradingAssessment(record: AssessmentRecord & { due_at?: string | null }): GradingAssessment {
+  return { ...toAssessmentSummary(record), expectedAnswer: record.expected_answer ?? null };
+}
+
+/** Whitelist fields even when the input came from an internal grading path. */
+export function studentAssessment(assessment: AssessmentSummary): AssessmentSummary {
+  return {
+    id: assessment.id, type: assessment.type, title: assessment.title,
+    prompt: assessment.prompt, rubric: assessment.rubric, config: assessment.config,
+    dueAt: assessment.dueAt
   };
 }
 
@@ -438,7 +452,7 @@ export async function requireAssignedAssignment(db: SupabaseClient, userId: stri
   };
 }
 
-export async function requireAttempt(db: SupabaseClient, userId: string, attemptId: string): Promise<{ attempt: AttemptRecord; assessment: AssessmentSummary }> {
+export async function requireAttempt(db: SupabaseClient, userId: string, attemptId: string): Promise<{ attempt: AttemptRecord; assessment: GradingAssessment }> {
   const { data, error } = await db
     .from("attempts")
     .select("*, assessments(id,type,title,prompt,expected_answer,rubric,config), assessment_assignments(id,class_id,due_at,opens_at,classes(code,name),assessments(id,type,title,prompt,expected_answer,rubric,config))")
@@ -459,7 +473,7 @@ export async function requireAttempt(db: SupabaseClient, userId: string, attempt
 
   return {
     attempt: row,
-    assessment: toAssessmentSummary({
+    assessment: toGradingAssessment({
       ...resolvedAssessment,
       due_at: row.assessment_assignments?.due_at ?? null
     })

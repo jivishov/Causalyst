@@ -1,5 +1,5 @@
 import type {
-  AssessmentSummary,
+  GradingAssessment,
   AttemptStatus,
   GradeFeedback,
   RubricCriterion,
@@ -613,7 +613,7 @@ function buildRealtimeTrustHistory(session: RealtimeSessionRow, events: Realtime
   };
 }
 
-function toReviewAssessmentSummary(row: AssessmentRow, dueAt: string | null): AssessmentSummary {
+function toReviewAssessmentSummary(row: AssessmentRow, dueAt: string | null): GradingAssessment {
   return {
     id: row.id,
     type: row.type,

@@ -13,7 +13,7 @@ import {
   DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
   SIMULATION_HTML_REASONING_EFFORTS
 } from "@alt-assessment/shared";
-import { requireAssignedAssignment, requireAttempt, toGradeFeedback } from "../lib/db";
+import { requireAssignedAssignment, requireAttempt, toGradeFeedback, studentAssessment } from "../lib/db";
 import type { Env } from "../lib/env";
 import { HttpError, getRequiredString, readJson } from "../lib/http";
 import { signPreviewToken } from "../lib/crypto";
@@ -97,7 +97,7 @@ export async function attemptResult(db: SupabaseClient, env: Env, userId: string
   return {
     attemptId: attempt.id,
     assignmentId,
-    assessment,
+    assessment: studentAssessment(assessment),
     status: attempt.status as AttemptResult["status"],
     provisionalScore: attempt.provisional_score,
     provisionalFeedback: toGradeFeedback(attempt.provisional_feedback),

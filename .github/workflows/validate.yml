@@ -41,3 +41,29 @@ jobs:
       - run: npm run build:worker
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
+
+  supabase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run supabase:start
+      - run: npm run db:types
+      - uses: actions/upload-artifact@v4
+        with:
+          name: database-types
+          path: worker/src/lib/database.generated.ts
+          retention-days: 7
+      - run: npm run test:supabase
+      - name: Check committed database types
+        run: |
+          git ls-files --error-unmatch worker/src/lib/database.generated.ts
+          git diff --exit-code -- worker/src/lib/database.generated.ts
+      - name: Stop disposable Supabase stack
+        if: always()
+        run: npm run supabase:stop

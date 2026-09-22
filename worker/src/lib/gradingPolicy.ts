@@ -16,7 +16,7 @@ export function parseScoringPolicy(value: unknown): ScoringPolicy {
   const input = value as ScoringPolicy;
   if (!["additive", "capped", "review_adjustments"].includes(input.mode)) throw new HttpError(400, "Invalid scoring policy mode");
   const caps = input.caps ?? [];
-  if (!Array.isArray(caps) || caps.length > 20 || caps.some((cap) => !cap || !/^[a-zA-Z0-9_-]{1,80}$/.test(cap.id) ||
+  if (!Array.isArray(caps) || caps.length > 20 || caps.some((cap) => !cap || typeof cap.id !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(cap.id) ||
     !Number.isFinite(cap.maximumPercent) || cap.maximumPercent < 0 || cap.maximumPercent > 100 || typeof cap.condition !== "string" || !cap.condition.trim()) ||
     new Set(caps.map((cap) => cap.id)).size !== caps.length || (input.mode !== "capped" && caps.length > 0)) {
     throw new HttpError(400, "Invalid scoring caps");

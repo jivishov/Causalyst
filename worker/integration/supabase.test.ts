@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { isJsonObject, type AppDatabaseClient, type Database } from "../src/lib/database";
 import { createHash, randomUUID } from "node:crypto";
@@ -13,6 +13,10 @@ import { listTeacherGradebook, exportTeacherGradebook } from "../src/routes/teac
 import { uploadArtifact } from "../src/routes/artifacts";
 import { signUploadToken } from "../src/lib/crypto";
 import { claimAttemptSubmission } from "../src/lib/attemptLifecycle";
+import { studentSession } from "../src/routes/student";
+import { reserveSimulationJob } from "../src/lib/simulationJobs";
+import { runRetention } from "../src/lib/retention";
+import * as openai from "../src/lib/openai";
 
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
 const syntheticEnv = { PIN_PEPPER: "disposable-integration-pepper" } as never;
@@ -55,9 +59,9 @@ beforeAll(async () => {
     email: i === 0 ? studentEmail : `${randomUUID()}@test.invalid`, pinHash: `synthetic-${randomUUID()}` }));
   const imported = await service.rpc('import_course_roster', { p_teacher_id: teacherId, p_course_id: courseId, p_rows: rows });
   expect(imported.error).toBeNull();
-  const enrolled = await service.rpc('enroll_student_by_email', { p_user_id: studentId });
-  expect(enrolled.error).toBeNull();
-  expect(isJsonObject(enrolled.data) && enrolled.data.status).toBe('matched');
+  const enrolled = await studentSession(service, studentId);
+  expect(enrolled.enrollmentStatus).toBe('matched');
+  expect(enrolled.profile).toMatchObject({ id: studentId, displayName: 'Student 0000', email: studentEmail });
   await sql.query("insert into public.assessments(id,type,title,prompt,expected_answer,created_by) values($1,'writing','Integration','Explain',$2,$3)", [assessmentId, privateAnswer, teacherId]);
   await sql.query('insert into public.assessment_assignments(id,class_id,assessment_id) values($1,$2,$3)', [assignmentId, courseId, assessmentId]);
   await sql.query('insert into public.attempts(id,assessment_id,assignment_id,student_id) values($1,$2,$3,$4)', [attemptId, assessmentId, assignmentId, studentId]);
@@ -138,5 +142,43 @@ describe('real Supabase service boundaries', () => {
       await sql.query(await readFile(new URL(name, location), 'utf8'));
     }
     await runConcurrency(localCredentials().DB_URL);
+  });
+
+  it('expires other jobs during a provider outage and retries cancellation without restarting generation', async () => {
+    const jobs: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const assessment = randomUUID(), assignment = randomUUID(), attempt = randomUUID(), artifact = randomUUID();
+      await sql.query("insert into assessments(id,type,title,prompt,created_by) values($1,'simulation','Retention','Explain',$2)", [assessment, teacherId]);
+      await sql.query('insert into assessment_assignments(id,class_id,assessment_id) values($1,$2,$3)', [assignment, courseId, assessment]);
+      // Exercise the typed client insert: the trigger, not the caller, chooses the snapshot.
+      const created = await service.from('attempts').insert({ id: attempt, assessment_id: assessment, assignment_id: assignment, student_id: studentId });
+      expect(created.error).toBeNull();
+      await sql.query("insert into attempt_artifacts(id,attempt_id,student_id,kind,bucket,storage_key,mime_type) values($1::uuid,$2,$3,'simulation-sketch','simulation-sketch',$1::text,'image/png')", [artifact, attempt, studentId]);
+      const reserved = await reserveSimulationJob(service, { userId: studentId, attemptId: attempt, operation: 'generate',
+        sketchArtifactId: artifact, sourceDescriptionSha256: 'a'.repeat(64), htmlReasoningEffort: 'low', provider: 'openai', requestedModel: 'synthetic' });
+      expect(reserved.claimed).toBe(true);
+      jobs.push(reserved.job.id);
+      await sql.query("update simulation_generation_jobs set provider_response_id=$2,expires_at=now()-interval '1 minute' where id=$1", [reserved.job.id, `synthetic-response-${i}`]);
+    }
+    const cancel = vi.fn(async (id: string) => {
+      if (id === 'synthetic-response-0') throw { status: 503 };
+      return {};
+    });
+    const client = vi.spyOn(openai, 'openaiClient').mockReturnValue({ responses: { cancel }, files: { delete: vi.fn() } } as never);
+    try {
+      await runRetention(service, {} as never);
+      const first = await service.from('simulation_generation_jobs').select('id,status,provider_status').in('id', jobs);
+      expect(first.error).toBeNull();
+      expect(first.data).toHaveLength(2);
+      expect(first.data?.every(job => job.status === 'expired')).toBe(true);
+      expect(first.data?.find(job => job.id === jobs[0])?.provider_status).toBe('cancellation_pending');
+      expect(first.data?.find(job => job.id === jobs[1])?.provider_status).toBeNull();
+      cancel.mockImplementation(async () => ({}));
+      await runRetention(service, {} as never);
+      expect(cancel).toHaveBeenCalledTimes(3);
+      const retried = await service.from('simulation_generation_jobs').select('status,provider_status').eq('id', jobs[0]).single();
+      expect(retried.error).toBeNull();
+      expect(retried.data).toEqual({ status: 'expired', provider_status: null });
+    } finally { client.mockRestore(); }
   });
 });

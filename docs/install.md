@@ -94,15 +94,14 @@ Student Google login uses the Supabase OAuth redirect workflow documented in `do
 
 ## 5. Deploy From GitHub
 
-1. Push to `main`.
-2. Confirm both workflows pass:
-   - `.github/workflows/deploy-frontend.yml` (frontend typecheck, frontend tests, build, and dist security scan)
-   - `.github/workflows/deploy-worker.yml`
-3. Validate the deployment:
+1. Push to `main` and confirm both `Validate` jobs pass. This does not deploy the app.
+2. Apply all committed migrations and complete the staging checks in [the release guide](assessment-hardening.md). A Worker/schema mismatch can break submissions, so prepare the database during the coordinated maintenance window.
+3. In **Actions → Deploy Worker → Run workflow**, select `main` and acknowledge that migrations and staging checks are complete. This acknowledgement is an operator declaration, not an automated inspection of the hosted database. The workflow reruns full validation, deploys the Worker, then calls the frontend deployment at the same commit. `VITE_WORKER_URL` must already match the Worker URL; the workflow does not rewrite repository variables.
+4. Validate the deployment:
    - Frontend loads at `https://<github-username>.github.io/<repo-name>/`
    - Teacher workspace loads at `https://<github-username>.github.io/<repo-name>/teacher`
    - `GET <worker-url>/api/health` returns `{ "ok": true }`
-4. Before inviting students, complete the dry run and go/no-go checks in `docs/beta-test-playbook.md`.
+5. Before inviting students, complete the dry run and go/no-go checks in `docs/beta-test-playbook.md`.
 
 ## 6. First Teacher Setup
 

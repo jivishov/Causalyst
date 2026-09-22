@@ -2,38 +2,66 @@ import type { Env } from "./env";
 import { HttpError } from "./http";
 
 interface AudioTurn { id: string; sequence: number; text: string | null }
+export const MAX_EVIDENCE_TEXT_BYTES = 64 * 1024;
+const MAX_AUDIO_TURNS = 500;
+const RETENTION_MS = 86400_000;
+const CLOSE_RETRY_MS = 60_000;
 export interface EvidenceState {
   deadline: number;
   turns: AudioTurn[];
   failed: boolean;
   sealed: boolean;
   pendingAudio?: string[];
+  retainUntil?: number;
 }
 
 // Only events received on the authenticated provider-to-server socket enter here.
 // Client conversation items and client timestamps never establish audio evidence.
-export function collectProviderEvidence(state: EvidenceState, event: Record<string, unknown>, receivedAt: number): void {
-  if (state.sealed) return;
+export function collectProviderEvidence(state: EvidenceState, event: Record<string, unknown>, receivedAt: number): boolean {
+  if (state.sealed || state.failed) return false;
+  const id = event.item_id;
+  if (typeof id !== "string" || !["input_audio_buffer.speech_started", "input_audio_buffer.committed",
+    "conversation.item.input_audio_transcription.completed", "conversation.item.input_audio_transcription.failed"].includes(String(event.type))) return false;
+  if (id.length > 200) { state.failed = true; return true; }
+  let changed = false;
   state.pendingAudio ??= [];
-  if (event.type === "input_audio_buffer.speech_started" && receivedAt <= state.deadline && typeof event.item_id === "string") {
-    if (!state.pendingAudio.includes(event.item_id)) state.pendingAudio.push(event.item_id);
-  }
-  if (event.type === "input_audio_buffer.committed" && typeof event.item_id === "string") {
-    if (receivedAt > state.deadline && state.pendingAudio.includes(event.item_id)) state.failed = true;
-    state.pendingAudio = state.pendingAudio.filter((id) => id !== event.item_id);
-  }
-  if (event.type === "input_audio_buffer.committed" && receivedAt <= state.deadline && typeof event.item_id === "string") {
-    if (!state.turns.some((turn) => turn.id === event.item_id)) {
-      if (state.turns.length >= 500) { state.failed = true; return; }
-      state.turns.push({ id: event.item_id, sequence: state.turns.length, text: null });
+  if (event.type === "input_audio_buffer.speech_started" && receivedAt <= state.deadline) {
+    if (!state.pendingAudio.includes(id)) {
+      if (state.pendingAudio.length >= MAX_AUDIO_TURNS) state.failed = true;
+      else state.pendingAudio.push(id);
+      changed = true;
     }
   }
-  const turn = state.turns.find((entry) => entry.id === event.item_id);
+  if (event.type === "input_audio_buffer.committed" && state.pendingAudio.includes(id)) {
+    if (receivedAt > state.deadline) state.failed = true;
+    state.pendingAudio = state.pendingAudio.filter((pending) => pending !== id);
+    changed = true;
+  }
+  if (event.type === "input_audio_buffer.committed" && receivedAt <= state.deadline) {
+    if (!state.turns.some((turn) => turn.id === id)) {
+      if (state.turns.length >= MAX_AUDIO_TURNS) { state.failed = true; return true; }
+      state.turns.push({ id, sequence: state.turns.length, text: null });
+      changed = true;
+    }
+  }
+  const turn = state.turns.find((entry) => entry.id === id);
   if (turn && event.type === "conversation.item.input_audio_transcription.completed") {
     if (typeof event.transcript !== "string" || event.transcript.length > 24000) state.failed = true;
-    else turn.text = event.transcript.trim();
+    else {
+      const text = event.transcript.trim();
+      if (turn.text !== null) {
+        if (turn.text === text) return changed;
+        state.failed = true; // Conflicting completions cannot replace captured evidence.
+      } else {
+        const totalBytes = new TextEncoder().encode(state.turns.map(entry => entry.text ?? "").join("") + text).byteLength;
+        if (totalBytes > MAX_EVIDENCE_TEXT_BYTES) state.failed = true;
+        else turn.text = text;
+      }
+    }
+    changed = true;
   }
-  if (turn && event.type === "conversation.item.input_audio_transcription.failed") state.failed = true;
+  if (turn && event.type === "conversation.item.input_audio_transcription.failed") { state.failed = true; changed = true; }
+  return changed;
 }
 
 export function authoritativeTranscript(state: EvidenceState): string {
@@ -91,8 +119,11 @@ export class RealtimeEvidence {
     this.callId = input.callId;
     this.evidence = { deadline: input.deadline, turns: [], failed: false, sealed: false };
     await this.ctx.storage.put({ evidence: this.evidence, callId: this.callId });
+    // Even an unsuccessful sideband attachment must leave a cleanup alarm.
+    await this.ctx.storage.setAlarm(input.deadline);
     const response = await fetch(`https://api.openai.com/v1/realtime?call_id=${encodeURIComponent(input.callId)}`, {
-      headers: { Upgrade: "websocket", Authorization: `Bearer ${this.env.OPENAI_API_KEY}` }
+      headers: { Upgrade: "websocket", Authorization: `Bearer ${this.env.OPENAI_API_KEY}` },
+      signal: AbortSignal.timeout(10_000)
     });
     if (!response.webSocket) throw new HttpError(502, "Could not attach authoritative voice evidence");
     this.socket = response.webSocket;
@@ -100,18 +131,18 @@ export class RealtimeEvidence {
     this.socket.addEventListener("message", (message) => {
       const receivedAt = Date.now();
       try {
+        if (!this.evidence) return;
         const event = JSON.parse(String(message.data)) as Record<string, unknown>;
-        collectProviderEvidence(this.evidence!, event, receivedAt);
+        if (!collectProviderEvidence(this.evidence, event, receivedAt)) return;
         const snapshot = structuredClone(this.evidence!);
         this.writes = this.writes.then(() => this.ctx.storage.put("evidence", snapshot));
-        this.ctx.waitUntil(this.writes);
-      } catch { this.evidence!.failed = true; }
+        this.ctx.waitUntil(this.writes.catch(() => { if (this.evidence) this.evidence.failed = true; }));
+      } catch { if (this.evidence) this.evidence.failed = true; }
     });
     this.socket.addEventListener("close", () => {
       if (this.evidence && !this.evidence.sealed && Date.now() < this.evidence.deadline) this.evidence.failed = true;
     });
     this.socket.addEventListener("error", () => { if (this.evidence && !this.evidence.sealed) this.evidence.failed = true; });
-    await this.ctx.storage.setAlarm(input.deadline);
     return Response.json({ transcript: "", turns: 0 });
   }
   private async seal(): Promise<Response> {
@@ -125,40 +156,54 @@ export class RealtimeEvidence {
       for (let i = 0; i < 20 && this.evidence.turns.some((turn) => turn.text === null); i++) {
         await new Promise((resolve) => setTimeout(resolve, 250));
       }
-      authoritativeTranscript(this.evidence);
-      this.evidence.sealed = true;
       await this.writes;
-      await this.ctx.storage.put("evidence", this.evidence);
-      await this.hangup();
-      // SQL retains the finalized evidence. This temporary copy expires in a day.
-      await this.ctx.storage.setAlarm(Date.now() + 86400_000);
+      authoritativeTranscript(this.evidence);
+      const sealed = { ...structuredClone(this.evidence), sealed: true, retainUntil: Date.now() + RETENTION_MS };
+      // Do not expose an in-memory success state before the write succeeds.
+      await this.ctx.storage.put("evidence", sealed);
+      this.evidence = sealed;
     }
+    // Hangup is external: retain the sealed evidence while retrying a failure.
+    await this.ctx.storage.setAlarm(Date.now() + CLOSE_RETRY_MS);
+    try {
+      await this.hangup();
+      await this.ctx.storage.setAlarm(this.evidence.retainUntil ?? this.evidence.deadline + RETENTION_MS);
+    } catch { /* The durable alarm retries closure; grading uses the saved transcript. */ }
     return Response.json({ transcript: authoritativeTranscript(this.evidence), turns: this.evidence.turns.length });
   }
   private async hangup(): Promise<void> {
     if (this.callId) {
       const response = await fetch(`https://api.openai.com/v1/realtime/calls/${encodeURIComponent(this.callId)}/hangup`, {
-        method: "POST", headers: { Authorization: `Bearer ${this.env.OPENAI_API_KEY}` }
+        method: "POST", headers: { Authorization: `Bearer ${this.env.OPENAI_API_KEY}` }, signal: AbortSignal.timeout(10_000)
       });
       if (!response.ok && response.status !== 404) throw new HttpError(502, "Could not close provider call");
+      await this.ctx.storage.delete("callId");
+      this.callId = null;
     }
     this.socket?.close();
     this.socket = null;
   }
   async alarm(): Promise<void> {
-    if (!this.evidence) return;
-    if (this.evidence.sealed || Date.now() > this.evidence.deadline + 86400_000) {
-      await this.hangup();
-      await this.ctx.storage.deleteAll();
+    if (!this.evidence && !this.callId) return;
+    const retainUntil = this.evidence ? this.evidence.retainUntil ?? this.evidence.deadline + RETENTION_MS : 0;
+    if (this.evidence && Date.now() >= retainUntil) {
+      await this.writes.catch(() => {});
+      await this.ctx.storage.delete("evidence");
       this.evidence = null;
-      return;
     }
     // Stop provider billing/audio at the recording deadline. Already committed
     // turns may finish transcription during a short drain interval.
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (this.evidence && !this.evidence.sealed && Date.now() < this.evidence.deadline + 2000) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    await this.ctx.storage.setAlarm(Date.now() + CLOSE_RETRY_MS);
     await this.hangup();
-    await this.writes;
-    await this.ctx.storage.put("evidence", this.evidence);
-    await this.ctx.storage.setAlarm(this.evidence.deadline + 86400_001);
+    await this.writes.catch(() => { if (this.evidence) this.evidence.failed = true; });
+    if (this.evidence) {
+      await this.ctx.storage.put("evidence", this.evidence);
+      await this.ctx.storage.setAlarm(retainUntil);
+    } else {
+      await this.ctx.storage.deleteAll();
+    }
   }
 }

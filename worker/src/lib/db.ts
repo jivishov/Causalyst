@@ -1,4 +1,5 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "./database";
+import { toJson } from "./database";
 import type {
   AssessmentSummary,
   GradeFeedback,
@@ -135,7 +136,7 @@ export function studentAssessment(assessment: AssessmentSummary): AssessmentSumm
   };
 }
 
-export async function listStudentCourseAssignments(db: SupabaseClient, userId: string): Promise<StudentCourseAssignments[]> {
+export async function listStudentCourseAssignments(db: AppDatabaseClient, userId: string): Promise<StudentCourseAssignments[]> {
   const classIds = await classIdsForUser(db, userId);
   if (classIds.length === 0) return [];
   const nowMs = Date.now();
@@ -214,7 +215,7 @@ export async function listStudentCourseAssignments(db: SupabaseClient, userId: s
 }
 
 async function loadLatestAttemptByAssignmentId(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   assignments: VisibleAssignmentRow[]
 ): Promise<Map<string, StudentAttemptSummary>> {
@@ -262,7 +263,7 @@ async function loadLatestAttemptByAssignmentId(
 }
 
 async function loadPublishedGradeByAssignmentId(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   assignments: VisibleAssignmentRow[]
 ): Promise<Map<string, StudentPublishedGrade>> {
@@ -305,7 +306,7 @@ async function loadPublishedGradeByAssignmentId(
 }
 
 async function resolveRosterStudentIdsForClasses(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   classIds: string[]
 ): Promise<Map<string, string>> {
@@ -409,7 +410,7 @@ function toStudentDueState(input: {
   return "none";
 }
 
-export async function classIdsForUser(db: SupabaseClient, userId: string): Promise<string[]> {
+export async function classIdsForUser(db: AppDatabaseClient, userId: string): Promise<string[]> {
   const { data, error } = await db
     .from("class_memberships")
     .select("class_id")
@@ -418,7 +419,7 @@ export async function classIdsForUser(db: SupabaseClient, userId: string): Promi
   return (data ?? []).map((row: any) => row.class_id);
 }
 
-export async function requireAssignedAssignment(db: SupabaseClient, userId: string, assignmentId: string): Promise<StudentAssignmentSummary> {
+export async function requireAssignedAssignment(db: AppDatabaseClient, userId: string, assignmentId: string): Promise<StudentAssignmentSummary> {
   const classIds = await classIdsForUser(db, userId);
   if (classIds.length === 0) throw new HttpError(403, "No class membership found for student");
 
@@ -456,7 +457,7 @@ export async function requireAssignedAssignment(db: SupabaseClient, userId: stri
   };
 }
 
-export async function requireAttempt(db: SupabaseClient, userId: string, attemptId: string): Promise<{ attempt: AttemptRecord; assessment: GradingAssessment }> {
+export async function requireAttempt(db: AppDatabaseClient, userId: string, attemptId: string): Promise<{ attempt: AttemptRecord; assessment: GradingAssessment }> {
   const { data, error } = await db
     .from("attempts")
     .select("*, assessment_versions(definition,legacy_capture), assessments(id,type,title,prompt,expected_answer,rubric,config), assessment_assignments(id,class_id,due_at,opens_at,classes(code,name),assessments(id,type,title,prompt,expected_answer,rubric,config))")
@@ -482,7 +483,7 @@ export async function requireAttempt(db: SupabaseClient, userId: string, attempt
   };
 }
 
-export async function requireArtifact(db: SupabaseClient, userId: string, artifactId: string, attemptId?: string): Promise<ArtifactRecord> {
+export async function requireArtifact(db: AppDatabaseClient, userId: string, artifactId: string, attemptId?: string): Promise<ArtifactRecord> {
   let query = db
     .from("attempt_artifacts")
     .select("*")
@@ -496,7 +497,7 @@ export async function requireArtifact(db: SupabaseClient, userId: string, artifa
   return data as ArtifactRecord;
 }
 
-export async function logAudit(db: SupabaseClient, payload: {
+export async function logAudit(db: AppDatabaseClient, payload: {
   attemptId: string;
   route: string;
   provider: string;
@@ -510,8 +511,8 @@ export async function logAudit(db: SupabaseClient, payload: {
     route: payload.route,
     provider: payload.provider,
     model: payload.model,
-    request_summary: payload.requestSummary ?? null,
-    raw_response: payload.rawResponse ?? null,
+    request_summary: toJson(payload.requestSummary ?? null),
+    raw_response: toJson(payload.rawResponse ?? null),
     error: payload.error ?? null
   });
   if (error) throw new HttpError(500, "Failed to record assessment audit", error.message);

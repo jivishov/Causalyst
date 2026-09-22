@@ -1,5 +1,6 @@
 import { reserveAiBudget } from "../lib/aiBudget";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "../lib/database";
+import { toJson } from "../lib/database";
 import { enforceModelConfirmation, gradeWriting, openaiClient, uploadUserDataFile } from "../lib/openai";
 import { requireArtifact, requireAttempt, logAudit } from "../lib/db";
 import type { Env } from "../lib/env";
@@ -7,7 +8,7 @@ import { HttpError, getRequiredString, readJson } from "../lib/http";
 import { claimAttemptSubmission, markAttemptSubmissionError } from "../lib/attemptLifecycle";
 import { getModel } from "../lib/models";
 
-export async function gradeWritingAttempt(request: Request, env: Env, db: SupabaseClient, userId: string) {
+export async function gradeWritingAttempt(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const attemptId = getRequiredString(body, "attemptId");
   const artifactId = getRequiredString(body, "artifactId");
@@ -64,7 +65,7 @@ export async function gradeWritingAttempt(request: Request, env: Env, db: Supaba
       grading_metadata: { model: getModel("visionGrading").id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() },
       ocr_text: result.transcribedText,
       provisional_score: result.feedback.score,
-      provisional_feedback: result.feedback
+      provisional_feedback: toJson(result.feedback)
     }).eq("id", attemptId).eq("student_id", userId);
     if (updateError) throw new HttpError(500, "Failed to save writing grade", updateError.message);
 
@@ -75,7 +76,7 @@ export async function gradeWritingAttempt(request: Request, env: Env, db: Supaba
   }
 }
 
-async function markSubmissionErrorBestEffort(db: SupabaseClient, userId: string, attemptId: string): Promise<void> {
+async function markSubmissionErrorBestEffort(db: AppDatabaseClient, userId: string, attemptId: string): Promise<void> {
   try {
     await markAttemptSubmissionError(db, userId, attemptId, new Date().toISOString());
   } catch (error) {

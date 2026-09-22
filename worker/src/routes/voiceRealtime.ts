@@ -1,6 +1,7 @@
 import { reserveAiBudget } from "../lib/aiBudget";
 import { realtimeEvidence } from "../lib/realtimeEvidence";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "../lib/database";
+import { isJsonObject, toJson, type Json } from "../lib/database";
 import { DEFAULT_REALTIME_VOICE_MAX_SESSION_SEC } from "@alt-assessment/shared";
 import { markAttemptSubmissionError } from "../lib/attemptLifecycle";
 import { requireAttempt, logAudit, toGradeFeedback } from "../lib/db";
@@ -42,7 +43,7 @@ interface NormalizedRealtimeEvent {
   eventType: string;
   role: RealtimeEventRole | null;
   text: string | null;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, Json | undefined>;
   occurredAt: string;
 }
 
@@ -56,7 +57,7 @@ interface RealtimeDiagnostics {
   flags: string[];
 }
 
-export async function connectRealtimeVoice(request: Request, env: Env, db: SupabaseClient, userId: string) {
+export async function connectRealtimeVoice(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const attemptId = getRequiredString(body, "attemptId");
   const sdpOffer = getRequiredString(body, "sdpOffer");
@@ -178,7 +179,7 @@ export async function connectRealtimeVoice(request: Request, env: Env, db: Supab
   }
 }
 
-export async function appendRealtimeVoiceEvents(request: Request, db: SupabaseClient, userId: string) {
+export async function appendRealtimeVoiceEvents(request: Request, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const sessionId = getRequiredString(body, "sessionId");
   const session = await requireRealtimeSession(db, userId, sessionId);
@@ -187,7 +188,7 @@ export async function appendRealtimeVoiceEvents(request: Request, db: SupabaseCl
   return { sessionId, storedEvents: inserted };
 }
 
-export async function finalizeRealtimeVoice(request: Request, env: Env, db: SupabaseClient, userId: string) {
+export async function finalizeRealtimeVoice(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const sessionId = getRequiredString(body, "sessionId");
   const confirmed = body.expensiveModelConfirmed === true;
@@ -248,7 +249,7 @@ export async function finalizeRealtimeVoice(request: Request, env: Env, db: Supa
 
     const { error: gradeError } = await db.rpc("save_realtime_grade", {
       p_user_id: userId, p_session_id: session.id, p_transcript: transcript,
-      p_feedback: normalizedFeedback, p_diagnostics: diagnostics,
+      p_feedback: toJson(normalizedFeedback), p_diagnostics: diagnostics,
       p_metadata: { model: getModel("grading").id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() }
     });
     if (gradeError) throw new HttpError(500, "Failed to finalize live voice grade", gradeError.message);
@@ -306,13 +307,13 @@ export function normalizeRealtimeVoiceEvents(events: unknown): NormalizedRealtim
   });
 }
 
-async function storeRealtimeEvents(db: SupabaseClient, session: RealtimeSessionRow, events: unknown): Promise<number> {
+async function storeRealtimeEvents(db: AppDatabaseClient, session: RealtimeSessionRow, events: unknown): Promise<number> {
   const normalized = normalizeRealtimeVoiceEvents(events);
   return storeRealtimeEventsNormalized(db, session, normalized);
 }
 
 async function storeRealtimeEventsNormalized(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   session: RealtimeSessionRow,
   normalized: NormalizedRealtimeEvent[]
 ): Promise<number> {
@@ -337,7 +338,7 @@ async function storeRealtimeEventsNormalized(
   return rows.length;
 }
 
-async function requireRealtimeSession(db: SupabaseClient, userId: string, sessionId: string): Promise<RealtimeSessionRow> {
+async function requireRealtimeSession(db: AppDatabaseClient, userId: string, sessionId: string): Promise<RealtimeSessionRow> {
   const { data, error } = await db
     .from("attempt_realtime_sessions")
     .select("id, attempt_id, student_id, provider, model, status, started_at, ended_at, expires_at, continuity_diagnostics, finalized_attempt_id, finalized_transcript, finalized_score, finalized_feedback, finalized_at, finalize_error")
@@ -377,16 +378,16 @@ function resolveRealtimeMaxSessionSec(config: Record<string, unknown>): number {
   return Math.min(1800, Math.max(30, Math.round(value)));
 }
 
-function sanitizeMetadata(value: unknown, depth = 0): Record<string, unknown> {
+function sanitizeMetadata(value: unknown, depth = 0): Record<string, Json | undefined> {
   const sanitized = sanitizeValue(value, depth);
-  if (isRecord(sanitized)) {
+  if (isJsonObject(sanitized)) {
     const json = safeJsonStringify(sanitized);
     if (json.length <= MAX_METADATA_JSON_LENGTH) return sanitized;
   }
   return {};
 }
 
-function sanitizeValue(value: unknown, depth: number): unknown {
+function sanitizeValue(value: unknown, depth: number): Json {
   if (depth > 4) return "[truncated]";
   if (value === null || value === undefined) return null;
   if (typeof value === "number" || typeof value === "boolean") return value;
@@ -398,7 +399,7 @@ function sanitizeValue(value: unknown, depth: number): unknown {
   }
   if (!isRecord(value)) return null;
 
-  const output: Record<string, unknown> = {};
+  const output: Record<string, Json> = {};
   for (const [key, entry] of Object.entries(value)) {
     if (isSensitiveMetadataKey(key)) continue;
     output[key.slice(0, 80)] = sanitizeValue(entry, depth + 1);
@@ -428,7 +429,7 @@ function assertRealtimeSessionActive(session: RealtimeSessionRow, message: strin
 }
 
 async function replayFinalizedRealtimeSession(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   session: RealtimeSessionRow
 ): Promise<{
@@ -455,7 +456,7 @@ async function replayFinalizedRealtimeSession(
 }
 
 async function markRealtimeSessionStatusBestEffort(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   sessionId: string,
   status: RealtimeSessionRow["status"],
@@ -469,7 +470,7 @@ async function markRealtimeSessionStatusBestEffort(
         status,
         ended_at: status === "active" ? null : now,
         updated_at: now,
-        continuity_diagnostics: input?.diagnostics ?? undefined,
+        continuity_diagnostics: input?.diagnostics ? toJson(input.diagnostics) : undefined,
         finalize_error: input?.finalizeError ?? undefined
       })
       .eq("id", sessionId)
@@ -485,7 +486,7 @@ async function markRealtimeSessionStatusBestEffort(
   }
 }
 
-async function markRealtimeSubmissionErrorBestEffort(db: SupabaseClient, userId: string, attemptId: string): Promise<void> {
+async function markRealtimeSubmissionErrorBestEffort(db: AppDatabaseClient, userId: string, attemptId: string): Promise<void> {
   try {
     await markAttemptSubmissionError(db, userId, attemptId, new Date().toISOString());
   } catch (error) {

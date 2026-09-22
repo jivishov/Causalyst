@@ -1,7 +1,8 @@
 import { reserveSimulationJob, type SimulationGenerationJobRow } from "../lib/simulationJobs";
 import { reserveAiBudget, boundStudentText } from "../lib/aiBudget";
 import { completeArtifact, contentDigest } from "../lib/evidence";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "../lib/database";
+import type { TablesUpdate } from "../lib/database";
 import {
   type StudentSimulationGenerationJob,
   type StudentSimulationGenerationJobOperation,
@@ -33,7 +34,7 @@ const ACTIVE_SIMULATION_JOB_STATUSES: StudentSimulationGenerationJobStatus[] = [
 const TERMINAL_SIMULATION_JOB_STATUSES: StudentSimulationGenerationJobStatus[] = ["completed", "failed", "incomplete", "cancelled", "expired"];
 
 
-export async function generateSimulationSketch(request: Request, env: Env, db: SupabaseClient, userId: string) {
+export async function generateSimulationSketch(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const attemptId = getRequiredString(body, "attemptId");
   const description = getRequiredString(body, "description");
@@ -99,7 +100,7 @@ export async function generateSimulationSketch(request: Request, env: Env, db: S
   };
 }
 
-export async function generateSimulation(request: Request, env: Env, db: SupabaseClient, userId: string) {
+export async function generateSimulation(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const routeStartedAt = Date.now();
   const body = await readJson<Record<string, unknown>>(request);
   const attemptId = getRequiredString(body, "attemptId");
@@ -204,7 +205,7 @@ export async function generateSimulation(request: Request, env: Env, db: Supabas
   }
 }
 
-export async function refineSimulation(request: Request, env: Env, db: SupabaseClient, userId: string) {
+export async function refineSimulation(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const routeStartedAt = Date.now();
   const body = await readJson<Record<string, unknown>>(request);
   const attemptId = getRequiredString(body, "attemptId");
@@ -323,7 +324,7 @@ export async function refineSimulation(request: Request, env: Env, db: SupabaseC
   }
 }
 
-export async function fallbackSimulation(request: Request, env: Env, db: SupabaseClient, userId: string) {
+export async function fallbackSimulation(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const attemptId = getRequiredString(body, "attemptId");
   const description = getRequiredString(body, "description");
@@ -409,7 +410,7 @@ export async function fallbackSimulation(request: Request, env: Env, db: Supabas
   };
 }
 
-export async function getSimulationGenerationJob(_request: Request, env: Env, db: SupabaseClient, userId: string, jobId: string) {
+export async function getSimulationGenerationJob(_request: Request, env: Env, db: AppDatabaseClient, userId: string, jobId: string) {
   const job = await requireSimulationGenerationJob(db, userId, jobId);
   if (job.status === "completed") return toStudentSimulationJob(job, await previewForCompletedSimulationJob(db, env, userId, job));
   if (TERMINAL_SIMULATION_JOB_STATUSES.includes(job.status)) return toStudentSimulationJob(job);
@@ -493,7 +494,7 @@ export async function getSimulationGenerationJob(_request: Request, env: Env, db
   return toStudentSimulationJob(updatedJob);
 }
 
-export async function cancelSimulationGenerationJob(_request: Request, env: Env, db: SupabaseClient, userId: string, jobId: string) {
+export async function cancelSimulationGenerationJob(_request: Request, env: Env, db: AppDatabaseClient, userId: string, jobId: string) {
   const job = await requireSimulationGenerationJob(db, userId, jobId);
   if (job.status === "completed") return toStudentSimulationJob(job, await previewForCompletedSimulationJob(db, env, userId, job));
   if (TERMINAL_SIMULATION_JOB_STATUSES.includes(job.status)) return toStudentSimulationJob(job);
@@ -511,7 +512,7 @@ export async function cancelSimulationGenerationJob(_request: Request, env: Env,
   return toStudentSimulationJob(cancelled);
 }
 
-export async function submitSimulation(request: Request, _env: Env, db: SupabaseClient, userId: string) {
+export async function submitSimulation(request: Request, _env: Env, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const attemptId = getRequiredString(body, "attemptId");
   const description = getRequiredString(body, "description");
@@ -550,14 +551,14 @@ export async function submitSimulation(request: Request, _env: Env, db: Supabase
 }
 
 
-async function failReservedJob(db: SupabaseClient, userId: string, jobId: string): Promise<void> {
+async function failReservedJob(db: AppDatabaseClient, userId: string, jobId: string): Promise<void> {
   const { error } = await db.from("simulation_generation_jobs").update({ status: "failed", completed_at: new Date().toISOString(),
     error_message: "Generation did not finish safely. Provider outcome may be unknown; this operation will not be automatically repeated." })
     .eq("id", jobId).eq("student_id", userId).in("status", ACTIVE_SIMULATION_JOB_STATUSES);
   if (error) console.error("Could not persist generation failure", { jobId, code: error.code });
 }
 
-async function createSimulationGenerationJob(db: SupabaseClient, input: {
+async function createSimulationGenerationJob(db: AppDatabaseClient, input: {
   reservedId: string;
   attemptId: string;
   userId: string;
@@ -612,7 +613,7 @@ async function createSimulationGenerationJob(db: SupabaseClient, input: {
   return toSimulationGenerationJobRow(data);
 }
 
-async function requireSimulationGenerationJob(db: SupabaseClient, userId: string, jobId: string): Promise<SimulationGenerationJobRow> {
+async function requireSimulationGenerationJob(db: AppDatabaseClient, userId: string, jobId: string): Promise<SimulationGenerationJobRow> {
   const { data, error } = await db
     .from("simulation_generation_jobs")
     .select("*")
@@ -625,10 +626,10 @@ async function requireSimulationGenerationJob(db: SupabaseClient, userId: string
 }
 
 async function updateSimulationGenerationJob(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   jobId: string,
-  payload: Record<string, unknown>
+  payload: TablesUpdate<"simulation_generation_jobs">
 ): Promise<SimulationGenerationJobRow> {
   const { data, error } = await db
     .from("simulation_generation_jobs")
@@ -642,7 +643,7 @@ async function updateSimulationGenerationJob(
 }
 
 async function claimSimulationGenerationJobForFinalization(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   job: SimulationGenerationJobRow
 ): Promise<SimulationGenerationJobRow | null> {
@@ -665,7 +666,7 @@ async function claimSimulationGenerationJobForFinalization(
 }
 
 async function completeSimulationGenerationJob(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   env: Env,
   userId: string,
   job: SimulationGenerationJobRow,
@@ -740,7 +741,7 @@ async function completeSimulationGenerationJob(
 }
 
 async function completeImmediateSimulationGenerationJob(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   env: Env,
   userId: string,
   input: {
@@ -822,7 +823,7 @@ async function completeImmediateSimulationGenerationJob(
 }
 
 async function previewForCompletedSimulationJob(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   env: Env,
   userId: string,
   job: SimulationGenerationJobRow
@@ -842,7 +843,7 @@ async function previewForCompletedSimulationJob(
 }
 
 async function loadSimulationHtmlViewportForArtifact(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   artifactId: string,
   fallback: SimulationHtmlViewport
@@ -857,7 +858,7 @@ async function loadSimulationHtmlViewportForArtifact(
   return normalizeSimulationHtmlViewport(data, fallback);
 }
 
-async function saveSimulationDraftDescription(db: SupabaseClient, userId: string, attemptId: string, description: string): Promise<void> {
+async function saveSimulationDraftDescription(db: AppDatabaseClient, userId: string, attemptId: string, description: string): Promise<void> {
   const { error } = await db.from("attempts").update({
     simulation_description: description,
     simulation_spec: null,
@@ -1051,7 +1052,7 @@ function requireSimulationCodeModelApiKey(env: Env, model: SimulationCodeModelEn
 }
 
 async function downloadArtifactDataUrl(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   artifact: Awaited<ReturnType<typeof requireArtifact>>,
   message: string
 ): Promise<string> {
@@ -1077,7 +1078,7 @@ function encodeBase64(bytes: Uint8Array): string {
 }
 
 async function ensureOpenAIFileForArtifact(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   client: ReturnType<typeof openaiClient>,
   userId: string,
   artifact: Awaited<ReturnType<typeof requireArtifact>>
@@ -1103,7 +1104,7 @@ async function ensureOpenAIFileForArtifact(
 }
 
 async function requireSimulationArtifactForDescription(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   attemptId: string,
   artifactId: string,
@@ -1123,7 +1124,7 @@ async function requireSimulationArtifactForDescription(
 }
 
 async function downloadArtifactText(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   artifact: Awaited<ReturnType<typeof requireArtifact>>,
   message: string
 ): Promise<string> {
@@ -1132,7 +1133,7 @@ async function downloadArtifactText(
   return data.text();
 }
 
-async function storeGeneratedArtifact(db: SupabaseClient, userId: string, attemptId: string, input: {
+async function storeGeneratedArtifact(db: AppDatabaseClient, userId: string, attemptId: string, input: {
   kind: "simulation-derived" | "simulation-sketch";
   bucket: "simulation-derived" | "simulation-sketch";
   filename: string;

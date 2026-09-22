@@ -1,16 +1,17 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "./database";
+import type { Json } from "./database";
 import type { Env } from "./env";
 import { HttpError } from "./http";
 import { openaiClient } from "./openai";
 
-export async function runRetention(db: SupabaseClient, env: Env): Promise<void> {
+export async function runRetention(db: AppDatabaseClient, env: Env): Promise<void> {
   const now = new Date().toISOString();
   const { data, error } = await db.from("attempt_artifacts").select("id,bucket,storage_key,openai_file_id,cleanup_at,provider_cleanup_at,frozen_at,cleanup_attempts,upload_state")
     .or(`cleanup_at.lte.${now},provider_cleanup_at.lte.${now}`).lt("cleanup_attempts", 10).order("id").limit(100);
   if (error) throw new HttpError(500, "Could not load retention work", error.message);
   const client = openaiClient(env.OPENAI_API_KEY);
   for (const artifact of data ?? []) {
-    const changes: Record<string, unknown> = {};
+    const changes: Record<string, Json> = {};
     if (artifact.frozen_at && artifact.cleanup_at) changes.cleanup_at = null;
     try {
       if (artifact.openai_file_id && artifact.provider_cleanup_at && artifact.provider_cleanup_at <= now) {

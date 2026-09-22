@@ -22,12 +22,13 @@ describe("simulation artifact flow", () => {
       const table = db.from("simulation_generation_jobs");
       const { data: active, error } = await table.select("*").eq("attempt_id", input.attemptId).eq("reasoning_effort", input.htmlReasoningEffort).maybeSingle();
       if (error) throw new HttpError(503, "Simulation generation job storage is not ready. Apply the latest Supabase database update and try again.");
-      if (active) return { claimed: false, job: active };
+      if (active) return { claimed: false, job: active as jobsLib.SimulationGenerationJobRow };
       const { data: job } = await table.insert({ attempt_id: input.attemptId, student_id: input.userId, operation: input.operation,
         status: "queued", provider: input.provider, requested_model: input.requestedModel, reasoning_effort: input.htmlReasoningEffort,
         sketch_artifact_id: input.sketchArtifactId, input_html_artifact_id: input.inputHtmlArtifactId ?? null,
         source_description_sha256: input.sourceDescriptionSha256, expires_at: new Date(Date.now() + 1200000).toISOString() }).select("*").single();
-      return { claimed: true, job };
+      if (!job) throw new Error("Missing simulation job fixture");
+      return { claimed: true, job: job as jobsLib.SimulationGenerationJobRow };
     });
   });
 

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "../lib/database";
 import type {
   AttemptResult,
   SimulationHtmlReasoningEffort,
@@ -42,12 +42,12 @@ interface PublishedGradeRow {
 
 export async function startAttempt(
   request: Request,
-  envOrDb: Env | SupabaseClient,
-  dbOrUserId: SupabaseClient | string,
+  envOrDb: Env | AppDatabaseClient,
+  dbOrUserId: AppDatabaseClient | string,
   maybeUserId?: string
 ) {
   const env = typeof dbOrUserId === "string" ? null : envOrDb as Env;
-  const db = typeof dbOrUserId === "string" ? envOrDb as SupabaseClient : dbOrUserId;
+  const db = typeof dbOrUserId === "string" ? envOrDb as AppDatabaseClient : dbOrUserId;
   const userId = typeof dbOrUserId === "string" ? dbOrUserId : maybeUserId;
   if (!userId) throw new HttpError(500, "Missing student user for attempt start");
 
@@ -84,7 +84,7 @@ export async function startAttempt(
   return { attemptId, assignment: { ...assignment, assessment: studentAssessment((await requireAttempt(db, userId, attemptId)).assessment) }, simulationDraft: null };
 }
 
-export async function attemptResult(db: SupabaseClient, env: Env, userId: string, attemptId: string): Promise<AttemptResult> {
+export async function attemptResult(db: AppDatabaseClient, env: Env, userId: string, attemptId: string): Promise<AttemptResult> {
   const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
   const assignmentId = attempt.assignment_id;
   const assignmentClassId = assignmentId ? await loadAssignmentClassId(db, assignmentId) : null;
@@ -111,7 +111,7 @@ export async function attemptResult(db: SupabaseClient, env: Env, userId: string
   };
 }
 
-export async function publishedFinalResult(db: SupabaseClient, userId: string, assignmentId: string): Promise<StudentPublishedFinalResultResponse> {
+export async function publishedFinalResult(db: AppDatabaseClient, userId: string, assignmentId: string): Promise<StudentPublishedFinalResultResponse> {
   const assignment = await requireAssignedAssignment(db, userId, assignmentId);
   const publishedGrade = await loadStudentPublishedFinalGradeForAssignment(db, userId, assignment.classId, assignment.assignmentId);
   if (!publishedGrade) {
@@ -133,7 +133,7 @@ export async function publishedFinalResult(db: SupabaseClient, userId: string, a
   };
 }
 
-async function loadAssignmentAttempts(db: SupabaseClient, userId: string, assignmentId: string): Promise<AttemptLifecycleRow[]> {
+async function loadAssignmentAttempts(db: AppDatabaseClient, userId: string, assignmentId: string): Promise<AttemptLifecycleRow[]> {
   const initial = await db
     .from("attempts")
     .select("id, status, due_at_snapshot, submitted_at, provisional_score, submitted_after_due, simulation_description, created_at")
@@ -185,7 +185,7 @@ function toStudentAttemptSummary(row: AttemptLifecycleRow): StudentAttemptSummar
 }
 
 async function loadSimulationDraftPreview(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   env: Env,
   userId: string,
   draft: AttemptLifecycleRow
@@ -207,7 +207,7 @@ async function loadSimulationDraftPreview(
   };
 }
 
-async function loadActiveSimulationGenerationJob(db: SupabaseClient, userId: string, attemptId: string): Promise<StudentSimulationGenerationJob | null> {
+async function loadActiveSimulationGenerationJob(db: AppDatabaseClient, userId: string, attemptId: string): Promise<StudentSimulationGenerationJob | null> {
   const { data, error } = await db
     .from("simulation_generation_jobs")
     .select("id, operation, status, created_at, expires_at, requested_model, model_used, reasoning_effort, error_message")
@@ -274,7 +274,7 @@ function isMissingSimulationReasoningEffortColumn(error: { code?: string; messag
 }
 
 async function loadPublishedFinalGrade(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   classId: string,
   assignmentId: string
@@ -299,7 +299,7 @@ async function loadPublishedFinalGrade(
 }
 
 async function loadStudentPublishedFinalGradeForAssignment(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   classId: string,
   assignmentId: string
@@ -336,7 +336,7 @@ async function loadStudentPublishedFinalGradeForAssignment(
 }
 
 async function loadSimulationPreviewForAttempt(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   env: Env,
   userId: string,
   attemptId: string,
@@ -382,7 +382,7 @@ async function loadSimulationPreviewForAttempt(
 }
 
 async function loadSimulationHtmlReasoningEffortForArtifact(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   attemptId: string,
   artifactId: string
@@ -403,7 +403,7 @@ async function loadSimulationHtmlReasoningEffortForArtifact(
   return normalizeSimulationHtmlReasoningEffort((data as { reasoning_effort?: unknown } | null)?.reasoning_effort, null);
 }
 
-async function resolveRosterStudentIdForCourse(db: SupabaseClient, classId: string, userId: string): Promise<string | null> {
+async function resolveRosterStudentIdForCourse(db: AppDatabaseClient, classId: string, userId: string): Promise<string | null> {
   const { data: membership, error: membershipError } = await db
     .from("class_memberships")
     .select("roster_student_id")
@@ -424,7 +424,7 @@ async function resolveRosterStudentIdForCourse(db: SupabaseClient, classId: stri
   return (rosterStudent?.id as string | undefined) ?? null;
 }
 
-async function loadAssignmentClassId(db: SupabaseClient, assignmentId: string): Promise<string | null> {
+async function loadAssignmentClassId(db: AppDatabaseClient, assignmentId: string): Promise<string | null> {
   const { data, error } = await db
     .from("assessment_assignments")
     .select("class_id")
@@ -441,7 +441,7 @@ function isFinalizedGrade(row: Pick<PublishedGradeRow, "approved_score" | "teach
 }
 
 async function backfillDraftDueSnapshot(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   attemptId: string,
   dueAt: string
@@ -462,7 +462,7 @@ async function backfillDraftDueSnapshot(
 }
 
 async function createDraftAttempt(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   assignmentId: string,
   assessmentId: string,

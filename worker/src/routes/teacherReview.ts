@@ -12,7 +12,7 @@ import type {
   TeacherAttemptReviewDetailResponse,
   TeacherAttemptReviewListResponse
 } from "@alt-assessment/shared";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "../lib/database";
 import type { Env } from "../lib/env";
 import { corsHeaders, HttpError, safeFilename } from "../lib/http";
 import { requireTeacherProfile } from "./teacher";
@@ -112,7 +112,7 @@ const ATTEMPT_SELECT = "assessment_versions(definition,legacy_capture), id, assi
 const ARTIFACT_SELECT = "frozen_at, id, attempt_id, kind, bucket, storage_key, mime_type, byte_size, original_filename, upload_state, simulation_html_viewport_width, simulation_html_viewport_height";
 const REALTIME_EVENT_SELECT = "id, session_id, sequence, event_type, role, text, metadata, created_at";
 const REALTIME_SESSION_SELECT = "id, attempt_id, status, started_at, ended_at, expires_at, continuity_diagnostics, finalized_at, finalize_error";
-export async function listTeacherAttempts(request: Request, db: SupabaseClient, userId: string): Promise<TeacherAttemptReviewListResponse> {
+export async function listTeacherAttempts(request: Request, db: AppDatabaseClient, userId: string): Promise<TeacherAttemptReviewListResponse> {
   await requireTeacherProfile(db, userId);
   const url = new URL(request.url);
   const courseIdFilter = nonEmpty(url.searchParams.get("courseId"));
@@ -198,7 +198,7 @@ export async function listTeacherAttempts(request: Request, db: SupabaseClient, 
   return { attempts: reviewItems };
 }
 
-export async function teacherAttemptDetail(db: SupabaseClient, userId: string, attemptId: string): Promise<TeacherAttemptReviewDetailResponse> {
+export async function teacherAttemptDetail(db: AppDatabaseClient, userId: string, attemptId: string): Promise<TeacherAttemptReviewDetailResponse> {
   await requireTeacherProfile(db, userId);
   const attempt = await loadAttemptById(db, attemptId);
   const assignmentId = attempt.assignment_id;
@@ -259,7 +259,7 @@ export async function teacherAttemptDetail(db: SupabaseClient, userId: string, a
   };
 }
 
-export async function previewTeacherArtifact(request: Request, env: Env, db: SupabaseClient, userId: string, artifactId: string): Promise<Response> {
+export async function previewTeacherArtifact(request: Request, env: Env, db: AppDatabaseClient, userId: string, artifactId: string): Promise<Response> {
   await requireTeacherProfile(db, userId);
   const artifact = await requireTeacherArtifact(db, userId, artifactId);
   if (artifact.upload_state !== "uploaded") {
@@ -280,7 +280,7 @@ export async function previewTeacherArtifact(request: Request, env: Env, db: Sup
   });
 }
 
-export async function downloadTeacherArtifact(request: Request, env: Env, db: SupabaseClient, userId: string, artifactId: string): Promise<Response> {
+export async function downloadTeacherArtifact(request: Request, env: Env, db: AppDatabaseClient, userId: string, artifactId: string): Promise<Response> {
   await requireTeacherProfile(db, userId);
   const artifact = await requireTeacherArtifact(db, userId, artifactId);
   if (artifact.upload_state !== "uploaded") {
@@ -301,7 +301,7 @@ export async function downloadTeacherArtifact(request: Request, env: Env, db: Su
   });
 }
 
-async function requireOwnedCourse(db: SupabaseClient, userId: string, courseId: string): Promise<CourseOwnershipRow> {
+async function requireOwnedCourse(db: AppDatabaseClient, userId: string, courseId: string): Promise<CourseOwnershipRow> {
   const { data, error } = await db
     .from("classes")
     .select("id, code, name, teacher_id")
@@ -313,7 +313,7 @@ async function requireOwnedCourse(db: SupabaseClient, userId: string, courseId: 
   return data as CourseOwnershipRow;
 }
 
-async function requireOwnedAssignment(db: SupabaseClient, userId: string, assignmentId: string): Promise<AssignmentOwnershipRow> {
+async function requireOwnedAssignment(db: AppDatabaseClient, userId: string, assignmentId: string): Promise<AssignmentOwnershipRow> {
   const { data, error } = await db
     .from("assessment_assignments")
     .select(ASSIGNMENT_SELECT)
@@ -329,7 +329,7 @@ async function requireOwnedAssignment(db: SupabaseClient, userId: string, assign
 }
 
 async function listOwnedAssignments(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   courseIdFilter: string | null,
   assignmentIdFilter: string | null
@@ -360,7 +360,7 @@ async function listOwnedAssignments(
   );
 }
 
-async function loadAttemptById(db: SupabaseClient, attemptId: string): Promise<AttemptRow> {
+async function loadAttemptById(db: AppDatabaseClient, attemptId: string): Promise<AttemptRow> {
   const { data, error } = await db
     .from("attempts")
     .select(ATTEMPT_SELECT)
@@ -371,7 +371,7 @@ async function loadAttemptById(db: SupabaseClient, attemptId: string): Promise<A
   return data as unknown as AttemptRow;
 }
 
-async function loadProfiles(db: SupabaseClient, profileIds: string[]): Promise<ProfileRow[]> {
+async function loadProfiles(db: AppDatabaseClient, profileIds: string[]): Promise<ProfileRow[]> {
   if (profileIds.length === 0) return [];
   const { data, error } = await db
     .from("profiles")
@@ -381,7 +381,7 @@ async function loadProfiles(db: SupabaseClient, profileIds: string[]): Promise<P
   return (data ?? []) as ProfileRow[];
 }
 
-async function loadProfile(db: SupabaseClient, profileId: string): Promise<ProfileRow | null> {
+async function loadProfile(db: AppDatabaseClient, profileId: string): Promise<ProfileRow | null> {
   const { data, error } = await db
     .from("profiles")
     .select("id, display_name")
@@ -391,7 +391,7 @@ async function loadProfile(db: SupabaseClient, profileId: string): Promise<Profi
   return data as ProfileRow | null;
 }
 
-async function listAttemptArtifacts(db: SupabaseClient, attemptId: string): Promise<ArtifactRow[]> {
+async function listAttemptArtifacts(db: AppDatabaseClient, attemptId: string): Promise<ArtifactRow[]> {
   const { data, error } = await db
     .from("attempt_artifacts")
     .select(ARTIFACT_SELECT)
@@ -401,7 +401,7 @@ async function listAttemptArtifacts(db: SupabaseClient, attemptId: string): Prom
   return (data ?? []) as ArtifactRow[];
 }
 
-async function listAttemptRealtimeSessions(db: SupabaseClient, attemptId: string): Promise<RealtimeSessionRow[]> {
+async function listAttemptRealtimeSessions(db: AppDatabaseClient, attemptId: string): Promise<RealtimeSessionRow[]> {
   const { data, error } = await db
     .from("attempt_realtime_sessions")
     .select(REALTIME_SESSION_SELECT)
@@ -412,7 +412,7 @@ async function listAttemptRealtimeSessions(db: SupabaseClient, attemptId: string
   return (data ?? []) as RealtimeSessionRow[];
 }
 
-async function listAttemptRealtimeEvents(db: SupabaseClient, attemptId: string): Promise<RealtimeEventRow[]> {
+async function listAttemptRealtimeEvents(db: AppDatabaseClient, attemptId: string): Promise<RealtimeEventRow[]> {
   const { data, error } = await db
     .from("attempt_realtime_events")
     .select(REALTIME_EVENT_SELECT)
@@ -423,7 +423,7 @@ async function listAttemptRealtimeEvents(db: SupabaseClient, attemptId: string):
   return (data ?? []) as RealtimeEventRow[];
 }
 
-async function requireTeacherArtifact(db: SupabaseClient, userId: string, artifactId: string): Promise<ArtifactRow> {
+async function requireTeacherArtifact(db: AppDatabaseClient, userId: string, artifactId: string): Promise<ArtifactRow> {
   const { data, error } = await db
     .from("attempt_artifacts")
     .select(ARTIFACT_SELECT)
@@ -440,7 +440,7 @@ async function requireTeacherArtifact(db: SupabaseClient, userId: string, artifa
 }
 
 async function loadAttemptGradebookEntry(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   assignmentId: string,
   courseId: string,
@@ -460,7 +460,7 @@ async function loadAttemptGradebookEntry(
   return getTeacherGradebookEntryById(db, userId, data.id);
 }
 
-async function resolveRosterStudentForAttempt(db: SupabaseClient, courseId: string, studentId: string): Promise<string | null> {
+async function resolveRosterStudentForAttempt(db: AppDatabaseClient, courseId: string, studentId: string): Promise<string | null> {
   const { data: membership, error: membershipError } = await db
     .from("class_memberships")
     .select("roster_student_id")

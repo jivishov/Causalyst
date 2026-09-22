@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "integration", "vitest.config.ts", "vitest.integration.config.ts"]
 }

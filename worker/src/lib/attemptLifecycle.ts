@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "./database";
 import type { AttemptStatus } from "@alt-assessment/shared";
 import { HttpError } from "./http";
 import { attemptLifecycleMigrationRequired } from "./studentLifecycleErrors";
@@ -41,7 +41,7 @@ export function assertDraftAttemptStatus(attemptId: string, status: string): voi
 }
 
 export async function claimAttemptSubmission(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   attemptId: string,
   now: string,
@@ -55,8 +55,8 @@ export async function claimAttemptSubmission(
       p_attempt_id: attemptId,
       p_submitted_at: claimTime,
       p_artifact_ids: artifactIds,
-      p_simulation_description: simulation?.description ?? null,
-      p_description_sha256: simulation?.sourceHash ?? null
+      p_simulation_description: simulation?.description,
+      p_description_sha256: simulation?.sourceHash
     })
     .single();
 
@@ -100,7 +100,7 @@ export async function claimAttemptSubmission(
 }
 
 export async function markAttemptSubmissionError(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   attemptId: string,
   now: string

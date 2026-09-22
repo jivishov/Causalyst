@@ -1,5 +1,5 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { StudentEnrollmentStatus } from "@alt-assessment/shared";
+import type { AppDatabaseClient } from "../lib/database";
+import { isJsonObject } from "../lib/database";
 import { hashPin } from "../lib/crypto";
 import { normalizeCourseCode } from "../lib/courseCode";
 import { HttpError, getRequiredString, readJson } from "../lib/http";
@@ -56,12 +56,7 @@ interface StudentAccessCodeClaimRow {
   roster_student_id: string | null;
 }
 
-interface StudentAutoEnrollmentResult {
-  profile: StudentProfileRow | null;
-  status: StudentEnrollmentStatus;
-}
-
-export async function studentLogin(request: Request, env: Env, db: SupabaseClient, userId: string, email: string) {
+export async function studentLogin(request: Request, env: Env, db: AppDatabaseClient, userId: string, email: string) {
   if (!env.PIN_PEPPER || env.PIN_PEPPER.trim() === "") {
     throw new HttpError(500, "Worker PIN_PEPPER is not configured");
   }
@@ -131,7 +126,7 @@ export async function studentLogin(request: Request, env: Env, db: SupabaseClien
 }
 
 async function studentLegacyPinLogin(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   email: string,
   pinHash: string,
@@ -226,18 +221,26 @@ function normalizeEmail(value: string | null | undefined): string {
   return (value ?? "").trim().toLowerCase();
 }
 
-export async function studentSession(db: SupabaseClient, userId: string, _email?: string | null) {
+export async function studentSession(db: AppDatabaseClient, userId: string, _email?: string | null) {
   // Reconcile every login, including existing profiles. The transaction reads
   // verified email from Auth, never an email supplied by the browser.
   const { data, error } = await db.rpc("enroll_student_by_email", { p_user_id: userId });
   if (error) throw new HttpError(error.code === "23514" ? 409 : 500, "Failed to reconcile student enrollment", error.message);
-  if (!data || typeof data !== "object") throw new HttpError(500, "Invalid enrollment response");
-  const result = data as StudentAutoEnrollmentResult;
-  const profile = result.profile;
+  if (!isJsonObject(data)) throw new HttpError(500, "Invalid enrollment response");
+  const status = data.status;
+  if (status !== "matched" && status !== "no_roster_match" && status !== "claimed_by_other"
+    && status !== "teacher_profile" && status !== "identity_conflict") {
+    throw new HttpError(500, "Invalid enrollment status");
+  }
+  const profile = data.profile;
+  if (profile !== null && (!isJsonObject(profile) || profile.id !== userId || profile.role !== "student"
+    || typeof profile.display_name !== "string" || (profile.email !== null && typeof profile.email !== "string"))) {
+    throw new HttpError(500, "Invalid enrollment profile");
+  }
   return {
-    profile: profile ? { id: userId, displayName: profile.display_name, email: profile.email ?? undefined } : null,
+    profile: profile ? { id: userId, displayName: String(profile.display_name), email: typeof profile.email === "string" ? profile.email : undefined } : null,
     courses: profile ? await listStudentCourseAssignments(db, userId) : [],
-    enrollmentStatus: result.status
+    enrollmentStatus: status
   };
 }
 

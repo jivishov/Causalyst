@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+import { isJsonObject, type AppDatabaseClient, type Database } from "../src/lib/database";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import pg from "pg";
@@ -15,7 +16,7 @@ import { claimAttemptSubmission } from "../src/lib/attemptLifecycle";
 
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
 const syntheticEnv = { PIN_PEPPER: "disposable-integration-pepper" } as never;
-let service: SupabaseClient, anonymous: SupabaseClient, studentClient: SupabaseClient, unrelatedClient: SupabaseClient;
+let service: AppDatabaseClient, anonymous: AppDatabaseClient, studentClient: AppDatabaseClient, unrelatedClient: AppDatabaseClient;
 let sql: pg.Client;
 let teacherId: string, studentId: string, unrelatedId: string;
 let courseId: string, assignmentId: string, attemptId: string, artifactId: string;
@@ -23,7 +24,7 @@ let studentEmail: string, objectKey: string;
 const privateAnswer = `PRIVATE-${randomUUID()}`;
 const bytes = new TextEncoder().encode("Synthetic handwriting fixture");
 
-async function authUser(client: SupabaseClient) {
+async function authUser(client: AppDatabaseClient) {
   const email = `${randomUUID()}@test.invalid`;
   const password = `Test-${randomUUID()}!`;
   const created = await service.auth.admin.createUser({ email, password, email_confirm: true });
@@ -35,11 +36,11 @@ async function authUser(client: SupabaseClient) {
 
 beforeAll(async () => {
   const config = localCredentials();
-  service = createClient(config.API_URL, config.SERVICE_ROLE_KEY, options);
-  anonymous = createClient(config.API_URL, config.ANON_KEY, options);
-  studentClient = createClient(config.API_URL, config.ANON_KEY, options);
-  unrelatedClient = createClient(config.API_URL, config.ANON_KEY, options);
-  const teacher = await authUser(createClient(config.API_URL, config.ANON_KEY, options));
+  service = createClient<Database>(config.API_URL, config.SERVICE_ROLE_KEY, options);
+  anonymous = createClient<Database>(config.API_URL, config.ANON_KEY, options);
+  studentClient = createClient<Database>(config.API_URL, config.ANON_KEY, options);
+  unrelatedClient = createClient<Database>(config.API_URL, config.ANON_KEY, options);
+  const teacher = await authUser(createClient<Database>(config.API_URL, config.ANON_KEY, options));
   const student = await authUser(studentClient);
   const unrelated = await authUser(unrelatedClient);
   teacherId = teacher.id; studentId = student.id; studentEmail = student.email; unrelatedId = unrelated.id;
@@ -51,12 +52,12 @@ beforeAll(async () => {
   objectKey = `${studentId}/${attemptId}/${artifactId}.txt`;
   await sql.query("insert into public.classes(id,code,name,teacher_id) values($1,$2,'Integration',$3)", [courseId, `T${randomUUID()}`, teacherId]);
   const rows = Array.from({ length: 1201 }, (_, i) => ({ id: randomUUID(), displayName: `Student ${String(i).padStart(4, '0')}`,
-    email: i === 0 ? studentEmail : `${randomUUID()}@test.invalid`, pinHash: 'synthetic-pin-hash' }));
+    email: i === 0 ? studentEmail : `${randomUUID()}@test.invalid`, pinHash: `synthetic-${randomUUID()}` }));
   const imported = await service.rpc('import_course_roster', { p_teacher_id: teacherId, p_course_id: courseId, p_rows: rows });
   expect(imported.error).toBeNull();
   const enrolled = await service.rpc('enroll_student_by_email', { p_user_id: studentId });
   expect(enrolled.error).toBeNull();
-  expect(enrolled.data.status).toBe('matched');
+  expect(isJsonObject(enrolled.data) && enrolled.data.status).toBe('matched');
   await sql.query("insert into public.assessments(id,type,title,prompt,expected_answer,created_by) values($1,'writing','Integration','Explain',$2,$3)", [assessmentId, privateAnswer, teacherId]);
   await sql.query('insert into public.assessment_assignments(id,class_id,assessment_id) values($1,$2,$3)', [assignmentId, courseId, assessmentId]);
   await sql.query('insert into public.attempts(id,assessment_id,assignment_id,student_id) values($1,$2,$3,$4)', [attemptId, assessmentId, assignmentId, studentId]);
@@ -92,7 +93,7 @@ describe('real Supabase service boundaries', () => {
     expect(edited.error).toBeNull();
     const snapshot = await service.from('assessment_versions').select('definition').eq('id', before.data!.assessment_version_id).single();
     expect(snapshot.error).toBeNull();
-    expect(snapshot.data?.definition.expected_answer).toBe(privateAnswer);
+    expect(isJsonObject(snapshot.data?.definition) && snapshot.data.definition.expected_answer).toBe(privateAnswer);
   });
 
   it('uploads through the Worker boundary, rejects cross-owner access and freezes original bytes', async () => {

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "./database";
 import { HttpError } from "./http";
 
 export async function contentDigest(bytes: ArrayBuffer | Uint8Array): Promise<string> {
@@ -7,7 +7,7 @@ export async function contentDigest(bytes: ArrayBuffer | Uint8Array): Promise<st
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export async function completeArtifact(db: SupabaseClient, userId: string, artifactId: string, hash: string): Promise<void> {
+export async function completeArtifact(db: AppDatabaseClient, userId: string, artifactId: string, hash: string): Promise<void> {
   const { error } = await db.rpc("complete_artifact_upload", {
     p_user_id: userId, p_artifact_id: artifactId, p_sha256: hash
   });

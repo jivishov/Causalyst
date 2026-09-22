@@ -3,10 +3,19 @@ import { validateGradeFeedback, rubricWithIds } from "../src/lib/gradingPolicy";
 import { authoritativeTranscript, collectProviderEvidence, type EvidenceState } from "../src/lib/realtimeEvidence";
 import { readAllPages } from "../src/lib/pagination";
 import { signUploadToken, verifyUploadToken } from "../src/lib/crypto";
-import { reserveSimulationJob } from "../src/lib/simulationJobs";
+import { reserveSimulationJob, type SimulationGenerationJobRow } from "../src/lib/simulationJobs";
+import { studentSession } from "../src/routes/student";
 
 const rubric = [{ id: "reason", name: "Reasoning", description: "Explain why", maxPoints: 10 }];
 const grade = () => ({ score: 100, overallComment: "Review", criteria: [{ id: "reason", name: "Reasoning", score: 0, maxPoints: 10, comment: "Missing" }], confidence: "high" as const, reviewFlags: [], appliedCaps: [] });
+const reservationInput = { userId: "u", attemptId: "a", operation: "generate" as const, sketchArtifactId: "s", sourceDescriptionSha256: "hash", htmlReasoningEffort: "low" as const, provider: "openai", requestedModel: "model" };
+const reservedJob = (): SimulationGenerationJobRow => ({
+  id: "job", student_id: "u", attempt_id: "a", operation: "generate", status: "queued", provider: "openai",
+  provider_response_id: null, requested_model: "model", model_used: null, reasoning_effort: "low",
+  sketch_artifact_id: "s", input_html_artifact_id: null, result_artifact_id: null, source_description_sha256: "hash",
+  error_message: null, provider_status: null, created_at: "2026-09-22T12:00:00Z", updated_at: "2026-09-22T12:00:00Z",
+  expires_at: "2026-09-22T12:20:00Z", completed_at: null, cancelled_at: null
+});
 
 describe("frozen rubric validation", () => {
   it("computes an additive score from validated points", () => {
@@ -84,8 +93,8 @@ describe("bounded transports", () => {
     await expect(readAllPages(query)).rejects.toMatchObject({ status: 409 });
   });
   it("uses a durable reservation and a stable input key before any provider work", async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: { claimed: true, job: { id: "job" } }, error: null });
-    const input = { userId: "u", attemptId: "a", operation: "generate" as const, sketchArtifactId: "s", sourceDescriptionSha256: "hash", htmlReasoningEffort: "low" as const, provider: "openai", requestedModel: "model" };
+    const rpc = vi.fn().mockResolvedValue({ data: { claimed: true, job: reservedJob() }, error: null });
+    const input = reservationInput;
     await reserveSimulationJob({ rpc } as never, input);
     await reserveSimulationJob({ rpc } as never, input);
     expect(rpc.mock.calls[0][0]).toBe("reserve_simulation_job");
@@ -95,5 +104,24 @@ describe("bounded transports", () => {
     expect(rpc.mock.calls[2][1].p_key).toBe(rpc.mock.calls[3][1].p_key);
     expect(rpc.mock.calls[2][1].p_key).not.toBe(rpc.mock.calls[0][1].p_key);
     await expect(reserveSimulationJob({ rpc } as never, { ...input, requestId: {} })).rejects.toMatchObject({ status: 400 });
+  });
+  it.each([
+    null,
+    { claimed: "true", job: reservedJob() },
+    { claimed: true, job: { id: "job" } },
+    { claimed: true, job: { ...reservedJob(), student_id: "other" } },
+    { claimed: true, job: { ...reservedJob(), status: "unexpected" } }
+  ])("rejects malformed or mismatched reservation results (%#)", async data => {
+    const rpc = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(reserveSimulationJob({ rpc } as never, reservationInput)).rejects.toMatchObject({ status: 503 });
+  });
+  it.each([
+    [],
+    { status: "invented", profile: null },
+    { status: "matched", profile: { id: "other", role: "student", display_name: "Other", email: null } },
+    { status: "matched", profile: { id: "u", role: "teacher", display_name: "Teacher", email: null } }
+  ])("rejects malformed or mismatched enrollment results (%#)", async data => {
+    const rpc = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(studentSession({ rpc } as never, "u")).rejects.toMatchObject({ status: 500 });
   });
 });

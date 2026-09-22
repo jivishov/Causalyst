@@ -1,6 +1,6 @@
 import { completeArtifact, contentDigest } from "../lib/evidence";
 import { assertDraftAttemptStatus } from "../lib/attemptLifecycle";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "../lib/database";
 import { DEFAULT_AUDIO_MAX_BYTES, DEFAULT_WRITING_ACCEPTED_MIME, DEFAULT_WRITING_MAX_BYTES } from "@alt-assessment/shared";
 import type { Env } from "../lib/env";
 import { signUploadToken, verifyPreviewToken, verifyUploadToken } from "../lib/crypto";
@@ -15,7 +15,7 @@ const bucketByKind = {
   "simulation-sketch": "simulation-sketch"
 } as const;
 
-export async function createUploadToken(request: Request, env: Env, db: SupabaseClient, userId: string) {
+export async function createUploadToken(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const attemptId = getRequiredString(body, "attemptId");
   const kind = getRequiredString(body, "kind") as keyof typeof bucketByKind;
@@ -118,7 +118,7 @@ function normalizeMimeType(value: string): string {
   return value.trim().toLowerCase();
 }
 
-export async function uploadArtifact(request: Request, env: Env, db: SupabaseClient, userId: string, artifactId: string) {
+export async function uploadArtifact(request: Request, env: Env, db: AppDatabaseClient, userId: string, artifactId: string) {
   const uploadToken = request.headers.get("X-Upload-Token") ?? "";
   if (!(await verifyUploadToken(artifactId, userId, uploadToken, env))) {
     throw new HttpError(403, "Invalid upload token");
@@ -152,7 +152,7 @@ export async function uploadArtifact(request: Request, env: Env, db: SupabaseCli
   return { artifactId, state: "uploaded" };
 }
 
-export async function previewArtifact(request: Request, env: Env, db: SupabaseClient, userId: string, artifactId: string): Promise<Response> {
+export async function previewArtifact(request: Request, env: Env, db: AppDatabaseClient, userId: string, artifactId: string): Promise<Response> {
   const previewToken = new URL(request.url).searchParams.get("previewToken") ?? "";
   if (!(await verifyPreviewToken(artifactId, userId, previewToken, env))) {
     throw new HttpError(403, "Invalid preview token");
@@ -178,7 +178,7 @@ export async function previewArtifact(request: Request, env: Env, db: SupabaseCl
 }
 
 async function downloadStoredArtifactWithRetry(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   bucket: string,
   storageKey: string
 ): Promise<{ data: Blob | null; error: { message?: string } | null }> {

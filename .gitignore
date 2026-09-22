@@ -15,3 +15,7 @@ client_secret*.json
 playwright-report/
 test-results/
 tmp-pages-smoke/
+
+.worker-build/
+test-results/
+playwright-report/

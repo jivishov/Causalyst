@@ -1,3 +1,4 @@
+import { protectPreviewDocument } from "./previewPolicy";
 import type {
   AttemptResult,
   SimulationHtmlReasoningEffort,
@@ -814,7 +815,7 @@ export async function createSimulationPreviewObjectUrl(previewBlob: Blob, option
     return URL.createObjectURL(previewBlob);
   }
 
-  const decoratedHtml = decorateSimulationPreviewHtml(await previewBlob.text(), options.healthNonce);
+  const decoratedHtml = protectPreviewDocument(decorateSimulationPreviewHtml(await previewBlob.text(), options.healthNonce));
   const decoratedBlob = new Blob([decoratedHtml], {
     type: previewBlob.type || "text/html; charset=utf-8"
   });

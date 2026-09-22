@@ -1,4 +1,5 @@
 export interface Env {
+  REALTIME_SESSIONS?: DurableObjectNamespace;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   SUPABASE_JWKS_URL?: string;
@@ -13,7 +14,7 @@ export interface Env {
 
 export function requireEnv(env: Env, key: keyof Env): string {
   const value = env[key];
-  if (!value) throw new Error(`Missing required environment variable ${key}`);
+  if (typeof value !== "string" || !value) throw new Error(`Missing required environment variable ${key}`);
   return value;
 }
 

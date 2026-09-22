@@ -1,19 +1,19 @@
-import type { ReactElement } from "react";
+import { lazy, Suspense, type ReactElement } from "react";
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
-import { AssessmentPage } from "./pages/AssessmentPage";
-import { AttemptResultPage } from "./pages/AttemptResultPage";
-import { Dashboard } from "./pages/Dashboard";
-import { FinalResultPage } from "./pages/FinalResultPage";
-import { Login } from "./pages/Login";
-import { TeacherAssessmentsPage } from "./pages/teacher/TeacherAssessmentsPage";
-import { TeacherAssignmentsPage } from "./pages/teacher/TeacherAssignmentsPage";
-import { TeacherAttemptReviewPage } from "./pages/teacher/TeacherAttemptReviewPage";
-import { TeacherCoursesPage } from "./pages/teacher/TeacherCoursesPage";
-import { TeacherGradebookPage } from "./pages/teacher/TeacherGradebookPage";
-import { TeacherPasswordReset } from "./pages/teacher/TeacherPasswordReset";
-import { TeacherReviewPage } from "./pages/teacher/TeacherReviewPage";
-import { TeacherWorkspace } from "./pages/teacher/TeacherWorkspace";
+const AssessmentPage = lazy(() => import("./pages/AssessmentPage").then((module) => ({ default: module.AssessmentPage })));
+const AttemptResultPage = lazy(() => import("./pages/AttemptResultPage").then((module) => ({ default: module.AttemptResultPage })));
+const Dashboard = lazy(() => import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })));
+const FinalResultPage = lazy(() => import("./pages/FinalResultPage").then((module) => ({ default: module.FinalResultPage })));
+const Login = lazy(() => import("./pages/Login").then((module) => ({ default: module.Login })));
+const TeacherAssessmentsPage = lazy(() => import("./pages/teacher/TeacherAssessmentsPage").then((module) => ({ default: module.TeacherAssessmentsPage })));
+const TeacherAssignmentsPage = lazy(() => import("./pages/teacher/TeacherAssignmentsPage").then((module) => ({ default: module.TeacherAssignmentsPage })));
+const TeacherAttemptReviewPage = lazy(() => import("./pages/teacher/TeacherAttemptReviewPage").then((module) => ({ default: module.TeacherAttemptReviewPage })));
+const TeacherCoursesPage = lazy(() => import("./pages/teacher/TeacherCoursesPage").then((module) => ({ default: module.TeacherCoursesPage })));
+const TeacherGradebookPage = lazy(() => import("./pages/teacher/TeacherGradebookPage").then((module) => ({ default: module.TeacherGradebookPage })));
+const TeacherPasswordReset = lazy(() => import("./pages/teacher/TeacherPasswordReset").then((module) => ({ default: module.TeacherPasswordReset })));
+const TeacherReviewPage = lazy(() => import("./pages/teacher/TeacherReviewPage").then((module) => ({ default: module.TeacherReviewPage })));
+const TeacherWorkspace = lazy(() => import("./pages/teacher/TeacherWorkspace").then((module) => ({ default: module.TeacherWorkspace })));
 import {
   STUDENT_PROTECTED_ROUTES,
   STUDENT_PUBLIC_ROUTES,
@@ -46,6 +46,7 @@ const teacherElements: Record<TeacherChildRouteLabel, ReactElement> = {
 
 export default function App() {
   return (
+    <Suspense fallback={<p className="status-line">Loading…</p>}>
     <Routes>
       <Route path="/teacher/reset-password" element={<TeacherPasswordReset />} />
       <Route path="/teacher/*" element={<TeacherWorkspace />}>
@@ -57,6 +58,7 @@ export default function App() {
       </Route>
       <Route path="/*" element={<StudentApplication />} />
     </Routes>
+    </Suspense>
   );
 }
 

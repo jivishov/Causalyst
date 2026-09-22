@@ -46,4 +46,3 @@ export async function reserveSimulationJob(db: SupabaseClient, input: {
   if (!data?.job) throw new HttpError(503, "Invalid simulation reservation");
   return { claimed: data.claimed === true, job: data.job as SimulationGenerationJobRow };
 }
-

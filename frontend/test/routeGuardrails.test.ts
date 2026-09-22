@@ -38,7 +38,7 @@ describe("frontend route guardrails", () => {
   });
 
   it("keeps simulation refinement as a draft preview action before submit", () => {
-    const assessmentSource = readFileSync(new URL("../src/pages/AssessmentPage.tsx", import.meta.url), "utf8");
+    const assessmentSource = readFileSync(new URL("../src/pages/assessment/SimulationAssessment.tsx", import.meta.url), "utf8");
     const apiSource = readFileSync(new URL("../src/lib/api.ts", import.meta.url), "utf8");
 
     expect(assessmentSource).toContain("Refine to Match Sketch");

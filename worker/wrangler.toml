@@ -7,5 +7,13 @@ type = "Text"
 globs = ["**/*.txt"]
 fallthrough = true
 
+[[durable_objects.bindings]]
+name = "REALTIME_SESSIONS"
+class_name = "RealtimeEvidence"
+
+[[migrations]]
+tag = "v1-realtime-evidence"
+new_sqlite_classes = ["RealtimeEvidence"]
+
 [triggers]
 crons = ["*/10 * * * *"]

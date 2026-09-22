@@ -31,11 +31,19 @@ The frontend runs at `http://127.0.0.1:5173`; the Worker runs at `http://localho
 ```bash
 npm run typecheck
 npm test
+npm run test:db
 npm run build
+npm run check:bundle
 npm run security
+npm run audit
+npm run build:worker
+npx playwright install --with-deps chromium
+npm run test:browser
 ```
 
 ## Deployment
+
+For the assessment integrity release, follow the [migration order and release gates](docs/assessment-hardening.md) before merging deployment changes.
 
 - `.github/workflows/deploy-worker.yml` validates, tests, and deploys the Cloudflare Worker. On success it records the Worker URL in `VITE_WORKER_URL` and dispatches the frontend workflow.
 - `.github/workflows/deploy-frontend.yml` validates configuration, runs the full test/build/security suite, and deploys `frontend/dist` to GitHub Pages.

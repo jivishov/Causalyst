@@ -1,4 +1,5 @@
 import { runRetention } from "./lib/retention";
+export { RealtimeEvidence } from "./lib/realtimeEvidence";
 import { requireStudentAuth, requireTeacherAuthSession, requireUser, type AuthContext } from "./lib/auth";
 import { corsHeaders, jsonResponse, toErrorResponse } from "./lib/http";
 import { serviceSupabase } from "./lib/supabase";

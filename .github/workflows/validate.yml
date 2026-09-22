@@ -35,5 +35,9 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/causalyst_test
       - run: npm run build
+      - run: npm run check:bundle
       - run: npm run security
       - run: npm run audit
+      - run: npm run build:worker
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser

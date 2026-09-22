@@ -18,7 +18,10 @@
     "security:repo": "node scripts/check-repo-secrets.mjs",
     "security:dist": "node scripts/check-dist-secrets.mjs",
     "test:db": "node scripts/test-db/runner.mjs",
-    "audit": "npm audit --audit-level=moderate"
+    "test:browser": "playwright test",
+    "audit": "npm audit --audit-level=moderate",
+    "build:worker": "npm exec --workspace worker -- wrangler deploy --dry-run --outdir ../.worker-build",
+    "check:bundle": "node scripts/check-bundle-budget.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

@@ -16,15 +16,15 @@ Never expose these to browser state, URLs, CSV exports, or logs returned to end 
 - Storage bucket keys and raw `storage_key` paths.
 - PIN hashes and pepper values.
 - OpenAI file handles (`file_id`) and raw provider responses.
+- Teacher answer keys and private assessment-version definitions.
 - Local filesystem paths or local temp-file metadata.
 - SHA/SHA256-like hashes unless explicitly required for backend-only integrity logic.
 
-## Attachment Lifecycle (Runtime-Only)
+## Attachment Lifecycle
 
-- Files are staged server-side first.
-- Provider uploads happen lazily on first request that needs the file.
-- Provider file handles are cached for reuse across related requests.
-- Reset/cleanup deletes both local staged files and provider-side file handles.
+Uploads receive new private object keys and expiring capabilities. Completed bytes cannot be overwritten. Submission binds completed artifact IDs and server-private hashes in a database transaction. Unsubmitted objects expire after seven days; submitted evidence is retained for teacher review until an institutional deletion policy is approved.
+
+Provider copies are created lazily with a 24-hour expiry. Scheduled cleanup deletes cached provider files and expired unsubmitted objects, retries failures, and records cleanup results. Temporary live-voice collection state expires after one day; the authoritative submitted transcript is stored with the attempt. See [the retention policy and operator checks](assessment-hardening.md#retention-and-request-limits).
 
 ## Stored Artifacts
 
@@ -38,7 +38,7 @@ Never expose these to browser state, URLs, CSV exports, or logs returned to end 
 
 ## Authentication And Access
 
-- Student flow: Supabase Google session + roster email match + class code/PIN verification through Worker.
+- Student flow: Supabase Google session and verified canonical email reconciled against the roster through Worker; legacy PIN claims cannot transfer historical evidence across user IDs.
 - Teacher flow: Supabase email/password + one-time first-teacher setup gate.
 - Teacher APIs enforce ownership via teacher profile + course/assignment traversal checks.
 - RLS is enabled across core tables; privileged writes/reads are Worker-mediated with service role.

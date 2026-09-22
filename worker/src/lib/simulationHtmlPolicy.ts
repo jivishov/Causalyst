@@ -1,9 +1,11 @@
+import { parse, serialize, type DefaultTreeAdapterMap } from "parse5";
 import svgJsRuntime from "../vendor/svgjs-v3.2.5.min.js.txt";
 import { HttpError } from "./http";
 
 const SVG_RUNTIME_MARKER = "data-alt-assessment-svgjs-runtime";
 
 const FORBIDDEN_GENERATED_HTML_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /\b(?:location|open)\s*(?:\.|\[|=|\()/i, label: "navigation" },
   { pattern: /<script\b[^>]*\bsrc\s*=/i, label: "external script" },
   { pattern: /<script\b[^>]*\btype\s*=\s*["']?module\b/i, label: "module script" },
   { pattern: /<link\b[^>]*\brel\s*=\s*["']?stylesheet\b[^>]*\bhref\s*=/i, label: "external stylesheet" },
@@ -40,15 +42,40 @@ const FORBIDDEN_GENERATED_HTML_PATTERNS: Array<{ pattern: RegExp; label: string 
 
 export function prepareGeneratedSimulationHtml(html: string): string {
   validateGeneratedSimulationHtml(html);
-  if (html.includes(SVG_RUNTIME_MARKER)) return html;
-  return injectSvgRuntime(html);
+  const reconstructed = serialize(parse(html));
+  if (reconstructed.includes(SVG_RUNTIME_MARKER)) return reconstructed;
+  return injectSvgRuntime(reconstructed);
 }
 
 export function validateGeneratedSimulationHtml(html: string): void {
+  if (html.length > 500000) throw new HttpError(502, "Simulation HTML is too large");
   const normalized = html.trim();
   if (!/^<!doctype\s+html\b/i.test(normalized) || !/<html\b/i.test(normalized)) {
     throw new HttpError(502, "Simulation HTML output must be a complete HTML document");
   }
+
+
+  function visit(node: DefaultTreeAdapterMap["node"]): void {
+    if ("tagName" in node) {
+      if (["base", "iframe", "frame", "frameset", "object", "embed", "form", "link"].includes(node.tagName)) {
+        throw new HttpError(502, `Simulation HTML used forbidden ${node.tagName}`);
+      }
+      for (const attribute of node.attrs) {
+        const name = attribute.name.toLowerCase();
+        const value = attribute.value.trim();
+        if (name === "http-equiv" || name === "srcset" || name === "ping" || name === "action" || name === "formaction") {
+          throw new HttpError(502, `Simulation HTML used forbidden ${name}`);
+        }
+        if (["src", "href", "poster", "data"].includes(name) && value && !value.startsWith("#") &&
+            !(node.tagName === "img" && /^data:image\/(png|jpeg|gif|webp);base64,/i.test(value))) {
+          throw new HttpError(502, "Simulation HTML used forbidden external URL");
+        }
+      }
+    }
+    if ("childNodes" in node) for (const child of node.childNodes) visit(child);
+    if ("content" in node && node.content) visit(node.content);
+  }
+  visit(parse(html));
 
   for (const forbidden of FORBIDDEN_GENERATED_HTML_PATTERNS) {
     if (forbidden.pattern.test(html)) {

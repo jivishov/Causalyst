@@ -1,7 +1,9 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "./database";
+import { toJson } from "./database";
 import type {
   AssessmentSummary,
   GradeFeedback,
+  GradingAssessment,
   RubricCriterion,
   StudentAssignmentSummary,
   StudentAssignmentState,
@@ -39,6 +41,7 @@ export interface AttemptRecord {
   simulation_spec: unknown | null;
   submitted_at: string | null;
   submitted_after_due?: boolean;
+  assessment_version_id?: string;
 }
 
 export interface ArtifactRecord {
@@ -55,6 +58,8 @@ export interface ArtifactRecord {
   source_description_sha256?: string | null;
   simulation_html_viewport_width?: number | null;
   simulation_html_viewport_height?: number | null;
+  content_sha256?: string | null;
+  frozen_at?: string | null;
   upload_state: "pending" | "uploaded" | "processed" | "deleted";
 }
 
@@ -90,6 +95,7 @@ interface GradebookPublishedRow {
 }
 
 interface AttemptJoinRow extends AttemptRecord {
+  assessment_versions?: { definition: AssessmentRecord; legacy_capture: boolean } | null;
   assessments: AssessmentRecord | null;
   assessment_assignments: AssignmentRow | null;
 }
@@ -110,14 +116,27 @@ export function toAssessmentSummary(record: AssessmentRecord & { due_at?: string
     type: record.type,
     title: record.title,
     prompt: record.prompt,
-    expectedAnswer: record.expected_answer,
     rubric: record.rubric ?? [],
     config: record.config ?? {},
     dueAt: record.due_at ?? null
   };
 }
 
-export async function listStudentCourseAssignments(db: SupabaseClient, userId: string): Promise<StudentCourseAssignments[]> {
+/** Only trusted Worker grading/teacher paths receive this contract. */
+export function toGradingAssessment(record: AssessmentRecord & { due_at?: string | null }): GradingAssessment {
+  return { ...toAssessmentSummary(record), expectedAnswer: record.expected_answer ?? null };
+}
+
+/** Whitelist fields even when the input came from an internal grading path. */
+export function studentAssessment(assessment: AssessmentSummary): AssessmentSummary {
+  return {
+    id: assessment.id, type: assessment.type, title: assessment.title,
+    prompt: assessment.prompt, rubric: assessment.rubric, config: assessment.config,
+    dueAt: assessment.dueAt
+  };
+}
+
+export async function listStudentCourseAssignments(db: AppDatabaseClient, userId: string): Promise<StudentCourseAssignments[]> {
   const classIds = await classIdsForUser(db, userId);
   if (classIds.length === 0) return [];
   const nowMs = Date.now();
@@ -196,7 +215,7 @@ export async function listStudentCourseAssignments(db: SupabaseClient, userId: s
 }
 
 async function loadLatestAttemptByAssignmentId(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   assignments: VisibleAssignmentRow[]
 ): Promise<Map<string, StudentAttemptSummary>> {
@@ -244,7 +263,7 @@ async function loadLatestAttemptByAssignmentId(
 }
 
 async function loadPublishedGradeByAssignmentId(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   assignments: VisibleAssignmentRow[]
 ): Promise<Map<string, StudentPublishedGrade>> {
@@ -287,7 +306,7 @@ async function loadPublishedGradeByAssignmentId(
 }
 
 async function resolveRosterStudentIdsForClasses(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   classIds: string[]
 ): Promise<Map<string, string>> {
@@ -391,7 +410,7 @@ function toStudentDueState(input: {
   return "none";
 }
 
-export async function classIdsForUser(db: SupabaseClient, userId: string): Promise<string[]> {
+export async function classIdsForUser(db: AppDatabaseClient, userId: string): Promise<string[]> {
   const { data, error } = await db
     .from("class_memberships")
     .select("class_id")
@@ -400,7 +419,7 @@ export async function classIdsForUser(db: SupabaseClient, userId: string): Promi
   return (data ?? []).map((row: any) => row.class_id);
 }
 
-export async function requireAssignedAssignment(db: SupabaseClient, userId: string, assignmentId: string): Promise<StudentAssignmentSummary> {
+export async function requireAssignedAssignment(db: AppDatabaseClient, userId: string, assignmentId: string): Promise<StudentAssignmentSummary> {
   const classIds = await classIdsForUser(db, userId);
   if (classIds.length === 0) throw new HttpError(403, "No class membership found for student");
 
@@ -438,10 +457,10 @@ export async function requireAssignedAssignment(db: SupabaseClient, userId: stri
   };
 }
 
-export async function requireAttempt(db: SupabaseClient, userId: string, attemptId: string): Promise<{ attempt: AttemptRecord; assessment: AssessmentSummary }> {
+export async function requireAttempt(db: AppDatabaseClient, userId: string, attemptId: string): Promise<{ attempt: AttemptRecord; assessment: GradingAssessment }> {
   const { data, error } = await db
     .from("attempts")
-    .select("*, assessments(id,type,title,prompt,expected_answer,rubric,config), assessment_assignments(id,class_id,due_at,opens_at,classes(code,name),assessments(id,type,title,prompt,expected_answer,rubric,config))")
+    .select("*, assessment_versions(definition,legacy_capture), assessments(id,type,title,prompt,expected_answer,rubric,config), assessment_assignments(id,class_id,due_at,opens_at,classes(code,name),assessments(id,type,title,prompt,expected_answer,rubric,config))")
     .eq("id", attemptId)
     .eq("student_id", userId)
     .maybeSingle();
@@ -450,23 +469,21 @@ export async function requireAttempt(db: SupabaseClient, userId: string, attempt
   if (!data) throw new HttpError(404, "Attempt not found");
 
   const row = data as unknown as AttemptJoinRow;
-  const assignmentAssessment = row.assessment_assignments?.assessments;
-  const directAssessment = row.assessments;
-  const resolvedAssessment = assignmentAssessment ?? directAssessment;
+  const resolvedAssessment = row.assessment_versions?.definition;
   if (!resolvedAssessment?.id) {
-    throw new HttpError(500, "Attempt is missing assessment linkage");
+    throw new HttpError(500, "Attempt is missing its frozen assessment definition");
   }
 
   return {
     attempt: row,
-    assessment: toAssessmentSummary({
+    assessment: toGradingAssessment({
       ...resolvedAssessment,
       due_at: row.assessment_assignments?.due_at ?? null
     })
   };
 }
 
-export async function requireArtifact(db: SupabaseClient, userId: string, artifactId: string, attemptId?: string): Promise<ArtifactRecord> {
+export async function requireArtifact(db: AppDatabaseClient, userId: string, artifactId: string, attemptId?: string): Promise<ArtifactRecord> {
   let query = db
     .from("attempt_artifacts")
     .select("*")
@@ -480,7 +497,7 @@ export async function requireArtifact(db: SupabaseClient, userId: string, artifa
   return data as ArtifactRecord;
 }
 
-export async function logAudit(db: SupabaseClient, payload: {
+export async function logAudit(db: AppDatabaseClient, payload: {
   attemptId: string;
   route: string;
   provider: string;
@@ -489,15 +506,16 @@ export async function logAudit(db: SupabaseClient, payload: {
   rawResponse?: unknown;
   error?: string;
 }): Promise<void> {
-  await db.from("attempt_audit_logs").insert({
+  const { error } = await db.from("attempt_audit_logs").insert({
     attempt_id: payload.attemptId,
     route: payload.route,
     provider: payload.provider,
     model: payload.model,
-    request_summary: payload.requestSummary ?? null,
-    raw_response: payload.rawResponse ?? null,
+    request_summary: toJson(payload.requestSummary ?? null),
+    raw_response: toJson(payload.rawResponse ?? null),
     error: payload.error ?? null
   });
+  if (error) throw new HttpError(500, "Failed to record assessment audit", error.message);
 }
 
 export function toGradeFeedback(value: unknown): GradeFeedback | null {
@@ -518,7 +536,15 @@ export function toGradeFeedback(value: unknown): GradeFeedback | null {
     if (typeof flag !== "string") return null;
   }
 
-  return value as unknown as GradeFeedback;
+  return {
+    score: value.score, overallComment: value.overallComment, confidence: value.confidence,
+    criteria: value.criteria.map((entry) => ({
+      ...(typeof entry.id === "string" ? { id: entry.id } : {}), name: entry.name,
+      score: entry.score, maxPoints: entry.maxPoints, comment: entry.comment
+    })), reviewFlags: value.reviewFlags as string[],
+    ...(typeof value.policyVersion === "string" ? { policyVersion: value.policyVersion } : {}),
+    ...(Array.isArray(value.appliedCaps) ? { appliedCaps: value.appliedCaps.filter((cap) => isRecord(cap) && typeof cap.id === "string" && typeof cap.reason === "string").map((cap) => ({ id: cap.id, reason: cap.reason })) } : {})
+  };
 }
 
 function isFiniteNumber(value: unknown): value is number {

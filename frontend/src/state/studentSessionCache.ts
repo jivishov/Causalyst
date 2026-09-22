@@ -1,7 +1,7 @@
 import type { StudentAssignmentSummary, StudentCourseAssignments } from "@alt-assessment/shared";
 import type { StudentProfile } from "../lib/api";
 
-export const STUDENT_SESSION_CACHE_KEY = "alt-assessment.student-session.v2";
+export const STUDENT_SESSION_CACHE_KEY = "alt-assessment.student-session.v3";
 
 export interface CachedStudentSession {
   authEmail: string;
@@ -24,6 +24,7 @@ interface StorageLike {
 
 export function readCachedStudentSession(storage: StorageLike = window.localStorage): CachedStudentSession | null {
   try {
+    storage.removeItem("alt-assessment.student-session.v2");
     const raw = storage.getItem(STUDENT_SESSION_CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CachedStudentSession;

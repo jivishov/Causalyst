@@ -1,16 +1,9 @@
 name: Deploy Frontend
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/deploy-frontend.yml"
-      - "frontend/**"
-      - "shared/**"
-      - "scripts/**"
-      - "package.json"
-      - "package-lock.json"
-  workflow_dispatch:
+  # Called by Deploy Worker after the matching backend has been deployed.
+  # Relative reusable workflows check out the same commit as their caller.
+  workflow_call:
 
 permissions:
   contents: read

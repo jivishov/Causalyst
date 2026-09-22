@@ -1,14 +1,15 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient, Database } from "./database";
 import type { Env } from "./env";
 import { HttpError } from "./http";
 
-export function serviceSupabase(env: Env): SupabaseClient {
+export function serviceSupabase(env: Env): AppDatabaseClient {
   const serviceRoleKey = normalizeSecret(env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY");
   if (!serviceRoleKey) {
     throw new HttpError(500, "Worker SUPABASE_SERVICE_ROLE_KEY is not configured");
   }
 
-  return createClient(env.SUPABASE_URL, serviceRoleKey, {
+  return createClient<Database>(env.SUPABASE_URL, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }

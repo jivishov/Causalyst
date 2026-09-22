@@ -9,6 +9,7 @@ const excludedDirs = new Set([
   ".playwright-mcp",
   ".vite",
   ".wrangler",
+  ".worker-build",
   "coverage",
   "dist",
   "node_modules",
@@ -37,6 +38,11 @@ const pathPatterns = [
 ];
 
 const contentPatterns = [
+  { pattern: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, label: "Private key material" },
+  { pattern: /\bgh[pousr]_[A-Za-z0-9]{36,}\b/, label: "GitHub access token" },
+  { pattern: /\bgithub_pat_[A-Za-z0-9_]{70,}\b/, label: "GitHub fine-grained token" },
+  { pattern: /\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{40,}\b/, label: "Provider secret key" },
+  { pattern: /\bAKIA[A-Z0-9]{16}\b/, label: "AWS access key" },
   {
     pattern: /"client_secret"\s*:\s*"GOCSPX-[^"]+"/i,
     label: "Google OAuth client secret"

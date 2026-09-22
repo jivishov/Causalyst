@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { JSDOM } from "jsdom";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
   LEGACY_SIMULATION_HTML_VIEWPORT_HEIGHT,
@@ -21,6 +22,8 @@ import {
   resolveSimulationReadinessMessage,
   resolveSimulationRunMessage,
 } from "../src/lib/simulationGenerationUi";
+
+beforeEach(() => { vi.stubGlobal("DOMParser", new JSDOM().window.DOMParser); });
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -282,8 +285,8 @@ describe("simulation generation UI helpers", () => {
     expect(objectUrls[0].type).toContain("text/html");
     const decoratedHtml = await objectUrls[0].text();
     expect(decoratedHtml).toContain("data-alt-assessment-simulation-preview-fit");
-    expect(decoratedHtml).toContain("<style data-alt-assessment-simulation-preview-fit>");
-    expect(decoratedHtml).toContain("<script data-alt-assessment-simulation-preview-fit>");
+    expect(decoratedHtml).toContain("<style data-alt-assessment-simulation-preview-fit=\"\">");
+    expect(decoratedHtml).toContain("<script data-alt-assessment-simulation-preview-fit=\"\">");
     expect(decoratedHtml).toContain("alt-assessment:simulation-preview-health");
     expect(decoratedHtml).toContain("nonce-1");
     expect(decoratedHtml).toContain("html,\nbody");
@@ -302,7 +305,7 @@ describe("simulation generation UI helpers", () => {
 
     expect(await createSimulationPreviewObjectUrl(blob)).toBe("blob:test-1");
     const decoratedHtml = await objectUrls[0].text();
-    expect(decoratedHtml).toMatch(/^<!doctype html><html><head><style data-alt-assessment-simulation-preview-fit>/i);
+    expect(decoratedHtml).toMatch(/^<!doctype html>\s*<html><head><meta http-equiv="Content-Security-Policy"/i);
   });
 
   it("does not decorate non-HTML preview blobs", async () => {

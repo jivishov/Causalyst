@@ -1,3 +1,4 @@
+import { readAllPages, readAllForIds } from "../lib/pagination";
 import type {
   AttemptStatus,
   TeacherGradebookEntry,
@@ -9,7 +10,8 @@ import type {
   TeacherGradebookListResponse,
   TeacherGradebookRebuildResponse
 } from "@alt-assessment/shared";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "../lib/database";
+import { toJson } from "../lib/database";
 import { toCsv } from "../lib/csv";
 import { HttpError, getOptionalString, getRequiredString, readJson } from "../lib/http";
 
@@ -89,7 +91,7 @@ const ASSIGNMENT_SELECT = `id, class_id, assessment_id, opens_at, due_at, archiv
 const ROSTER_SELECT = "id, class_id, display_name, student_identifier, email, section, claimed_by, deactivated_at";
 const GRADEBOOK_SELECT = "id, assignment_id, roster_student_id, approved_attempt_id, approved_score, approved_feedback, teacher_override_score, teacher_override_note, missing, published_at, created_at, updated_at";
 
-export async function listTeacherGradebook(request: Request, db: SupabaseClient, userId: string): Promise<TeacherGradebookListResponse> {
+export async function listTeacherGradebook(request: Request, db: AppDatabaseClient, userId: string): Promise<TeacherGradebookListResponse> {
   await requireTeacher(db, userId);
   const url = new URL(request.url);
   const includeArchivedAssignments = url.searchParams.get("includeArchivedAssignments") === "true";
@@ -134,11 +136,10 @@ export async function listTeacherGradebook(request: Request, db: SupabaseClient,
   const assignmentIds = assignments.map((row) => row.id);
   const rosterStudentIds = rosterStudents.map((row) => row.id);
 
-  const { data: entryData, error: entryError } = await db
+  const { data: entryData, error: entryError } = await readAllForIds(assignmentIds, (ids) => db
     .from("gradebook_entries")
-    .select(GRADEBOOK_SELECT)
-    .in("assignment_id", assignmentIds)
-    .in("roster_student_id", rosterStudentIds);
+    .select(GRADEBOOK_SELECT, { count: "exact" })
+    .in("assignment_id", ids));
   if (entryError && isMissingGradebookSchema(entryError)) {
     throw new HttpError(409, "Gradebook requires database migration 0007_gradebook.sql");
   }
@@ -158,7 +159,7 @@ export async function listTeacherGradebook(request: Request, db: SupabaseClient,
   return { entries };
 }
 
-export async function rebuildTeacherGradebook(request: Request, db: SupabaseClient, userId: string): Promise<TeacherGradebookRebuildResponse> {
+export async function rebuildTeacherGradebook(request: Request, db: AppDatabaseClient, userId: string): Promise<TeacherGradebookRebuildResponse> {
   await requireTeacher(db, userId);
   const body = await readJson<Record<string, unknown>>(request);
   const courseId = getRequiredString(body, "courseId");
@@ -171,7 +172,7 @@ export async function rebuildTeacherGradebook(request: Request, db: SupabaseClie
   };
 }
 
-export async function exportTeacherGradebook(request: Request, db: SupabaseClient, userId: string): Promise<TeacherGradebookExportResponse> {
+export async function exportTeacherGradebook(request: Request, db: AppDatabaseClient, userId: string): Promise<TeacherGradebookExportResponse> {
   await requireTeacher(db, userId);
   const body = await readJson<Record<string, unknown>>(request);
   const input = parseGradeExportRequest(body);
@@ -235,7 +236,7 @@ export async function exportTeacherGradebook(request: Request, db: SupabaseClien
   };
 }
 
-export async function approveTeacherAttemptScore(db: SupabaseClient, userId: string, attemptId: string): Promise<{ entry: TeacherGradebookEntry }> {
+export async function approveTeacherAttemptScore(db: AppDatabaseClient, userId: string, attemptId: string): Promise<{ entry: TeacherGradebookEntry }> {
   await requireTeacher(db, userId);
   const attempt = await requireAttempt(db, attemptId);
   if (!attempt.assignment_id) {
@@ -243,6 +244,11 @@ export async function approveTeacherAttemptScore(db: SupabaseClient, userId: str
   }
   if (typeof attempt.provisional_score !== "number" || Number.isNaN(attempt.provisional_score)) {
     throw new HttpError(409, "Attempt does not have a provisional score to approve");
+  }
+
+  const feedback = attempt.provisional_feedback as { policyVersion?: string; reviewFlags?: unknown[] } | null;
+  if (feedback?.policyVersion !== "rubric-v2" || feedback.reviewFlags?.some((flag) => typeof flag === "string" && flag.startsWith("SCORING_REVIEW_REQUIRED"))) {
+    throw new HttpError(409, "This recommendation needs a teacher grade with a reason before publication");
   }
 
   const assignment = await requireOwnedAssignment(db, userId, attempt.assignment_id);
@@ -260,7 +266,7 @@ export async function approveTeacherAttemptScore(db: SupabaseClient, userId: str
     .update({
       approved_attempt_id: attempt.id,
       approved_score: attempt.provisional_score,
-      approved_feedback: attempt.provisional_feedback,
+      approved_feedback: toJson(attempt.provisional_feedback),
       missing: false,
       updated_at: now
     })
@@ -270,11 +276,12 @@ export async function approveTeacherAttemptScore(db: SupabaseClient, userId: str
   return { entry: await getTeacherGradebookEntryById(db, userId, entry.id) };
 }
 
-export async function setTeacherGradebookOverride(request: Request, db: SupabaseClient, userId: string, entryId: string): Promise<{ entry: TeacherGradebookEntry }> {
+export async function setTeacherGradebookOverride(request: Request, db: AppDatabaseClient, userId: string, entryId: string): Promise<{ entry: TeacherGradebookEntry }> {
   await requireTeacher(db, userId);
   const body = await readJson<Record<string, unknown>>(request);
   const score = parseScore(body.score, "score");
   const note = getOptionalString(body, "note") ?? null;
+  if (!note?.trim()) throw new HttpError(400, "A reason is required for a teacher grade");
   const entry = await requireOwnedGradebookEntry(db, userId, entryId);
   const now = new Date().toISOString();
 
@@ -292,7 +299,7 @@ export async function setTeacherGradebookOverride(request: Request, db: Supabase
   return { entry: await getTeacherGradebookEntryById(db, userId, entry.id) };
 }
 
-export async function markTeacherGradebookMissing(db: SupabaseClient, userId: string, entryId: string): Promise<{ entry: TeacherGradebookEntry }> {
+export async function markTeacherGradebookMissing(db: AppDatabaseClient, userId: string, entryId: string): Promise<{ entry: TeacherGradebookEntry }> {
   await requireTeacher(db, userId);
   const entry = await requireOwnedGradebookEntry(db, userId, entryId);
   const now = new Date().toISOString();
@@ -312,7 +319,7 @@ export async function markTeacherGradebookMissing(db: SupabaseClient, userId: st
   return { entry: await getTeacherGradebookEntryById(db, userId, entry.id) };
 }
 
-export async function clearTeacherGradebookGrade(db: SupabaseClient, userId: string, entryId: string): Promise<{ entry: TeacherGradebookEntry }> {
+export async function clearTeacherGradebookGrade(db: AppDatabaseClient, userId: string, entryId: string): Promise<{ entry: TeacherGradebookEntry }> {
   await requireTeacher(db, userId);
   const entry = await requireOwnedGradebookEntry(db, userId, entryId);
   if (entry.published_at) {
@@ -335,7 +342,7 @@ export async function clearTeacherGradebookGrade(db: SupabaseClient, userId: str
   return { entry: await getTeacherGradebookEntryById(db, userId, entry.id) };
 }
 
-export async function setTeacherGradebookPublished(db: SupabaseClient, userId: string, entryId: string, published: boolean): Promise<{ entry: TeacherGradebookEntry }> {
+export async function setTeacherGradebookPublished(db: AppDatabaseClient, userId: string, entryId: string, published: boolean): Promise<{ entry: TeacherGradebookEntry }> {
   await requireTeacher(db, userId);
   const entry = await requireOwnedGradebookEntry(db, userId, entryId);
 
@@ -367,94 +374,25 @@ export async function setTeacherGradebookPublished(db: SupabaseClient, userId: s
 }
 
 export async function reconcileGradebookForCourse(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   courseId: string
 ): Promise<{ insertedRows: number; touchedAssignments: number; touchedStudents: number }> {
   await requireTeacher(db, userId);
   await requireOwnedCourse(db, userId, courseId);
 
-  const assignments = await loadAssignments(db, userId, courseId, { assignmentId: null, includeArchived: false });
-  const rosterStudents = await loadRosterStudents(db, courseId, false);
-
-  const assignmentIds = assignments.map((row) => row.id);
-  const rosterStudentIds = rosterStudents.map((row) => row.id);
-
-  if (assignmentIds.length === 0 || rosterStudentIds.length === 0) {
-    return {
-      insertedRows: 0,
-      touchedAssignments: assignmentIds.length,
-      touchedStudents: rosterStudentIds.length
-    };
-  }
-
-  const { data: existingData, error: existingError } = await db
-    .from("gradebook_entries")
-    .select("assignment_id, roster_student_id")
-    .in("assignment_id", assignmentIds)
-    .in("roster_student_id", rosterStudentIds);
-  if (existingError && isMissingGradebookSchema(existingError)) {
-    throw new HttpError(409, "Gradebook requires database migration 0007_gradebook.sql");
-  }
-  if (existingError) throw new HttpError(500, "Failed to load existing gradebook rows", existingError.message);
-
-  const existingKeys = new Set(
-    ((existingData ?? []) as Array<{ assignment_id: string; roster_student_id: string }>)
-      .map((row) => `${row.assignment_id}:${row.roster_student_id}`)
-  );
-
-  const now = new Date().toISOString();
-  const inserts: Array<Record<string, unknown>> = [];
-  for (const assignmentId of assignmentIds) {
-    for (const rosterStudentId of rosterStudentIds) {
-      const key = `${assignmentId}:${rosterStudentId}`;
-      if (existingKeys.has(key)) continue;
-      inserts.push({
-        assignment_id: assignmentId,
-        roster_student_id: rosterStudentId,
-        created_at: now,
-        updated_at: now
-      });
-    }
-  }
-
-  if (inserts.length > 0) {
-    const table = db.from("gradebook_entries") as unknown as {
-      upsert?: (rows: Record<string, unknown>[], options?: { onConflict?: string; ignoreDuplicates?: boolean }) => Promise<{ error: { message?: string } | null }>;
-      insert?: (rows: Record<string, unknown>[]) => Promise<{ error: { message?: string } | null }>;
-    };
-
-    let error: { message?: string } | null = null;
-    if (typeof table.upsert === "function") {
-      const result = await table.upsert(inserts, {
-        onConflict: "assignment_id,roster_student_id",
-        ignoreDuplicates: true
-      });
-      error = result.error ?? null;
-    } else if (typeof table.insert === "function") {
-      const result = await table.insert(inserts);
-      error = result.error ?? null;
-    } else {
-      throw new HttpError(500, "Gradebook reconcile write is unavailable");
-    }
-
-    if (error) throw new HttpError(500, "Failed to reconcile gradebook rows", error.message);
-  }
-
-  return {
-    insertedRows: inserts.length,
-    touchedAssignments: assignmentIds.length,
-    touchedStudents: rosterStudentIds.length
-  };
+  const { data, error } = await db.rpc("reconcile_course_gradebook", { p_teacher_id: userId, p_course_id: courseId });
+  if (error) throw new HttpError(500, "Failed to reconcile gradebook rows", error.message);
+  return data as { insertedRows: number; touchedAssignments: number; touchedStudents: number };
 }
 
-export async function getTeacherGradebookEntryById(db: SupabaseClient, userId: string, entryId: string): Promise<TeacherGradebookEntry> {
+export async function getTeacherGradebookEntryById(db: AppDatabaseClient, userId: string, entryId: string): Promise<TeacherGradebookEntry> {
   await requireTeacher(db, userId);
   const entry = await requireOwnedGradebookEntry(db, userId, entryId);
   return await buildGradebookEntry(db, entry);
 }
 
-async function requireOwnedCourse(db: SupabaseClient, userId: string, courseId: string): Promise<CourseRow> {
+async function requireOwnedCourse(db: AppDatabaseClient, userId: string, courseId: string): Promise<CourseRow> {
   const { data, error } = await db
     .from("classes")
     .select(COURSE_SELECT)
@@ -466,7 +404,7 @@ async function requireOwnedCourse(db: SupabaseClient, userId: string, courseId: 
   return data as CourseRow;
 }
 
-async function requireOwnedAssignment(db: SupabaseClient, userId: string, assignmentId: string): Promise<AssignmentRow> {
+async function requireOwnedAssignment(db: AppDatabaseClient, userId: string, assignmentId: string): Promise<AssignmentRow> {
   const { data, error } = await db
     .from("assessment_assignments")
     .select(ASSIGNMENT_SELECT)
@@ -481,7 +419,7 @@ async function requireOwnedAssignment(db: SupabaseClient, userId: string, assign
   return assignment;
 }
 
-async function requireAttempt(db: SupabaseClient, attemptId: string): Promise<AttemptRow> {
+async function requireAttempt(db: AppDatabaseClient, attemptId: string): Promise<AttemptRow> {
   const { data, error } = await db
     .from("attempts")
     .select("id, assignment_id, student_id, status, submitted_at, created_at, provisional_score, provisional_feedback")
@@ -492,7 +430,7 @@ async function requireAttempt(db: SupabaseClient, attemptId: string): Promise<At
   return data as AttemptRow;
 }
 
-async function requireGradebookByPair(db: SupabaseClient, assignmentId: string, rosterStudentId: string): Promise<GradebookEntryRow> {
+async function requireGradebookByPair(db: AppDatabaseClient, assignmentId: string, rosterStudentId: string): Promise<GradebookEntryRow> {
   const { data, error } = await db
     .from("gradebook_entries")
     .select(GRADEBOOK_SELECT)
@@ -504,7 +442,7 @@ async function requireGradebookByPair(db: SupabaseClient, assignmentId: string, 
   return data as GradebookEntryRow;
 }
 
-async function requireOwnedGradebookEntry(db: SupabaseClient, userId: string, entryId: string): Promise<GradebookEntryRow> {
+async function requireOwnedGradebookEntry(db: AppDatabaseClient, userId: string, entryId: string): Promise<GradebookEntryRow> {
   const { data, error } = await db
     .from("gradebook_entries")
     .select(GRADEBOOK_SELECT)
@@ -522,7 +460,7 @@ async function requireOwnedGradebookEntry(db: SupabaseClient, userId: string, en
   return entry;
 }
 
-async function requireRosterStudent(db: SupabaseClient, rosterStudentId: string): Promise<RosterStudentRow> {
+async function requireRosterStudent(db: AppDatabaseClient, rosterStudentId: string): Promise<RosterStudentRow> {
   const { data, error } = await db
     .from("roster_students")
     .select(ROSTER_SELECT)
@@ -537,41 +475,39 @@ async function requireRosterStudent(db: SupabaseClient, rosterStudentId: string)
 }
 
 async function loadAssignments(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   courseId: string,
   input: { assignmentId: string | null; includeArchived: boolean }
 ): Promise<AssignmentRow[]> {
   let query = db
     .from("assessment_assignments")
-    .select(ASSIGNMENT_SELECT)
+    .select(ASSIGNMENT_SELECT, { count: "exact" })
     .eq("class_id", courseId)
     .order("created_at", { ascending: true });
 
   if (input.assignmentId) query = query.eq("id", input.assignmentId);
   if (!input.includeArchived) {
-    const withIs = query as unknown as { is?: (key: string, value: unknown) => typeof query };
-    query = typeof withIs.is === "function" ? withIs.is("archived_at", null) : query.eq("archived_at", null);
+    query = query.is("archived_at", null);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await readAllPages(query);
   if (error) throw new HttpError(500, "Failed to load assignments", error.message);
   return ((data ?? []) as AssignmentRow[])
     .filter((row) => firstRelation(row.classes)?.teacher_id === userId && Boolean(firstRelation(row.assessments)?.id));
 }
 
-async function loadRosterStudents(db: SupabaseClient, courseId: string, includeInactive: boolean): Promise<RosterStudentRow[]> {
+async function loadRosterStudents(db: AppDatabaseClient, courseId: string, includeInactive: boolean): Promise<RosterStudentRow[]> {
   let query = db
     .from("roster_students")
-    .select(ROSTER_SELECT)
+    .select(ROSTER_SELECT, { count: "exact" })
     .eq("class_id", courseId)
     .order("created_at", { ascending: true });
   if (!includeInactive) {
-    const withIs = query as unknown as { is?: (key: string, value: unknown) => typeof query };
-    query = typeof withIs.is === "function" ? withIs.is("deactivated_at", null) : query.eq("deactivated_at", null);
+    query = query.is("deactivated_at", null);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await readAllPages(query);
   if (error && isMissingRosterDeactivationColumn(error)) {
     throw new HttpError(409, "Gradebook requires database migration 0007_gradebook.sql");
   }
@@ -579,13 +515,12 @@ async function loadRosterStudents(db: SupabaseClient, courseId: string, includeI
   return (data ?? []) as RosterStudentRow[];
 }
 
-async function loadRosterMemberships(db: SupabaseClient, courseId: string, rosterStudentIds: string[]): Promise<MembershipRow[]> {
+async function loadRosterMemberships(db: AppDatabaseClient, courseId: string, rosterStudentIds: string[]): Promise<MembershipRow[]> {
   if (rosterStudentIds.length === 0) return [];
-  const { data, error } = await db
+  const { data, error } = await readAllPages(db
     .from("class_memberships")
-    .select("roster_student_id, student_id")
-    .eq("class_id", courseId)
-    .in("roster_student_id", rosterStudentIds);
+    .select("id, roster_student_id, student_id", { count: "exact" })
+    .eq("class_id", courseId));
   if (error) throw new HttpError(500, "Failed to load roster memberships", error.message);
 
   const rows = (data ?? []) as Array<{ roster_student_id: string | null; student_id: string }>;
@@ -595,7 +530,7 @@ async function loadRosterMemberships(db: SupabaseClient, courseId: string, roste
 }
 
 async function loadLatestAttemptMap(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   assignmentIds: string[],
   memberships: MembershipRow[]
 ): Promise<Map<string, AttemptRow>> {
@@ -611,13 +546,12 @@ async function loadLatestAttemptMap(
     }
   }
 
-  const { data, error } = await db
+  const { data, error } = await readAllForIds(assignmentIds, (ids) => db
     .from("attempts")
-    .select("id, assignment_id, student_id, status, submitted_at, created_at, provisional_score, provisional_feedback")
-    .in("assignment_id", assignmentIds)
-    .in("student_id", studentIds)
+    .select("id, assignment_id, student_id, status, submitted_at, created_at, provisional_score, provisional_feedback", { count: "exact" })
+    .in("assignment_id", ids)
     .order("submitted_at", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }));
   if (error) throw new HttpError(500, "Failed to load attempts for gradebook", error.message);
 
   const latestAny = new Map<string, AttemptRow>();
@@ -647,7 +581,7 @@ async function loadLatestAttemptMap(
   return preferred;
 }
 
-async function resolveRosterStudentForAttempt(db: SupabaseClient, courseId: string, studentId: string): Promise<string | null> {
+async function resolveRosterStudentForAttempt(db: AppDatabaseClient, courseId: string, studentId: string): Promise<string | null> {
   const { data: membership, error: membershipError } = await db
     .from("class_memberships")
     .select("roster_student_id")
@@ -667,7 +601,7 @@ async function resolveRosterStudentForAttempt(db: SupabaseClient, courseId: stri
   return (roster?.id as string | undefined) ?? null;
 }
 
-async function buildGradebookEntry(db: SupabaseClient, entry: GradebookEntryRow): Promise<TeacherGradebookEntry> {
+async function buildGradebookEntry(db: AppDatabaseClient, entry: GradebookEntryRow): Promise<TeacherGradebookEntry> {
   const assignment = await requireAssignmentById(db, entry.assignment_id);
   const course = firstRelation(assignment.classes);
   const assessment = firstRelation(assignment.assessments);
@@ -795,7 +729,7 @@ function toTeacherGradebookEntry(
   };
 }
 
-async function requireAssignmentById(db: SupabaseClient, assignmentId: string): Promise<AssignmentRow> {
+async function requireAssignmentById(db: AppDatabaseClient, assignmentId: string): Promise<AssignmentRow> {
   const { data, error } = await db
     .from("assessment_assignments")
     .select(ASSIGNMENT_SELECT)
@@ -911,7 +845,7 @@ function parseBooleanField(value: unknown, defaultValue: boolean, field: string)
 }
 
 async function validateSelectedAssignments(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   courseId: string,
   assignmentIds: string[]
@@ -1133,7 +1067,7 @@ function isMissingRosterDeactivationColumn(error: { code?: string; message?: str
   return text.includes("deactivated_at") || text.includes("42703");
 }
 
-async function requireTeacher(db: SupabaseClient, userId: string): Promise<void> {
+async function requireTeacher(db: AppDatabaseClient, userId: string): Promise<void> {
   const { data, error } = await db
     .from("profiles")
     .select("id, role")

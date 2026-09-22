@@ -111,6 +111,12 @@ export const FINDING_TO_QUESTION_TEMPLATE: AssessmentTemplate = {
     }
   ],
   config: {
+    scoringPolicy: { mode: "capped", caps: [
+      { id: "unrelated", maximumPercent: 50, condition: "Final question unrelated to the main finding" },
+      { id: "untestable", maximumPercent: 60, condition: "Final question not empirically testable" },
+      { id: "yes_no", maximumPercent: 70, condition: "Final question only restates the conclusion as yes/no" },
+      { id: "missing", maximumPercent: 40, condition: "Missing final question" }
+    ] },
     acceptedMime: [...DEFAULT_WRITING_ACCEPTED_MIME],
     maxBytes: DEFAULT_WRITING_MAX_BYTES
   }

@@ -3,8 +3,9 @@ import { simulationSpecSchema } from "@alt-assessment/shared";
 const criterionScoreSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["name", "score", "maxPoints", "comment"],
+  required: ["id", "name", "score", "maxPoints", "comment"],
   properties: {
+    id: { type: "string" },
     name: { type: "string" },
     score: { type: "number" },
     maxPoints: { type: "number" },
@@ -15,8 +16,9 @@ const criterionScoreSchema = {
 export const gradeFeedbackSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["score", "overallComment", "criteria", "confidence", "reviewFlags"],
+  required: ["score", "overallComment", "criteria", "confidence", "reviewFlags", "appliedCaps"],
   properties: {
+    appliedCaps: { type: "array", items: { type: "object", additionalProperties: false, required: ["id", "reason"], properties: { id: { type: "string" }, reason: { type: "string" } } } },
     score: { type: "number" },
     overallComment: { type: "string" },
     criteria: { type: "array", items: criterionScoreSchema },

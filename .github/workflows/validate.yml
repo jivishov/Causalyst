@@ -1,0 +1,70 @@
+name: Validate
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: causalyst_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:db
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/causalyst_test
+      - run: npm run build
+      - run: npm run check:bundle
+      - run: npm run security
+      - run: npm run audit
+      - run: npm run build:worker
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+
+  supabase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run supabase:start
+      - run: npm run db:types
+      - uses: actions/upload-artifact@v4
+        with:
+          name: database-types
+          path: worker/src/lib/database.generated.ts
+          retention-days: 7
+      - run: npm run test:supabase
+      - name: Check committed database types
+        run: |
+          git ls-files --error-unmatch worker/src/lib/database.generated.ts
+          git diff --exit-code -- worker/src/lib/database.generated.ts
+      - name: Stop disposable Supabase stack
+        if: always()
+        run: npm run supabase:stop

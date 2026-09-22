@@ -13,7 +13,8 @@ export async function hashPin(pin: string, env: Pick<Env, "PIN_PEPPER">): Promis
 }
 
 export async function signUploadToken(artifactId: string, userId: string, env: Pick<Env, "PIN_PEPPER">): Promise<string> {
-  return signArtifactToken("upload", artifactId, userId, env);
+  const expiresAt = Date.now() + 15 * 60 * 1000;
+  return `${expiresAt}.${await signArtifactToken("upload", `${artifactId}:${expiresAt}`, userId, env)}`;
 }
 
 export async function signPreviewToken(artifactId: string, userId: string, env: Pick<Env, "PIN_PEPPER">): Promise<string> {
@@ -39,8 +40,10 @@ async function signArtifactToken(scope: "upload" | "preview", artifactId: string
 }
 
 export async function verifyUploadToken(artifactId: string, userId: string, token: string, env: Pick<Env, "PIN_PEPPER">): Promise<boolean> {
-  const expected = await signUploadToken(artifactId, userId, env);
-  return timingSafeEqual(expected, token);
+  const match = /^(\d{13})\.([a-f0-9]{64})$/.exec(token);
+  if (!match || Number(match[1]) <= Date.now()) return false;
+  const expected = await signArtifactToken("upload", `${artifactId}:${match[1]}`, userId, env);
+  return timingSafeEqual(expected, match[2]);
 }
 
 function timingSafeEqual(a: string, b: string): boolean {

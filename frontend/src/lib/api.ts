@@ -1,3 +1,4 @@
+import { protectPreviewDocument } from "./previewPolicy";
 import type {
   AttemptResult,
   SimulationHtmlReasoningEffort,
@@ -755,14 +756,15 @@ export function buildRefineSimulationRequest(input: {
   return input;
 }
 
-export function generateSimulation(input: { attemptId: string; description: string; sketchArtifactId: string; htmlReasoningEffort: SimulationHtmlReasoningEffort }) {
+export function generateSimulation(input: { requestId?: string; attemptId: string; description: string; sketchArtifactId: string; htmlReasoningEffort: SimulationHtmlReasoningEffort }) {
   return apiFetch<StudentSimulationGenerationJob>("/simulation/generate", {
     method: "POST",
-    body: JSON.stringify(buildGenerateSimulationRequest(input))
+    body: JSON.stringify({ ...buildGenerateSimulationRequest(input), requestId: input.requestId ?? crypto.randomUUID() })
   }, SIMULATION_JOB_START_TIMEOUT_MS);
 }
 
 export function refineSimulation(input: {
+  requestId?: string;
   attemptId: string;
   description: string;
   sketchArtifactId: string;
@@ -771,7 +773,7 @@ export function refineSimulation(input: {
 }) {
   return apiFetch<StudentSimulationGenerationJob>("/simulation/refine", {
     method: "POST",
-    body: JSON.stringify(buildRefineSimulationRequest(input))
+    body: JSON.stringify({ ...buildRefineSimulationRequest(input), requestId: input.requestId ?? crypto.randomUUID() })
   }, SIMULATION_JOB_START_TIMEOUT_MS);
 }
 
@@ -814,7 +816,7 @@ export async function createSimulationPreviewObjectUrl(previewBlob: Blob, option
     return URL.createObjectURL(previewBlob);
   }
 
-  const decoratedHtml = decorateSimulationPreviewHtml(await previewBlob.text(), options.healthNonce);
+  const decoratedHtml = protectPreviewDocument(decorateSimulationPreviewHtml(await previewBlob.text(), options.healthNonce));
   const decoratedBlob = new Blob([decoratedHtml], {
     type: previewBlob.type || "text/html; charset=utf-8"
   });

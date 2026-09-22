@@ -10,7 +10,8 @@ import type {
   TeacherSessionResponse,
   TeacherSetupStatusResponse
 } from "@alt-assessment/shared";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "../lib/database";
+import type { TablesUpdate } from "../lib/database";
 import type { Env } from "../lib/env";
 import { normalizeCourseCode } from "../lib/courseCode";
 import { hashPin } from "../lib/crypto";
@@ -60,11 +61,11 @@ const COURSE_METADATA_MIGRATION_MESSAGE = "Course metadata requires database mig
 const COURSE_SELECT = "id, code, name, section, term, archived_at, created_at, updated_at";
 const ROSTER_SELECT = "id, class_id, display_name, student_identifier, email, section, claimed_by, claimed_at, created_at, updated_at";
 
-export async function teacherSetupStatus(db: SupabaseClient): Promise<TeacherSetupStatusResponse> {
+export async function teacherSetupStatus(db: AppDatabaseClient): Promise<TeacherSetupStatusResponse> {
   return { setupAvailable: !(await teacherExists(db)) };
 }
 
-export async function setupTeacher(request: Request, env: Env, db: SupabaseClient, userId: string, token: string, authenticatedEmail?: string | null): Promise<TeacherSessionResponse> {
+export async function setupTeacher(request: Request, env: Env, db: AppDatabaseClient, userId: string, token: string, authenticatedEmail?: string | null): Promise<TeacherSessionResponse> {
   const setupCode = (env.TEACHER_SETUP_CODE ?? "").trim();
   if (!setupCode) {
     throw new HttpError(500, "Worker TEACHER_SETUP_CODE is not configured");
@@ -98,13 +99,13 @@ export async function setupTeacher(request: Request, env: Env, db: SupabaseClien
   return { profile: { id: profile?.id ?? userId, email, displayName: profile?.display_name ?? displayName } };
 }
 
-export async function teacherMe(env: Env, db: SupabaseClient, userId: string, token: string, authenticatedEmail?: string | null): Promise<TeacherSessionResponse> {
+export async function teacherMe(env: Env, db: AppDatabaseClient, userId: string, token: string, authenticatedEmail?: string | null): Promise<TeacherSessionResponse> {
   const profile = await requireTeacherProfile(db, userId);
   const email = authenticatedEmail ?? await loadUserEmail(env, token);
   return { profile: { id: profile.id, email, displayName: profile.display_name } };
 }
 
-export async function listTeacherCourses(db: SupabaseClient, userId: string, includeArchived: boolean): Promise<TeacherCoursesResponse> {
+export async function listTeacherCourses(db: AppDatabaseClient, userId: string, includeArchived: boolean): Promise<TeacherCoursesResponse> {
   await requireTeacherProfile(db, userId);
   let query = db
     .from("classes")
@@ -119,7 +120,7 @@ export async function listTeacherCourses(db: SupabaseClient, userId: string, inc
   return { courses: (data ?? []).map(toTeacherCourse) };
 }
 
-export async function createTeacherCourse(request: Request, db: SupabaseClient, userId: string): Promise<{ course: TeacherCourse }> {
+export async function createTeacherCourse(request: Request, db: AppDatabaseClient, userId: string): Promise<{ course: TeacherCourse }> {
   await requireTeacherProfile(db, userId);
   const body = await readJson<Record<string, unknown>>(request);
   const code = normalizeCourseCode(getRequiredString(body, "code"));
@@ -144,10 +145,10 @@ export async function createTeacherCourse(request: Request, db: SupabaseClient, 
   return { course: toTeacherCourse(data as CourseRow) };
 }
 
-export async function updateTeacherCourse(request: Request, db: SupabaseClient, userId: string, courseId: string): Promise<{ course: TeacherCourse }> {
+export async function updateTeacherCourse(request: Request, db: AppDatabaseClient, userId: string, courseId: string): Promise<{ course: TeacherCourse }> {
   await requireTeacherProfile(db, userId);
   const body = await readJson<Record<string, unknown>>(request);
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const patch: TablesUpdate<"classes"> = { updated_at: new Date().toISOString() };
 
   if ("code" in body) patch.code = normalizeCourseCode(getRequiredString(body, "code"));
   if ("name" in body) patch.name = getRequiredString(body, "name");
@@ -167,7 +168,7 @@ export async function updateTeacherCourse(request: Request, db: SupabaseClient, 
   return { course: toTeacherCourse(data as CourseRow) };
 }
 
-export async function setTeacherCourseArchived(db: SupabaseClient, userId: string, courseId: string, archived: boolean): Promise<{ course: TeacherCourse }> {
+export async function setTeacherCourseArchived(db: AppDatabaseClient, userId: string, courseId: string, archived: boolean): Promise<{ course: TeacherCourse }> {
   await requireTeacherProfile(db, userId);
   const now = new Date().toISOString();
   const { data, error } = await db
@@ -183,13 +184,13 @@ export async function setTeacherCourseArchived(db: SupabaseClient, userId: strin
   return { course: toTeacherCourse(data as CourseRow) };
 }
 
-export async function previewTeacherRosterImport(request: Request, db: SupabaseClient, userId: string, courseId: string): Promise<TeacherRosterImportPreviewResponse> {
+export async function previewTeacherRosterImport(request: Request, db: AppDatabaseClient, userId: string, courseId: string): Promise<TeacherRosterImportPreviewResponse> {
   const course = await requireOwnedCourse(db, userId, courseId);
   const csvText = await getCsvText(request);
   return buildRosterPreview(db, course.id, csvText);
 }
 
-export async function commitTeacherRosterImport(request: Request, env: Env, db: SupabaseClient, userId: string, courseId: string): Promise<TeacherRosterImportCommitResponse> {
+export async function commitTeacherRosterImport(request: Request, env: Env, db: AppDatabaseClient, userId: string, courseId: string): Promise<TeacherRosterImportCommitResponse> {
   const course = await requireOwnedCourse(db, userId, courseId);
   const csvText = await getCsvText(request);
   const preview = await buildRosterPreview(db, course.id, csvText);
@@ -202,34 +203,17 @@ export async function commitTeacherRosterImport(request: Request, env: Env, db: 
   }
 
   const pins: TeacherRosterImportCommitResponse["pins"] = [];
+  const rows = [];
   for (const row of preview.acceptedRows) {
-    const created = await db
-      .from("roster_students")
-      .insert({
-        class_id: course.id,
-        display_name: row.displayName,
-        student_identifier: row.studentIdentifier,
-        email: row.email,
-        section: row.section,
-        updated_at: new Date().toISOString()
-      })
-      .select("id")
-      .single();
-    if (created.error) {
-      handleRosterWriteError(created.error);
-    }
-
-    const rosterStudentId = (created.data as { id: string }).id;
-    const issued = await issueAccessCodeForRosterRow(db, env, course.id, rosterStudentId, row.displayName);
-    pins.push({
-      rosterStudentId,
-      displayName: row.displayName,
-      studentIdentifier: row.studentIdentifier,
-      email: row.email,
-      section: row.section,
-      pin: issued.pin
-    });
+    const rosterStudentId = crypto.randomUUID();
+    const pin = generatePin();
+    rows.push({ ...row, id: rosterStudentId, pinHash: await hashPin(pin, env) });
+    pins.push({ ...row, rosterStudentId, pin });
   }
+  const { error } = await db.rpc("import_course_roster", {
+    p_teacher_id: userId, p_course_id: course.id, p_rows: rows
+  });
+  if (error) handleRosterWriteError(error);
 
   await reconcileGradebookForCourse(db, userId, course.id);
 
@@ -240,7 +224,7 @@ export async function commitTeacherRosterImport(request: Request, env: Env, db: 
   };
 }
 
-export async function listTeacherRoster(db: SupabaseClient, userId: string, courseId: string): Promise<TeacherRosterResponse> {
+export async function listTeacherRoster(db: AppDatabaseClient, userId: string, courseId: string): Promise<TeacherRosterResponse> {
   const course = await requireOwnedCourse(db, userId, courseId);
   const { data: rosterRows, error: rosterError } = await db
     .from("roster_students")
@@ -290,7 +274,7 @@ export async function listTeacherRoster(db: SupabaseClient, userId: string, cour
   };
 }
 
-export async function deleteTeacherRoster(request: Request, db: SupabaseClient, userId: string, courseId: string): Promise<TeacherRosterDeleteResponse> {
+export async function deleteTeacherRoster(request: Request, db: AppDatabaseClient, userId: string, courseId: string): Promise<TeacherRosterDeleteResponse> {
   const course = await requireOwnedCourse(db, userId, courseId);
   const body = await readJson<Record<string, unknown>>(request);
   const confirmationText = getRequiredString(body, "confirmationText");
@@ -369,7 +353,7 @@ export async function deleteTeacherRoster(request: Request, db: SupabaseClient, 
   };
 }
 
-async function buildRosterPreview(db: SupabaseClient, courseId: string, csvText: string): Promise<TeacherRosterImportPreviewResponse> {
+async function buildRosterPreview(db: AppDatabaseClient, courseId: string, csvText: string): Promise<TeacherRosterImportPreviewResponse> {
   const parsed = parseRosterCsv(csvText);
   const duplicateErrors = await collectDuplicateErrors(db, courseId, parsed.rows);
   const errors = [...parsed.errors, ...duplicateErrors].sort((a, b) => a.rowNumber - b.rowNumber);
@@ -385,7 +369,7 @@ async function buildRosterPreview(db: SupabaseClient, courseId: string, csvText:
   };
 }
 
-async function collectDuplicateErrors(db: SupabaseClient, courseId: string, rows: RosterCsvRow[]): Promise<RosterCsvError[]> {
+async function collectDuplicateErrors(db: AppDatabaseClient, courseId: string, rows: RosterCsvRow[]): Promise<RosterCsvError[]> {
   const errors: RosterCsvError[] = [];
   const identifierMap = new Map<string, number>();
   const emailMap = new Map<string, number>();
@@ -442,41 +426,12 @@ async function collectDuplicateErrors(db: SupabaseClient, courseId: string, rows
   return dedupeErrors(errors);
 }
 
-async function issueAccessCodeForRosterRow(
-  db: SupabaseClient,
-  env: Env,
-  classId: string,
-  rosterStudentId: string,
-  studentLabel: string
-): Promise<{ pin: string }> {
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const pin = generatePin();
-    const pinHash = await hashPin(pin, env);
-    const { error } = await db
-      .from("student_access_codes")
-      .insert({
-        class_id: classId,
-        roster_student_id: rosterStudentId,
-        student_label: studentLabel,
-        pin_hash: pinHash
-      });
-    if (!error) return { pin };
-
-    const message = `${error.code ?? ""} ${error.message ?? ""}`.toLowerCase();
-    if (message.includes("pin_hash") || message.includes("student_access_codes_class_id_pin_hash_key")) {
-      continue;
-    }
-    throw new HttpError(500, "Failed to create student access code", error.message);
-  }
-  throw new HttpError(500, "Failed to generate a unique PIN for roster import");
-}
-
 async function getCsvText(request: Request): Promise<string> {
   const body = await readJson<Record<string, unknown>>(request);
   return getRequiredString(body, "csvText");
 }
 
-async function teacherExists(db: SupabaseClient): Promise<boolean> {
+async function teacherExists(db: AppDatabaseClient): Promise<boolean> {
   const { data, error } = await db
     .from("profiles")
     .select("id")
@@ -486,7 +441,7 @@ async function teacherExists(db: SupabaseClient): Promise<boolean> {
   return Array.isArray(data) && data.length > 0;
 }
 
-export async function requireTeacherProfile(db: SupabaseClient, userId: string): Promise<TeacherProfileRow> {
+export async function requireTeacherProfile(db: AppDatabaseClient, userId: string): Promise<TeacherProfileRow> {
   const { data, error } = await db
     .from("profiles")
     .select("id, display_name, role")
@@ -499,7 +454,7 @@ export async function requireTeacherProfile(db: SupabaseClient, userId: string):
   return { id: data.id, display_name: data.display_name };
 }
 
-async function requireOwnedCourse(db: SupabaseClient, userId: string, courseId: string): Promise<{ id: string; code: string }> {
+async function requireOwnedCourse(db: AppDatabaseClient, userId: string, courseId: string): Promise<{ id: string; code: string }> {
   await requireTeacherProfile(db, userId);
   const { data, error } = await db
     .from("classes")

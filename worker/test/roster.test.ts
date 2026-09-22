@@ -1,3 +1,4 @@
+import { reconcileFixture } from "./helpers/rpcFixtures";
 import { describe, expect, it } from "vitest";
 import type { Env } from "../src/lib/env";
 import { hashPin } from "../src/lib/crypto";
@@ -144,119 +145,20 @@ describe("roster import workflow", () => {
     expect(state.student_access_codes[0].claimed_by).toBe("student-1");
   });
 
-  it("auto-enrolls matching roster emails from the Google-only session check", async () => {
-    const state = createState();
-    const db = createDb(state);
-    state.roster_students.push(rosterRow({
-      id: "roster-google",
-      displayName: "Student One",
-      studentIdentifier: "S-1",
-      email: "Student1@Example.com"
-    }));
-    await addAccessCode(state, {
-      id: "google-code",
-      classId: "class-1",
-      pin: "111111",
-      rosterStudentId: "roster-google",
-      studentLabel: "Student One"
-    });
-
-    const result = await studentSession(db as never, "student-google", "STUDENT1@example.com");
-
-    expect(result.profile).toEqual({
-      id: "student-google",
-      displayName: "Student One",
-      email: "student1@example.com"
-    });
-    expect(result.enrollmentStatus).toBe("matched");
-    expect(state.profiles).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        id: "student-google",
-        role: "student",
-        display_name: "Student One",
-        email: "student1@example.com"
-      })
-    ]));
-    expect(state.class_memberships).toEqual([
-      expect.objectContaining({
-        class_id: "class-1",
-        student_id: "student-google",
-        roster_student_id: "roster-google"
-      })
-    ]);
-    expect(state.student_access_codes[0].claimed_by).toBe("student-google");
-    expect(state.roster_students[0].claimed_by).toBe("student-google");
+  it("reconciles every session through the verified-email transaction", async () => {
+    const calls: unknown[] = [];
+    const db = { async rpc(name: string, args: unknown) {
+      calls.push({ name, args });
+      return { data: { profile: null, status: "no_roster_match" }, error: null };
+    } };
+    await studentSession(db as never, "student-google", "untrusted@example.com");
+    await studentSession(db as never, "student-google", "untrusted@example.com");
+    expect(calls).toEqual(Array(2).fill({ name: "enroll_student_by_email", args: { p_user_id: "student-google" } }));
   });
 
-  it("returns an explicit no-match status when Google email is absent from the roster", async () => {
-    const state = createState();
-    const db = createDb(state);
-
-    const result = await studentSession(db as never, "student-google", "missing@example.com");
-
-    expect(result).toEqual({
-      profile: null,
-      courses: [],
-      enrollmentStatus: "no_roster_match"
-    });
-    expect(state.profiles).toHaveLength(1);
-    expect(state.class_memberships).toHaveLength(0);
-  });
-
-  it("does not steal a roster email that is already claimed by another user", async () => {
-    const state = createState();
-    const db = createDb(state);
-    state.roster_students.push(rosterRow({
-      id: "roster-claimed",
-      displayName: "Student One",
-      email: "student1@example.com",
-      claimedBy: "student-1"
-    }));
-    await addAccessCode(state, {
-      id: "claimed-code",
-      classId: "class-1",
-      pin: "111111",
-      rosterStudentId: "roster-claimed",
-      studentLabel: "Student One",
-      claimedBy: "student-1"
-    });
-
-    const result = await studentSession(db as never, "student-2", "student1@example.com");
-
-    expect(result.profile).toBeNull();
-    expect(result.enrollmentStatus).toBe("claimed_by_other");
-    expect(state.roster_students[0].claimed_by).toBe("student-1");
-    expect(state.student_access_codes[0].claimed_by).toBe("student-1");
-  });
-
-  it("does not downgrade an existing teacher profile during Google-only session checks", async () => {
-    const state = createState();
-    const db = createDb(state);
-    state.profiles.push({ id: "teacher-user", role: "teacher", display_name: "Teacher User", email: "teacher@example.com" });
-    state.roster_students.push(rosterRow({
-      id: "roster-teacher",
-      displayName: "Student One",
-      email: "student1@example.com"
-    }));
-    await addAccessCode(state, {
-      id: "teacher-code",
-      classId: "class-1",
-      pin: "111111",
-      rosterStudentId: "roster-teacher",
-      studentLabel: "Student One"
-    });
-
-    const result = await studentSession(db as never, "teacher-user", "student1@example.com");
-
-    expect(result.profile).toBeNull();
-    expect(result.enrollmentStatus).toBe("teacher_profile");
-    expect(state.profiles.find((row) => row.id === "teacher-user")).toEqual({
-      id: "teacher-user",
-      role: "teacher",
-      display_name: "Teacher User",
-      email: "teacher@example.com"
-    });
-    expect(state.class_memberships).toHaveLength(0);
+  it("reports an enrollment transaction failure without returning a matched session", async () => {
+    const db = { async rpc() { return { data: null, error: { code: "23514", message: "Claim conflict" } }; } };
+    await expect(studentSession(db as never, "student-google")).rejects.toMatchObject({ status: 409 });
   });
 
   it("claims legacy class PINs without roster rows with the signed-in Google account", async () => {
@@ -353,7 +255,7 @@ describe("student Google login identity guard matrix", () => {
     expect(state.student_access_codes[0].claimed_by).toBe("student-1");
   });
 
-  it("repairs stale legacy roster membership when a used PIN already points to the Google user", async () => {
+  it("requires administrative reconciliation for a conflicting historical roster identity", async () => {
     const state = createState();
     const db = createDb(state);
     state.roster_students.push(rosterRow({
@@ -369,13 +271,9 @@ describe("student Google login identity guard matrix", () => {
     state.assessment_assignments.push({ id: "assignment-1", class_id: "class-1", assessment_id: "assessment-1" });
     state.attempts.push({ id: "attempt-1", student_id: "anon-1", assignment_id: "assignment-1", assessment_id: "assessment-1", updated_at: nowIso() });
 
-    const result = await studentLogin(jsonRequest({ classCode: "BIO101", pin: "111111" }), env, db as never, "student-1", "student1@example.com");
-
-    expect(result.profile.displayName).toBe("Student One");
-    expect(state.class_memberships).toEqual([
-      expect.objectContaining({ class_id: "class-1", student_id: "student-1", roster_student_id: "roster-claimed" })
-    ]);
-    expect(state.attempts[0].student_id).toBe("student-1");
+    const before = snapshotGuardTables(state);
+    await expect(studentLogin(jsonRequest({ classCode: "BIO101", pin: "111111" }), env, db as never, "student-1", "student1@example.com")).rejects.toMatchObject({ status: 409 });
+    expect(snapshotGuardTables(state)).toEqual(before);
   });
 
   it("rejects same-user different-pin same-course login with structured conflict code and no mutations", async () => {
@@ -428,7 +326,7 @@ describe("student Google login identity guard matrix", () => {
     expect(snapshotGuardTables(state)).toEqual(before);
   });
 
-  it("transfers a matching legacy anonymous claim to the Google user and keeps the transfer course scoped", async () => {
+  it("preserves historical evidence ownership when a different account presents a used PIN", async () => {
     const state = createState();
     const db = createDb(state);
     state.roster_students.push(
@@ -462,22 +360,9 @@ describe("student Google login identity guard matrix", () => {
       { id: "event-chem", attempt_id: "attempt-chem", student_id: "anon-1" }
     );
 
-    await studentLogin(jsonRequest({ classCode: "BIO101", pin: "111111" }), env, db as never, "student-google", "student1@example.com");
-
-    expect(state.student_access_codes.find((row) => row.id === "bio-code")?.claimed_by).toBe("student-google");
-    expect(state.roster_students.find((row) => row.id === "roster-bio")?.claimed_by).toBe("student-google");
-    expect(state.class_memberships).toEqual(expect.arrayContaining([
-      expect.objectContaining({ class_id: "class-1", student_id: "student-google", roster_student_id: "roster-bio" }),
-      expect.objectContaining({ class_id: "class-2", student_id: "anon-1", roster_student_id: "roster-chem" })
-    ]));
-    expect(state.attempts.find((row) => row.id === "attempt-bio")?.student_id).toBe("student-google");
-    expect(state.attempt_artifacts.find((row) => row.id === "artifact-bio")?.student_id).toBe("student-google");
-    expect(state.attempt_realtime_sessions.find((row) => row.id === "session-bio")?.student_id).toBe("student-google");
-    expect(state.attempt_realtime_events.find((row) => row.id === "event-bio")?.student_id).toBe("student-google");
-
-    expect(state.student_access_codes.find((row) => row.id === "chem-code")?.claimed_by).toBe("anon-1");
-    expect(state.attempts.find((row) => row.id === "attempt-chem")?.student_id).toBe("anon-1");
-    expect(state.attempt_artifacts.find((row) => row.id === "artifact-chem")?.student_id).toBe("anon-1");
+    const before = snapshotGuardTables(state);
+    await expect(studentLogin(jsonRequest({ classCode: "BIO101", pin: "111111" }), env, db as never, "student-google", "student1@example.com")).rejects.toMatchObject({ status: 409 });
+    expect(snapshotGuardTables(state)).toEqual(before);
   });
 
   it("allows the same Google user to claim an unclaimed PIN in a new course", async () => {
@@ -647,6 +532,14 @@ function createDb(state: InMemoryState) {
       return new Query(table as string, state);
     },
     async rpc(name: string, args: Row) {
+      if (name === "reconcile_course_gradebook") return reconcileFixture(state, args);
+      if (name === "import_course_roster") {
+        for (const row of args.p_rows) {
+          state.roster_students.push(rosterRow({ id: row.id, classId: args.p_course_id, displayName: row.displayName, studentIdentifier: row.studentIdentifier, email: row.email }));
+          state.student_access_codes.push({ id: `access-${state.student_access_codes.length}`, class_id: args.p_course_id, roster_student_id: row.id, student_label: row.displayName, pin_hash: row.pinHash, claimed_by: null, claimed_at: null });
+        }
+        return { data: args.p_rows.length, error: null };
+      }
       if (name !== "claim_student_google_login") {
         return { data: null, error: { code: "PGRST202", message: `Unsupported RPC: ${name}` } };
       }
@@ -693,39 +586,7 @@ function claimStudentGoogleLogin(state: InMemoryState, args: Row): { data: Row[]
   );
   const previousUserId = [access.claimed_by, roster.claimed_by, conflictingRosterMembership?.student_id]
     .find((value) => value && value !== userId) ?? null;
-  const assignmentIds = new Set(state.assessment_assignments.filter((row) => row.class_id === classRow.id).map((row) => row.id));
-  const movedAttemptIds = new Set<string>();
-  if (previousUserId) {
-    for (const attempt of state.attempts) {
-      if (attempt.student_id === previousUserId && assignmentIds.has(attempt.assignment_id)) {
-        attempt.student_id = userId;
-        attempt.updated_at = nowIso();
-        movedAttemptIds.add(attempt.id);
-      }
-    }
-    for (const artifact of state.attempt_artifacts) {
-      if (artifact.student_id === previousUserId && movedAttemptIds.has(artifact.attempt_id)) {
-        artifact.student_id = userId;
-      }
-    }
-    for (const session of state.attempt_realtime_sessions) {
-      if (session.student_id === previousUserId && movedAttemptIds.has(session.attempt_id)) {
-        session.student_id = userId;
-        session.updated_at = nowIso();
-      }
-    }
-    for (const event of state.attempt_realtime_events) {
-      if (event.student_id === previousUserId && movedAttemptIds.has(event.attempt_id)) {
-        event.student_id = userId;
-      }
-    }
-    state.class_memberships = state.class_memberships.filter((row) => !(row.class_id === classRow.id && row.student_id === previousUserId));
-  }
-  state.class_memberships = state.class_memberships.filter((row) => !(
-    row.class_id === classRow.id &&
-    row.roster_student_id === roster.id &&
-    row.student_id !== userId
-  ));
+  if (previousUserId) return claimResult("same_course_identity_conflict", classRow, roster);
 
   if (existingProfile) {
     Object.assign(existingProfile, { role: "student", display_name: roster.display_name, email: normalizeEmail(args.p_email), updated_at: nowIso() });

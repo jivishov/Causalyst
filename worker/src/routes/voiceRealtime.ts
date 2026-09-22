@@ -1,6 +1,9 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { reserveAiBudget } from "../lib/aiBudget";
+import { realtimeEvidence } from "../lib/realtimeEvidence";
+import type { AppDatabaseClient } from "../lib/database";
+import { isJsonObject, toJson, type Json } from "../lib/database";
 import { DEFAULT_REALTIME_VOICE_MAX_SESSION_SEC } from "@alt-assessment/shared";
-import { claimAttemptSubmission, markAttemptSubmissionError } from "../lib/attemptLifecycle";
+import { markAttemptSubmissionError } from "../lib/attemptLifecycle";
 import { requireAttempt, logAudit, toGradeFeedback } from "../lib/db";
 import type { Env } from "../lib/env";
 import { HttpError, getRequiredString, readJson } from "../lib/http";
@@ -35,26 +38,12 @@ interface RealtimeSessionRow {
   finalize_error: string | null;
 }
 
-interface RealtimeEventRow {
-  id?: string;
-  session_id: string;
-  attempt_id: string;
-  student_id: string;
-  sequence: number;
-  event_type: string;
-  role: RealtimeEventRole | null;
-  text: string | null;
-  metadata: Record<string, unknown>;
-  occurred_at?: string;
-  created_at?: string;
-}
-
 interface NormalizedRealtimeEvent {
   sequence: number;
   eventType: string;
   role: RealtimeEventRole | null;
   text: string | null;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, Json | undefined>;
   occurredAt: string;
 }
 
@@ -68,7 +57,7 @@ interface RealtimeDiagnostics {
   flags: string[];
 }
 
-export async function connectRealtimeVoice(request: Request, env: Env, db: SupabaseClient, userId: string) {
+export async function connectRealtimeVoice(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const attemptId = getRequiredString(body, "attemptId");
   const sdpOffer = getRequiredString(body, "sdpOffer");
@@ -86,6 +75,8 @@ export async function connectRealtimeVoice(request: Request, env: Env, db: Supab
     throw new HttpError(409, "Attempt is no longer in draft state", { attemptId, status: attempt.status });
   }
 
+  if (!env.REALTIME_SESSIONS) throw new HttpError(503, "Live voice evidence service is not configured");
+  await reserveAiBudget(db, userId, attempt.id, "live_voice", 10);
   const model = getModel("realtimeVoice");
   const maxSessionSec = resolveRealtimeMaxSessionSec(assessment.config);
   const now = new Date();
@@ -134,51 +125,61 @@ export async function connectRealtimeVoice(request: Request, env: Env, db: Supab
   form.set("sdp", sdpOffer);
   form.set("session", JSON.stringify(sessionConfig));
 
-  const response = await fetch(OPENAI_REALTIME_CALLS_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.OPENAI_API_KEY}`
-    },
-    body: form
-  });
+  let callId = "";
+  try {
+    const response = await fetch(OPENAI_REALTIME_CALLS_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.OPENAI_API_KEY}`
+      },
+      body: form,
+      signal: AbortSignal.timeout(20_000)
+    });
 
-  if (!response.ok) {
+    if (!response.ok) {
+      throw new HttpError(502, "Realtime session could not be created");
+    }
+
+    const location = response.headers.get("Location") ?? "";
+    callId = location.split("/").pop() ?? "";
+    const sdpAnswer = await response.text();
+    if (!sdpAnswer.trim()) {
+      throw new HttpError(502, "Realtime session did not return an SDP answer");
+    }
+
+    await realtimeEvidence(env, sessionId, "start", { callId, deadline: Date.parse(expiresAt) });
+
+    const { error: updateError } = await db
+      .from("attempt_realtime_sessions")
+      .update({ status: "active", updated_at: new Date().toISOString() })
+      .eq("id", sessionId)
+      .eq("student_id", userId);
+    if (updateError) throw new HttpError(500, "Failed to activate realtime session", updateError.message);
+
+    await logAudit(db, {
+      attemptId: attempt.id,
+      route: "/api/voice/realtime/connect",
+      provider: "openai",
+      model: model.id,
+      requestSummary: { sessionId, maxSessionSec, sdpOfferLength: sdpOffer.length },
+      rawResponse: { sdpAnswerLength: sdpAnswer.length }
+    });
+
+    return {
+      sessionId,
+      sdpAnswer,
+      model: model.id,
+      maxSessionSec,
+      expiresAt
+    };
+  } catch (error) {
+    if (/^rtc_[\w-]+$/.test(callId)) await openaiClient(env.OPENAI_API_KEY).realtime.calls.hangup(callId).catch(() => {});
     await markRealtimeSessionStatusBestEffort(db, userId, sessionId, "error");
-    throw new HttpError(502, "Realtime session could not be created");
+    throw error;
   }
-
-  const sdpAnswer = await response.text();
-  if (!sdpAnswer.trim()) {
-    await markRealtimeSessionStatusBestEffort(db, userId, sessionId, "error");
-    throw new HttpError(502, "Realtime session did not return an SDP answer");
-  }
-
-  const { error: updateError } = await db
-    .from("attempt_realtime_sessions")
-    .update({ status: "active", updated_at: new Date().toISOString() })
-    .eq("id", sessionId)
-    .eq("student_id", userId);
-  if (updateError) throw new HttpError(500, "Failed to activate realtime session", updateError.message);
-
-  await logAudit(db, {
-    attemptId: attempt.id,
-    route: "/api/voice/realtime/connect",
-    provider: "openai",
-    model: model.id,
-    requestSummary: { sessionId, maxSessionSec, sdpOfferLength: sdpOffer.length },
-    rawResponse: { sdpAnswerLength: sdpAnswer.length }
-  });
-
-  return {
-    sessionId,
-    sdpAnswer,
-    model: model.id,
-    maxSessionSec,
-    expiresAt
-  };
 }
 
-export async function appendRealtimeVoiceEvents(request: Request, db: SupabaseClient, userId: string) {
+export async function appendRealtimeVoiceEvents(request: Request, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const sessionId = getRequiredString(body, "sessionId");
   const session = await requireRealtimeSession(db, userId, sessionId);
@@ -187,7 +188,7 @@ export async function appendRealtimeVoiceEvents(request: Request, db: SupabaseCl
   return { sessionId, storedEvents: inserted };
 }
 
-export async function finalizeRealtimeVoice(request: Request, env: Env, db: SupabaseClient, userId: string) {
+export async function finalizeRealtimeVoice(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const sessionId = getRequiredString(body, "sessionId");
   const confirmed = body.expensiveModelConfirmed === true;
@@ -200,34 +201,28 @@ export async function finalizeRealtimeVoice(request: Request, env: Env, db: Supa
   if (session.status !== "active") {
     throw new HttpError(409, "Realtime session is not active", { sessionId, status: session.status });
   }
-  assertRealtimeSessionActive(session, "Realtime session is no longer active");
-  const sessionForFinalize = await markRealtimeSessionFinalizing(db, userId, session.id);
-
+  const deadline = Date.parse(session.expires_at ?? "");
+  if (!Number.isFinite(deadline) || Date.now() > deadline + 120_000) {
+    throw new HttpError(409, "The live voice finalization window has closed. Ask your teacher to review the session.");
+  }
+  // Validate telemetry before claiming, but never use it as grading evidence.
   const normalizedFinalizeEvents = body.events === undefined ? [] : normalizeRealtimeVoiceEvents(body.events);
-  if (normalizedFinalizeEvents.length > 0) {
-    await storeRealtimeEventsNormalized(db, sessionForFinalize, normalizedFinalizeEvents);
-  }
-
-  const persistedEvents = await loadRealtimeEvents(db, session.id);
-  const mergedEvents = mergeRealtimeEventRows(persistedEvents, normalizedFinalizeEvents);
-  const transcript = buildRealtimeTranscript(mergedEvents);
-  const diagnostics = buildRealtimeDiagnostics(mergedEvents, persistedEvents.length, normalizedFinalizeEvents.length);
-
   const { attempt, assessment } = await requireAttempt(db, userId, session.attempt_id);
-  if (assessment.type !== "voice_realtime") {
-    throw new HttpError(400, "Attempt is not a live voice assessment");
-  }
-  if (!transcript.trim()) {
-    await markRealtimeSessionStatusBestEffort(db, userId, session.id, "error", {
-      diagnostics,
-      finalizeError: "No realtime transcript was captured"
-    });
-    throw new HttpError(400, "No realtime transcript was captured");
-  }
+  if (assessment.type !== "voice_realtime") throw new HttpError(400, "Attempt is not a live voice assessment");
+  const evidence = await realtimeEvidence(env, session.id, "seal");
+  const transcript = evidence.transcript;
+  const diagnostics = { eventCount: evidence.turns, studentTurnCount: evidence.turns, assistantTurnCount: 0,
+    statusTurnCount: 0, gapCount: 0, duplicateCount: 0, flags: [], source: "provider_audio" };
 
   let claimed = false;
   try {
-    await claimAttemptSubmission(db, userId, attempt.id, new Date().toISOString());
+    await storeRealtimeEventsNormalized(db, session, normalizedFinalizeEvents);
+    // Checkpoint sealed evidence and claim both state machines in one transaction.
+    const { error: claimError } = await db.rpc("claim_realtime_submission", {
+      p_user_id: userId, p_session_id: session.id, p_transcript: transcript
+    });
+    if (claimError) throw new HttpError(claimError.code === "23514" ? 409 : 500,
+      "Live voice finalization is already in progress or unavailable", claimError.message);
     claimed = true;
 
     const client = openaiClient(env.OPENAI_API_KEY);
@@ -235,6 +230,7 @@ export async function finalizeRealtimeVoice(request: Request, env: Env, db: Supa
       prompt: assessment.prompt,
       expectedAnswer: assessment.expectedAnswer ?? null,
       rubric: assessment.rubric,
+      scoringPolicy: assessment.config.scoringPolicy,
       transcript
     });
     const normalizedFeedback = toGradeFeedback(feedback);
@@ -251,33 +247,12 @@ export async function finalizeRealtimeVoice(request: Request, env: Env, db: Supa
       rawResponse: { feedback: normalizedFeedback }
     });
 
-    const now = new Date().toISOString();
-    const { error: updateError } = await db.from("attempts").update({
-      status: "graded",
-      transcript,
-      provisional_score: normalizedFeedback.score,
-      provisional_feedback: normalizedFeedback,
-      updated_at: now
-    }).eq("id", attempt.id).eq("student_id", userId);
-    if (updateError) throw new HttpError(500, "Failed to save realtime voice grade", updateError.message);
-
-    const { error: sessionUpdateError } = await db
-      .from("attempt_realtime_sessions")
-      .update({
-        status: "finalized",
-        ended_at: now,
-        updated_at: now,
-        continuity_diagnostics: diagnostics,
-        finalized_attempt_id: attempt.id,
-        finalized_transcript: transcript,
-        finalized_score: normalizedFeedback.score,
-        finalized_feedback: normalizedFeedback,
-        finalized_at: now,
-        finalize_error: null
-      })
-      .eq("id", session.id)
-      .eq("student_id", userId);
-    if (sessionUpdateError) throw new HttpError(500, "Failed to close realtime session", sessionUpdateError.message);
+    const { error: gradeError } = await db.rpc("save_realtime_grade", {
+      p_user_id: userId, p_session_id: session.id, p_transcript: transcript,
+      p_feedback: toJson(normalizedFeedback), p_diagnostics: diagnostics,
+      p_metadata: { model: getModel("grading").id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() }
+    });
+    if (gradeError) throw new HttpError(500, "Failed to finalize live voice grade", gradeError.message);
 
     return {
       attemptId: attempt.id,
@@ -288,11 +263,11 @@ export async function finalizeRealtimeVoice(request: Request, env: Env, db: Supa
       sessionStatus: "finalized" as const
     };
   } catch (error) {
-    await markRealtimeSessionStatusBestEffort(db, userId, session.id, "error", {
-      diagnostics,
-      finalizeError: error instanceof Error ? error.message : String(error)
-    });
     if (claimed) {
+      await markRealtimeSessionStatusBestEffort(db, userId, session.id, "error", {
+        diagnostics,
+        finalizeError: error instanceof Error ? error.message : String(error)
+      });
       await markRealtimeSubmissionErrorBestEffort(db, userId, attempt.id);
     }
     throw error;
@@ -321,40 +296,24 @@ export function normalizeRealtimeVoiceEvents(events: unknown): NormalizedRealtim
       : typeof event.type === "string" && event.type.trim()
         ? event.type.trim().slice(0, 120)
         : "event";
-    const role = parseRealtimeRole(event.role);
+    const role = event.role === "student" ? "student" as const : "status" as const;
     const text = typeof event.text === "string" && event.text.trim()
       ? event.text.trim().slice(0, MAX_EVENT_TEXT_LENGTH)
       : null;
     const metadata = sanitizeMetadata(event.metadata ?? event.raw ?? {});
-    const occurredAt = parseOptionalIso(event.occurredAt) ?? new Date().toISOString();
+    const occurredAt = new Date().toISOString();
 
     return { sequence, eventType, role, text, metadata, occurredAt };
   });
 }
 
-export function buildRealtimeTranscript(rows: Array<Pick<RealtimeEventRow, "role" | "text">>): string {
-  const lines: string[] = [];
-  for (const row of rows) {
-    const text = row.text?.trim();
-    if (!text) continue;
-    if (row.role === "student") {
-      lines.push(`Student: ${text}`);
-    } else if (row.role === "assistant") {
-      lines.push(`GPT: ${text}`);
-    } else if (row.role === "system") {
-      lines.push(`System: ${text}`);
-    }
-  }
-  return lines.join("\n");
-}
-
-async function storeRealtimeEvents(db: SupabaseClient, session: RealtimeSessionRow, events: unknown): Promise<number> {
+async function storeRealtimeEvents(db: AppDatabaseClient, session: RealtimeSessionRow, events: unknown): Promise<number> {
   const normalized = normalizeRealtimeVoiceEvents(events);
   return storeRealtimeEventsNormalized(db, session, normalized);
 }
 
 async function storeRealtimeEventsNormalized(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   session: RealtimeSessionRow,
   normalized: NormalizedRealtimeEvent[]
 ): Promise<number> {
@@ -379,17 +338,7 @@ async function storeRealtimeEventsNormalized(
   return rows.length;
 }
 
-async function loadRealtimeEvents(db: SupabaseClient, sessionId: string): Promise<RealtimeEventRow[]> {
-  const { data, error } = await db
-    .from("attempt_realtime_events")
-    .select("id, session_id, attempt_id, student_id, sequence, event_type, role, text, metadata, occurred_at, created_at")
-    .eq("session_id", sessionId)
-    .order("sequence", { ascending: true });
-  if (error) throw new HttpError(500, "Failed to load realtime events", error.message);
-  return (data ?? []) as RealtimeEventRow[];
-}
-
-async function requireRealtimeSession(db: SupabaseClient, userId: string, sessionId: string): Promise<RealtimeSessionRow> {
+async function requireRealtimeSession(db: AppDatabaseClient, userId: string, sessionId: string): Promise<RealtimeSessionRow> {
   const { data, error } = await db
     .from("attempt_realtime_sessions")
     .select("id, attempt_id, student_id, provider, model, status, started_at, ended_at, expires_at, continuity_diagnostics, finalized_attempt_id, finalized_transcript, finalized_score, finalized_feedback, finalized_at, finalize_error")
@@ -404,7 +353,7 @@ async function requireRealtimeSession(db: SupabaseClient, userId: string, sessio
   return data as RealtimeSessionRow;
 }
 
-function buildRealtimeInstructions(input: {
+export function buildRealtimeInstructions(input: {
   prompt: string;
   expectedAnswer: string | null;
   rubric: unknown;
@@ -417,7 +366,6 @@ function buildRealtimeInstructions(input: {
     "Do not invent evidence not stated by the student.",
     "At the end, summarize strengths and gaps in a classroom-appropriate tone.",
     `Assessment prompt: ${input.prompt}`,
-    `Expected answer: ${input.expectedAnswer ?? "No expected answer provided."}`,
     `Rubric: ${JSON.stringify(input.rubric ?? [])}`
   ].join("\n");
 }
@@ -430,21 +378,16 @@ function resolveRealtimeMaxSessionSec(config: Record<string, unknown>): number {
   return Math.min(1800, Math.max(30, Math.round(value)));
 }
 
-function parseRealtimeRole(value: unknown): RealtimeEventRole | null {
-  if (value === "student" || value === "assistant" || value === "system" || value === "status") return value;
-  return null;
-}
-
-function sanitizeMetadata(value: unknown, depth = 0): Record<string, unknown> {
+function sanitizeMetadata(value: unknown, depth = 0): Record<string, Json | undefined> {
   const sanitized = sanitizeValue(value, depth);
-  if (isRecord(sanitized)) {
+  if (isJsonObject(sanitized)) {
     const json = safeJsonStringify(sanitized);
     if (json.length <= MAX_METADATA_JSON_LENGTH) return sanitized;
   }
   return {};
 }
 
-function sanitizeValue(value: unknown, depth: number): unknown {
+function sanitizeValue(value: unknown, depth: number): Json {
   if (depth > 4) return "[truncated]";
   if (value === null || value === undefined) return null;
   if (typeof value === "number" || typeof value === "boolean") return value;
@@ -456,7 +399,7 @@ function sanitizeValue(value: unknown, depth: number): unknown {
   }
   if (!isRecord(value)) return null;
 
-  const output: Record<string, unknown> = {};
+  const output: Record<string, Json> = {};
   for (const [key, entry] of Object.entries(value)) {
     if (isSensitiveMetadataKey(key)) continue;
     output[key.slice(0, 80)] = sanitizeValue(entry, depth + 1);
@@ -475,13 +418,6 @@ function redactSensitiveString(value: string): string {
     .replace(/v=0\r?\n[\s\S]*/i, "[redacted-sdp]");
 }
 
-function parseOptionalIso(value: unknown): string | null {
-  if (typeof value !== "string" || !value.trim()) return null;
-  const ms = Date.parse(value);
-  if (!Number.isFinite(ms)) return null;
-  return new Date(ms).toISOString();
-}
-
 function assertRealtimeSessionActive(session: RealtimeSessionRow, message: string): void {
   if (session.status !== "active") {
     throw new HttpError(409, message, { sessionId: session.id, status: session.status });
@@ -492,36 +428,8 @@ function assertRealtimeSessionActive(session: RealtimeSessionRow, message: strin
   }
 }
 
-async function markRealtimeSessionFinalizing(db: SupabaseClient, userId: string, sessionId: string): Promise<RealtimeSessionRow> {
-  const now = new Date().toISOString();
-  const { data, error } = await db
-    .from("attempt_realtime_sessions")
-    .update({ status: "finalizing", updated_at: now })
-    .eq("id", sessionId)
-    .eq("student_id", userId)
-    .eq("status", "active")
-    .select("id, attempt_id, student_id, provider, model, status, started_at, ended_at, expires_at, continuity_diagnostics, finalized_attempt_id, finalized_transcript, finalized_score, finalized_feedback, finalized_at, finalize_error")
-    .maybeSingle();
-  if (error && isMissingRealtimeHardeningSchema(error)) {
-    throw new HttpError(409, "Realtime voice requires database migration 0013_realtime_voice_hardening.sql");
-  }
-  if (error) throw new HttpError(500, "Failed to claim realtime finalization", error.message);
-  if (data) {
-    return data as RealtimeSessionRow;
-  }
-
-  const current = await requireRealtimeSession(db, userId, sessionId);
-  if (current.status === "finalized") {
-    throw new HttpError(409, "Realtime session is already finalized", { sessionId, status: current.status });
-  }
-  if (current.status === "finalizing") {
-    throw new HttpError(409, "Realtime session finalization is already in progress", { sessionId, status: current.status });
-  }
-  throw new HttpError(409, "Realtime session is not active", { sessionId, status: current.status });
-}
-
 async function replayFinalizedRealtimeSession(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   session: RealtimeSessionRow
 ): Promise<{
@@ -547,65 +455,8 @@ async function replayFinalizedRealtimeSession(
   };
 }
 
-function mergeRealtimeEventRows(
-  persisted: RealtimeEventRow[],
-  incoming: NormalizedRealtimeEvent[]
-): Array<Pick<RealtimeEventRow, "sequence" | "role" | "text">> {
-  const mergedBySequence = new Map<number, Pick<RealtimeEventRow, "sequence" | "role" | "text">>();
-  for (const row of persisted) {
-    mergedBySequence.set(row.sequence, { sequence: row.sequence, role: row.role, text: row.text });
-  }
-  for (const row of incoming) {
-    if (mergedBySequence.has(row.sequence)) continue;
-    mergedBySequence.set(row.sequence, { sequence: row.sequence, role: row.role, text: row.text });
-  }
-  return Array.from(mergedBySequence.values()).sort((left, right) => left.sequence - right.sequence);
-}
-
-function buildRealtimeDiagnostics(
-  mergedRows: Array<Pick<RealtimeEventRow, "sequence" | "role" | "text">>,
-  persistedEventCount: number,
-  incomingEventCount: number
-): RealtimeDiagnostics {
-  let studentTurnCount = 0;
-  let assistantTurnCount = 0;
-  let statusTurnCount = 0;
-  for (const row of mergedRows) {
-    if (row.role === "student" && row.text?.trim()) studentTurnCount += 1;
-    if (row.role === "assistant" && row.text?.trim()) assistantTurnCount += 1;
-    if (row.role === "status") statusTurnCount += 1;
-  }
-
-  let gapCount = 0;
-  for (let index = 1; index < mergedRows.length; index += 1) {
-    const previous = mergedRows[index - 1].sequence;
-    const current = mergedRows[index].sequence;
-    if (current > previous + 1) {
-      gapCount += current - previous - 1;
-    }
-  }
-
-  const duplicateCount = Math.max(0, persistedEventCount + incomingEventCount - mergedRows.length);
-  const flags: string[] = [];
-  if (duplicateCount > 0) flags.push("duplicate_sequences");
-  if (gapCount > 0) flags.push("sequence_gaps");
-  if (studentTurnCount === 0) flags.push("no_student_turns");
-  if (assistantTurnCount === 0) flags.push("no_assistant_turns");
-  if (mergedRows.length === 0) flags.push("no_events");
-
-  return {
-    eventCount: mergedRows.length,
-    studentTurnCount,
-    assistantTurnCount,
-    statusTurnCount,
-    gapCount,
-    duplicateCount,
-    flags
-  };
-}
-
 async function markRealtimeSessionStatusBestEffort(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   sessionId: string,
   status: RealtimeSessionRow["status"],
@@ -613,17 +464,19 @@ async function markRealtimeSessionStatusBestEffort(
 ): Promise<void> {
   try {
     const now = new Date().toISOString();
-    await db
+    const { error } = await db
       .from("attempt_realtime_sessions")
       .update({
         status,
         ended_at: status === "active" ? null : now,
         updated_at: now,
-        continuity_diagnostics: input?.diagnostics ?? undefined,
+        continuity_diagnostics: input?.diagnostics ? toJson(input.diagnostics) : undefined,
         finalize_error: input?.finalizeError ?? undefined
       })
       .eq("id", sessionId)
-      .eq("student_id", userId);
+      .eq("student_id", userId)
+      .in("status", ["connecting", "active", "finalizing"]);
+    if (error) throw error;
   } catch (error) {
     console.error("Failed to update realtime session status", {
       sessionId,
@@ -633,7 +486,7 @@ async function markRealtimeSessionStatusBestEffort(
   }
 }
 
-async function markRealtimeSubmissionErrorBestEffort(db: SupabaseClient, userId: string, attemptId: string): Promise<void> {
+async function markRealtimeSubmissionErrorBestEffort(db: AppDatabaseClient, userId: string, attemptId: string): Promise<void> {
   try {
     await markAttemptSubmissionError(db, userId, attemptId, new Date().toISOString());
   } catch (error) {

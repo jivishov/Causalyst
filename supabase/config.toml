@@ -1,0 +1,47 @@
+# Disposable local/CI stack. This file does not configure the hosted project.
+project_id = "causalyst-ci"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+# Intentionally lower than application page sizes to exercise real pagination.
+max_rows = 73
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.migrations]
+enabled = true
+
+[db.seed]
+enabled = false
+
+[realtime]
+enabled = false
+
+[studio]
+enabled = false
+
+[inbucket]
+enabled = false
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:5173"
+additional_redirect_urls = ["http://127.0.0.1:5173/Causalyst/auth/callback"]
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false

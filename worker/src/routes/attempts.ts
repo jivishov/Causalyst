@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "../lib/database";
 import type {
   AttemptResult,
   SimulationHtmlReasoningEffort,
@@ -13,7 +13,7 @@ import {
   DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
   SIMULATION_HTML_REASONING_EFFORTS
 } from "@alt-assessment/shared";
-import { requireAssignedAssignment, requireAttempt, toGradeFeedback } from "../lib/db";
+import { requireAssignedAssignment, requireAttempt, toGradeFeedback, studentAssessment } from "../lib/db";
 import type { Env } from "../lib/env";
 import { HttpError, getRequiredString, readJson } from "../lib/http";
 import { signPreviewToken } from "../lib/crypto";
@@ -42,12 +42,12 @@ interface PublishedGradeRow {
 
 export async function startAttempt(
   request: Request,
-  envOrDb: Env | SupabaseClient,
-  dbOrUserId: SupabaseClient | string,
+  envOrDb: Env | AppDatabaseClient,
+  dbOrUserId: AppDatabaseClient | string,
   maybeUserId?: string
 ) {
   const env = typeof dbOrUserId === "string" ? null : envOrDb as Env;
-  const db = typeof dbOrUserId === "string" ? envOrDb as SupabaseClient : dbOrUserId;
+  const db = typeof dbOrUserId === "string" ? envOrDb as AppDatabaseClient : dbOrUserId;
   const userId = typeof dbOrUserId === "string" ? dbOrUserId : maybeUserId;
   if (!userId) throw new HttpError(500, "Missing student user for attempt start");
 
@@ -75,29 +75,29 @@ export async function startAttempt(
     }
     return {
       attemptId: draft.id,
-      assignment,
+      assignment: { ...assignment, assessment: studentAssessment((await requireAttempt(db, userId, draft.id)).assessment) },
       simulationDraft: env ? await loadSimulationDraftPreview(db, env, userId, draft) : null
     };
   }
 
   const attemptId = await createDraftAttempt(db, userId, assignment.assignmentId, assignment.assessment.id, assignment.dueAt ?? null);
-  return { attemptId, assignment, simulationDraft: null };
+  return { attemptId, assignment: { ...assignment, assessment: studentAssessment((await requireAttempt(db, userId, attemptId)).assessment) }, simulationDraft: null };
 }
 
-export async function attemptResult(db: SupabaseClient, env: Env, userId: string, attemptId: string): Promise<AttemptResult> {
+export async function attemptResult(db: AppDatabaseClient, env: Env, userId: string, attemptId: string): Promise<AttemptResult> {
   const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
   const assignmentId = attempt.assignment_id;
   const assignmentClassId = assignmentId ? await loadAssignmentClassId(db, assignmentId) : null;
   const publishedGrade = assignmentId && assignmentClassId
     ? await loadStudentPublishedFinalGradeForAssignment(db, userId, assignmentClassId, assignmentId)
     : null;
-  const simulationPreview = await loadSimulationPreviewForAttempt(db, env, userId, attempt.id, "simulation-derived", "html");
-  const simulationSketchPreview = await loadSimulationPreviewForAttempt(db, env, userId, attempt.id, "simulation-sketch", "image");
+  const simulationPreview = await loadSimulationPreviewForAttempt(db, env, userId, attempt.id, "simulation-derived", "html", attempt.status !== "draft");
+  const simulationSketchPreview = await loadSimulationPreviewForAttempt(db, env, userId, attempt.id, "simulation-sketch", "image", attempt.status !== "draft");
 
   return {
     attemptId: attempt.id,
     assignmentId,
-    assessment,
+    assessment: studentAssessment(assessment),
     status: attempt.status as AttemptResult["status"],
     provisionalScore: attempt.provisional_score,
     provisionalFeedback: toGradeFeedback(attempt.provisional_feedback),
@@ -111,7 +111,7 @@ export async function attemptResult(db: SupabaseClient, env: Env, userId: string
   };
 }
 
-export async function publishedFinalResult(db: SupabaseClient, userId: string, assignmentId: string): Promise<StudentPublishedFinalResultResponse> {
+export async function publishedFinalResult(db: AppDatabaseClient, userId: string, assignmentId: string): Promise<StudentPublishedFinalResultResponse> {
   const assignment = await requireAssignedAssignment(db, userId, assignmentId);
   const publishedGrade = await loadStudentPublishedFinalGradeForAssignment(db, userId, assignment.classId, assignment.assignmentId);
   if (!publishedGrade) {
@@ -133,7 +133,7 @@ export async function publishedFinalResult(db: SupabaseClient, userId: string, a
   };
 }
 
-async function loadAssignmentAttempts(db: SupabaseClient, userId: string, assignmentId: string): Promise<AttemptLifecycleRow[]> {
+async function loadAssignmentAttempts(db: AppDatabaseClient, userId: string, assignmentId: string): Promise<AttemptLifecycleRow[]> {
   const initial = await db
     .from("attempts")
     .select("id, status, due_at_snapshot, submitted_at, provisional_score, submitted_after_due, simulation_description, created_at")
@@ -185,7 +185,7 @@ function toStudentAttemptSummary(row: AttemptLifecycleRow): StudentAttemptSummar
 }
 
 async function loadSimulationDraftPreview(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   env: Env,
   userId: string,
   draft: AttemptLifecycleRow
@@ -207,7 +207,7 @@ async function loadSimulationDraftPreview(
   };
 }
 
-async function loadActiveSimulationGenerationJob(db: SupabaseClient, userId: string, attemptId: string): Promise<StudentSimulationGenerationJob | null> {
+async function loadActiveSimulationGenerationJob(db: AppDatabaseClient, userId: string, attemptId: string): Promise<StudentSimulationGenerationJob | null> {
   const { data, error } = await db
     .from("simulation_generation_jobs")
     .select("id, operation, status, created_at, expires_at, requested_model, model_used, reasoning_effort, error_message")
@@ -274,7 +274,7 @@ function isMissingSimulationReasoningEffortColumn(error: { code?: string; messag
 }
 
 async function loadPublishedFinalGrade(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   classId: string,
   assignmentId: string
@@ -299,7 +299,7 @@ async function loadPublishedFinalGrade(
 }
 
 async function loadStudentPublishedFinalGradeForAssignment(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   classId: string,
   assignmentId: string
@@ -336,14 +336,15 @@ async function loadStudentPublishedFinalGradeForAssignment(
 }
 
 async function loadSimulationPreviewForAttempt(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   env: Env,
   userId: string,
   attemptId: string,
   kind: "simulation-derived" | "simulation-sketch",
-  outputKind: "html" | "image"
+  outputKind: "html" | "image",
+  frozenOnly = false
 ): Promise<StudentSimulationPreview | null> {
-  const { data, error } = await db
+  let query = db
     .from("attempt_artifacts")
     .select("id, upload_state, kind, original_filename, simulation_html_viewport_width, simulation_html_viewport_height")
     .eq("attempt_id", attemptId)
@@ -352,8 +353,9 @@ async function loadSimulationPreviewForAttempt(
     .eq("upload_state", "uploaded")
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+  if (frozenOnly) query = query.not("frozen_at", "is", null);
+  const { data, error } = await query.maybeSingle();
 
   if (error) throw new HttpError(500, "Failed to load simulation preview artifact", error.message);
   if (!data || data.kind !== kind || data.upload_state !== "uploaded") return null;
@@ -380,7 +382,7 @@ async function loadSimulationPreviewForAttempt(
 }
 
 async function loadSimulationHtmlReasoningEffortForArtifact(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   attemptId: string,
   artifactId: string
@@ -401,7 +403,7 @@ async function loadSimulationHtmlReasoningEffortForArtifact(
   return normalizeSimulationHtmlReasoningEffort((data as { reasoning_effort?: unknown } | null)?.reasoning_effort, null);
 }
 
-async function resolveRosterStudentIdForCourse(db: SupabaseClient, classId: string, userId: string): Promise<string | null> {
+async function resolveRosterStudentIdForCourse(db: AppDatabaseClient, classId: string, userId: string): Promise<string | null> {
   const { data: membership, error: membershipError } = await db
     .from("class_memberships")
     .select("roster_student_id")
@@ -422,7 +424,7 @@ async function resolveRosterStudentIdForCourse(db: SupabaseClient, classId: stri
   return (rosterStudent?.id as string | undefined) ?? null;
 }
 
-async function loadAssignmentClassId(db: SupabaseClient, assignmentId: string): Promise<string | null> {
+async function loadAssignmentClassId(db: AppDatabaseClient, assignmentId: string): Promise<string | null> {
   const { data, error } = await db
     .from("assessment_assignments")
     .select("class_id")
@@ -439,7 +441,7 @@ function isFinalizedGrade(row: Pick<PublishedGradeRow, "approved_score" | "teach
 }
 
 async function backfillDraftDueSnapshot(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   attemptId: string,
   dueAt: string
@@ -460,7 +462,7 @@ async function backfillDraftDueSnapshot(
 }
 
 async function createDraftAttempt(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   assignmentId: string,
   assessmentId: string,

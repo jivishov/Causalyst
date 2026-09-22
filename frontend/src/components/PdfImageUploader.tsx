@@ -1,10 +1,7 @@
 import { FileText, Image as ImageIcon, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 import { formatBytes } from "../lib/uploadPolicy";
 
-GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export function PdfImageUploader({
   onFile,
@@ -49,6 +46,10 @@ export function PdfImageUploader({
     }
     if (nextFile.type === "application/pdf") {
       try {
+        const [{ getDocument, GlobalWorkerOptions }, { default: pdfWorker }] = await Promise.all([
+          import("pdfjs-dist"), import("pdfjs-dist/build/pdf.worker.mjs?url")
+        ]);
+        GlobalWorkerOptions.workerSrc = pdfWorker;
         const pdf = await getDocument({ data: await nextFile.arrayBuffer() }).promise;
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 0.5 });

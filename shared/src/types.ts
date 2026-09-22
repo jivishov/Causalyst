@@ -9,12 +9,14 @@ export interface SourceSpan {
 }
 
 export interface RubricCriterion {
+  id?: string;
   name: string;
   maxPoints: number;
   description: string;
 }
 
 export interface RubricScore {
+  id?: string;
   name: string;
   score: number;
   maxPoints: number;
@@ -22,6 +24,8 @@ export interface RubricScore {
 }
 
 export interface GradeFeedback {
+  policyVersion?: string;
+  appliedCaps?: Array<{ id: string; reason: string }>;
   score: number;
   overallComment: string;
   criteria: RubricScore[];
@@ -34,10 +38,13 @@ export interface AssessmentSummary {
   type: AssessmentType;
   title: string;
   prompt: string;
-  expectedAnswer?: string | null;
   rubric: RubricCriterion[];
   config: Record<string, unknown>;
   dueAt?: string | null;
+}
+
+export interface GradingAssessment extends AssessmentSummary {
+  expectedAnswer: string | null;
 }
 
 export type StudentAssignmentState =
@@ -342,6 +349,7 @@ export interface TeacherAttemptReviewListResponse {
 }
 
 export interface TeacherAttemptReviewDetail {
+  legacyContextCapture?: boolean;
   attemptId: string;
   assignmentId: string | null;
   status: AttemptStatus;
@@ -368,7 +376,7 @@ export interface TeacherAttemptReviewDetail {
     opensAt: string | null;
     dueAt: string | null;
   };
-  assessment: AssessmentSummary;
+  assessment: GradingAssessment;
   artifacts: TeacherAttemptReviewArtifact[];
   realtimeEvents: TeacherRealtimeEvent[];
   realtimeTrust?: TeacherRealtimeTrust | null;

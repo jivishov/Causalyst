@@ -1,3 +1,4 @@
+import { parseScoringPolicy } from "../lib/gradingPolicy";
 import {
   DEFAULT_REALTIME_VOICE_MAX_SESSION_SEC,
   DEFAULT_SIMULATION_CODE_MODEL_ID,
@@ -13,7 +14,8 @@ import {
   type TeacherAssignmentsResponse,
   isSimulationCodeModelId
 } from "@alt-assessment/shared";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppDatabaseClient } from "../lib/database";
+import { toJson, type TablesUpdate } from "../lib/database";
 import { HttpError, getRequiredString, readJson } from "../lib/http";
 import { requireTeacherProfile } from "./teacher";
 import { reconcileGradebookForCourse } from "./teacherGradebook";
@@ -54,7 +56,7 @@ const ASSESSMENT_SELECT = "id, type, title, prompt, expected_answer, rubric, con
 const ASSIGNMENT_SELECT = "id, assessment_id, class_id, opens_at, due_at, created_at, updated_at, archived_at";
 const COURSE_SELECT = "id, code, name, archived_at";
 
-export async function listTeacherAssessments(db: SupabaseClient, userId: string, includeArchived: boolean): Promise<TeacherAssessmentsResponse> {
+export async function listTeacherAssessments(db: AppDatabaseClient, userId: string, includeArchived: boolean): Promise<TeacherAssessmentsResponse> {
   await requireTeacherProfile(db, userId);
   let query = db
     .from("assessments")
@@ -68,7 +70,7 @@ export async function listTeacherAssessments(db: SupabaseClient, userId: string,
   return { assessments: ((data ?? []) as AssessmentRow[]).map(toTeacherAssessment) };
 }
 
-export async function createTeacherAssessment(request: Request, db: SupabaseClient, userId: string): Promise<{ assessment: TeacherAssessment }> {
+export async function createTeacherAssessment(request: Request, db: AppDatabaseClient, userId: string): Promise<{ assessment: TeacherAssessment }> {
   await requireTeacherProfile(db, userId);
   const body = await readJson<Record<string, unknown>>(request);
   const type = parseAssessmentType(body.type);
@@ -86,8 +88,8 @@ export async function createTeacherAssessment(request: Request, db: SupabaseClie
       title,
       prompt,
       expected_answer: expectedAnswer,
-      rubric,
-      config,
+      rubric: toJson(rubric),
+      config: toJson(config),
       created_by: userId,
       updated_at: now
     })
@@ -99,25 +101,25 @@ export async function createTeacherAssessment(request: Request, db: SupabaseClie
 
 export async function updateTeacherAssessment(
   request: Request,
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   assessmentId: string
 ): Promise<{ assessment: TeacherAssessment }> {
   await requireTeacherProfile(db, userId);
   const current = await requireOwnedAssessment(db, userId, assessmentId);
   const body = await readJson<Record<string, unknown>>(request);
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const patch: TablesUpdate<"assessments"> = { updated_at: new Date().toISOString() };
 
   const type = "type" in body ? parseAssessmentType(body.type) : current.type;
   if ("type" in body) patch.type = type;
   if ("title" in body) patch.title = getRequiredString(body, "title");
   if ("prompt" in body) patch.prompt = getRequiredString(body, "prompt");
   if ("expectedAnswer" in body) patch.expected_answer = getNullableString(body, "expectedAnswer");
-  if ("rubric" in body) patch.rubric = parseRubric(body.rubric);
+  if ("rubric" in body) patch.rubric = toJson(parseRubric(body.rubric));
   if ("config" in body) {
-    patch.config = parseAssessmentConfig(type, body.config);
+    patch.config = toJson(parseAssessmentConfig(type, body.config));
   } else if ("type" in body) {
-    patch.config = parseAssessmentConfig(type, current.config);
+    patch.config = toJson(parseAssessmentConfig(type, current.config));
   }
 
   const { data, error } = await db
@@ -133,7 +135,7 @@ export async function updateTeacherAssessment(
 }
 
 export async function setTeacherAssessmentArchived(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   assessmentId: string,
   archived: boolean
@@ -153,7 +155,7 @@ export async function setTeacherAssessmentArchived(
 }
 
 export async function listTeacherAssignments(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   includeArchived: boolean,
   courseId?: string
@@ -193,7 +195,7 @@ export async function listTeacherAssignments(
 
 export async function createTeacherAssignment(
   request: Request,
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string
 ): Promise<{ assignment: TeacherAssignment }> {
   await requireTeacherProfile(db, userId);
@@ -241,14 +243,14 @@ export async function createTeacherAssignment(
 
 export async function updateTeacherAssignment(
   request: Request,
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   assignmentId: string
 ): Promise<{ assignment: TeacherAssignment }> {
   await requireTeacherProfile(db, userId);
   const current = await requireOwnedAssignment(db, userId, assignmentId);
   const body = await readJson<Record<string, unknown>>(request);
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const patch: TablesUpdate<"assessment_assignments"> = { updated_at: new Date().toISOString() };
 
   let nextAssessmentId = current.assessment_id;
   if ("assessmentId" in body) {
@@ -304,7 +306,7 @@ export async function updateTeacherAssignment(
 }
 
 export async function setTeacherAssignmentArchived(
-  db: SupabaseClient,
+  db: AppDatabaseClient,
   userId: string,
   assignmentId: string,
   archived: boolean
@@ -337,23 +339,23 @@ export async function setTeacherAssignmentArchived(
   return { assignment };
 }
 
-export function archiveTeacherAssessment(db: SupabaseClient, userId: string, assessmentId: string) {
+export function archiveTeacherAssessment(db: AppDatabaseClient, userId: string, assessmentId: string) {
   return setTeacherAssessmentArchived(db, userId, assessmentId, true);
 }
 
-export function unarchiveTeacherAssessment(db: SupabaseClient, userId: string, assessmentId: string) {
+export function unarchiveTeacherAssessment(db: AppDatabaseClient, userId: string, assessmentId: string) {
   return setTeacherAssessmentArchived(db, userId, assessmentId, false);
 }
 
-export function archiveTeacherAssignment(db: SupabaseClient, userId: string, assignmentId: string) {
+export function archiveTeacherAssignment(db: AppDatabaseClient, userId: string, assignmentId: string) {
   return setTeacherAssignmentArchived(db, userId, assignmentId, true);
 }
 
-export function unarchiveTeacherAssignment(db: SupabaseClient, userId: string, assignmentId: string) {
+export function unarchiveTeacherAssignment(db: AppDatabaseClient, userId: string, assignmentId: string) {
   return setTeacherAssignmentArchived(db, userId, assignmentId, false);
 }
 
-async function requireOwnedAssessment(db: SupabaseClient, userId: string, assessmentId: string): Promise<AssessmentRow> {
+async function requireOwnedAssessment(db: AppDatabaseClient, userId: string, assessmentId: string): Promise<AssessmentRow> {
   const { data, error } = await db
     .from("assessments")
     .select(ASSESSMENT_SELECT)
@@ -365,7 +367,7 @@ async function requireOwnedAssessment(db: SupabaseClient, userId: string, assess
   return data as AssessmentRow;
 }
 
-async function requireOwnedCourse(db: SupabaseClient, userId: string, courseId: string): Promise<CourseRow> {
+async function requireOwnedCourse(db: AppDatabaseClient, userId: string, courseId: string): Promise<CourseRow> {
   const { data, error } = await db
     .from("classes")
     .select("id, code, name, archived_at, teacher_id")
@@ -377,7 +379,7 @@ async function requireOwnedCourse(db: SupabaseClient, userId: string, courseId: 
   return data as CourseRow;
 }
 
-async function requireOwnedAssignment(db: SupabaseClient, userId: string, assignmentId: string): Promise<AssignmentRow> {
+async function requireOwnedAssignment(db: AppDatabaseClient, userId: string, assignmentId: string): Promise<AssignmentRow> {
   const { data, error } = await db
     .from("assessment_assignments")
     .select(ASSIGNMENT_SELECT)
@@ -391,7 +393,7 @@ async function requireOwnedAssignment(db: SupabaseClient, userId: string, assign
   return assignment;
 }
 
-async function listOwnedCourses(db: SupabaseClient, userId: string): Promise<CourseRow[]> {
+async function listOwnedCourses(db: AppDatabaseClient, userId: string): Promise<CourseRow[]> {
   const { data, error } = await db
     .from("classes")
     .select(COURSE_SELECT)
@@ -400,7 +402,7 @@ async function listOwnedCourses(db: SupabaseClient, userId: string): Promise<Cou
   return (data ?? []) as CourseRow[];
 }
 
-async function listOwnedAssessments(db: SupabaseClient, userId: string, includeArchived: boolean): Promise<AssessmentRow[]> {
+async function listOwnedAssessments(db: AppDatabaseClient, userId: string, includeArchived: boolean): Promise<AssessmentRow[]> {
   let query = db
     .from("assessments")
     .select(ASSESSMENT_SELECT)
@@ -466,7 +468,7 @@ function parseRubric(value: unknown): RubricCriterion[] {
   if (value.length === 0) {
     throw new HttpError(400, "Rubric must include at least one criterion");
   }
-  return value.map((entry, index) => {
+  const rows = value.map((entry, index) => {
     if (!isRecord(entry)) {
       throw new HttpError(400, `Rubric row ${index + 1} must be an object`);
     }
@@ -479,11 +481,14 @@ function parseRubric(value: unknown): RubricCriterion[] {
       throw new HttpError(400, `Rubric row ${index + 1} maxPoints must be greater than zero`);
     }
     return {
+      id: typeof entry.id === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(entry.id) ? entry.id : crypto.randomUUID(),
       name,
       description,
-      maxPoints: Math.round(maxPoints)
+      maxPoints
     };
   });
+  if (new Set(rows.map((row) => row.id)).size !== rows.length) throw new HttpError(400, "Rubric criterion IDs must be unique");
+  return rows;
 }
 
 function coerceRubric(value: unknown): RubricCriterion[] {
@@ -495,12 +500,16 @@ function coerceRubric(value: unknown): RubricCriterion[] {
     const description = typeof entry.description === "string" ? entry.description : "";
     const maxPoints = typeof entry.maxPoints === "number" ? entry.maxPoints : 0;
     if (!name || !description || maxPoints <= 0) continue;
-    rows.push({ name, description, maxPoints });
+    rows.push({ id: typeof entry.id === "string" ? entry.id : `criterion-${rows.length + 1}`, name, description, maxPoints });
   }
   return rows;
 }
 
 function parseAssessmentConfig(type: AssessmentType, value: unknown): Record<string, unknown> {
+  return { ...parseModalityConfig(type, value), scoringPolicy: parseScoringPolicy(isRecord(value) ? value.scoringPolicy : undefined) };
+}
+
+function parseModalityConfig(type: AssessmentType, value: unknown): Record<string, unknown> {
   if (!isRecord(value)) return defaultConfigForType(type);
   switch (type) {
     case "voice": {

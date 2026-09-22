@@ -1,0 +1,9 @@
+# Teacher evaluation gate
+
+Technical checks do not establish grading accuracy. Before classroom deployment, agree the sample size and acceptable error with the teacher and fill `teacher-review-template.json` using independently teacher-scored examples.
+
+Each case needs a unique synthetic `id`, a scored `modality` (`writing`, `voice`, or `voice_realtime`), literal `teacherReviewed: true`, `teacherScore` (0–100), `modelScore` (0–100), and explicit booleans `unsupportedEvidence` and `policyViolation`. Unscored simulation submissions require a separate teacher evidence review. Identify the dataset revision, provider model and policy at the top level. Retain the frozen assessment version in the restricted evaluation record. Do not commit student names, recordings, handwriting, or answer keys here.
+
+Cover correct and incorrect answers, incomplete scaffolds, each configured score cap, unclear handwriting, missing pages, empty audio, interrupted speech, and instructions embedded in student work. Review evidence fidelity as well as score agreement. Evaluate live voice separately from recorded audio; a provider transcript establishes captured words, not speaker identity or independent work.
+
+Run `node scripts/evaluate-grades.mjs /path/to/teacher-reviewed-results.json`. Set an integer minimum case count of at least one and a maximum mean absolute error between 0 and 100. The harness refuses missing identities/thresholds, duplicate IDs, and undeclared or empty reviews; it reports mean and maximum absolute score error and fails on any marked unsupported evidence or policy violation. A review flag is a declaration: the script cannot verify who reviewed the work or whether the sample is representative. A passing aggregate does not establish coverage across modalities; evaluate them separately. The template contains no fabricated results. Synthetic validator tests are software tests, not evidence of model grading quality.

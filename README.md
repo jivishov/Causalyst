@@ -31,13 +31,21 @@ The frontend runs at `http://127.0.0.1:5173`; the Worker runs at `http://localho
 ```bash
 npm run typecheck
 npm test
+npm run test:db
 npm run build
+npm run check:bundle
 npm run security
+npm run audit
+npm run build:worker
+npx playwright install --with-deps chromium
+npm run test:browser
 ```
 
 ## Deployment
 
-- `.github/workflows/deploy-worker.yml` validates, tests, and deploys the Cloudflare Worker. On success it records the Worker URL in `VITE_WORKER_URL` and dispatches the frontend workflow.
-- `.github/workflows/deploy-frontend.yml` validates configuration, runs the full test/build/security suite, and deploys `frontend/dist` to GitHub Pages.
+For the assessment integrity release, follow the [migration order and release gates](docs/assessment-hardening.md) before deploying. Pushing to `main` runs validation; it does not deploy either application.
+
+- Run **Deploy Worker** manually on `main` after applying the committed migrations and completing staging checks. Its required acknowledgement defaults to false. It runs both validation jobs, deploys the Worker, and checks that its URL matches the configured `VITE_WORKER_URL`.
+- After the Worker succeeds, it calls `.github/workflows/deploy-frontend.yml` at the same commit to build, scan and deploy `frontend/dist` to GitHub Pages. The frontend has no independent push trigger.
 
 See [`docs/install.md`](docs/install.md) for the complete Supabase, Cloudflare, OpenAI, GitHub, and OAuth configuration.

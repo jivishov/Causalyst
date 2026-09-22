@@ -368,18 +368,19 @@ export function TeacherAttemptReviewPage() {
         <RubricFeedback feedback={attempt.provisionalFeedback} rubric={attempt.assessment.rubric} />
       </div>
 
+      {attempt.legacyContextCapture && <p className="overall-comment">This older attempt uses assessment context captured during migration. Its original prompt and rubric could not be reconstructed.</p>}
       {attempt.realtimeTrust && (
         <section className="course-list-panel">
           <div className="course-list-header">
-            <h2>Realtime Trust</h2>
+            <h2>Live session telemetry</h2>
           </div>
           <div className="attempt-meta-grid">
-            <p><strong>Score:</strong> {attempt.realtimeTrust.score}</p>
+            <p><strong>Continuity score:</strong> {attempt.realtimeTrust.score}</p>
             <p><strong>Level:</strong> {attempt.realtimeTrust.level}</p>
             <p><strong>Sessions:</strong> {attempt.realtimeTrust.history.length}</p>
             <p><strong>Flags:</strong> {attempt.realtimeTrust.flags.length > 0 ? attempt.realtimeTrust.flags.join(", ") : "None"}</p>
           </div>
-          <p className="overall-comment">{attempt.realtimeTrust.summary}</p>
+          <p className="overall-comment">Browser telemetry describes connection continuity. It does not authenticate speech or establish answer quality. Grading uses the server transcript.</p>
           {attempt.realtimeTrust.history.length > 0 && (
             <div className="realtime-log">
               {attempt.realtimeTrust.history.map((history) => (

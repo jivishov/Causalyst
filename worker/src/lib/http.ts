@@ -66,10 +66,31 @@ export function jsonResponse(request: Request, env: Env, body: unknown, init: Re
   });
 }
 
+export async function readBoundedBody(request: Request, limit: number, error = new HttpError(413, "Request body is too large")): Promise<ArrayBuffer> {
+  const declared = Number(request.headers.get("Content-Length"));
+  if (Number.isFinite(declared) && declared > limit) throw error;
+  if (!request.body) return new ArrayBuffer(0);
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  while (true) {
+    const part = await reader.read();
+    if (part.done) break;
+    length += part.value.byteLength;
+    if (length > limit) { await reader.cancel(); throw error; }
+    chunks.push(part.value);
+  }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return bytes.buffer;
+}
+
 export async function readJson<T>(request: Request): Promise<T> {
   try {
-    return await request.json<T>();
-  } catch {
+    return JSON.parse(new TextDecoder().decode(await readBoundedBody(request, 2 * 1024 * 1024))) as T;
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
     throw new HttpError(400, "Invalid JSON body");
   }
 }

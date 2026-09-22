@@ -202,34 +202,17 @@ export async function commitTeacherRosterImport(request: Request, env: Env, db: 
   }
 
   const pins: TeacherRosterImportCommitResponse["pins"] = [];
+  const rows = [];
   for (const row of preview.acceptedRows) {
-    const created = await db
-      .from("roster_students")
-      .insert({
-        class_id: course.id,
-        display_name: row.displayName,
-        student_identifier: row.studentIdentifier,
-        email: row.email,
-        section: row.section,
-        updated_at: new Date().toISOString()
-      })
-      .select("id")
-      .single();
-    if (created.error) {
-      handleRosterWriteError(created.error);
-    }
-
-    const rosterStudentId = (created.data as { id: string }).id;
-    const issued = await issueAccessCodeForRosterRow(db, env, course.id, rosterStudentId, row.displayName);
-    pins.push({
-      rosterStudentId,
-      displayName: row.displayName,
-      studentIdentifier: row.studentIdentifier,
-      email: row.email,
-      section: row.section,
-      pin: issued.pin
-    });
+    const rosterStudentId = crypto.randomUUID();
+    const pin = generatePin();
+    rows.push({ ...row, id: rosterStudentId, pinHash: await hashPin(pin, env) });
+    pins.push({ ...row, rosterStudentId, pin });
   }
+  const { error } = await db.rpc("import_course_roster", {
+    p_teacher_id: userId, p_course_id: course.id, p_rows: rows
+  });
+  if (error) handleRosterWriteError(error);
 
   await reconcileGradebookForCourse(db, userId, course.id);
 
@@ -440,35 +423,6 @@ async function collectDuplicateErrors(db: SupabaseClient, courseId: string, rows
   }
 
   return dedupeErrors(errors);
-}
-
-async function issueAccessCodeForRosterRow(
-  db: SupabaseClient,
-  env: Env,
-  classId: string,
-  rosterStudentId: string,
-  studentLabel: string
-): Promise<{ pin: string }> {
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const pin = generatePin();
-    const pinHash = await hashPin(pin, env);
-    const { error } = await db
-      .from("student_access_codes")
-      .insert({
-        class_id: classId,
-        roster_student_id: rosterStudentId,
-        student_label: studentLabel,
-        pin_hash: pinHash
-      });
-    if (!error) return { pin };
-
-    const message = `${error.code ?? ""} ${error.message ?? ""}`.toLowerCase();
-    if (message.includes("pin_hash") || message.includes("student_access_codes_class_id_pin_hash_key")) {
-      continue;
-    }
-    throw new HttpError(500, "Failed to create student access code", error.message);
-  }
-  throw new HttpError(500, "Failed to generate a unique PIN for roster import");
 }
 
 async function getCsvText(request: Request): Promise<string> {

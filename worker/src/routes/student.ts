@@ -226,178 +226,19 @@ function normalizeEmail(value: string | null | undefined): string {
   return (value ?? "").trim().toLowerCase();
 }
 
-export async function studentSession(db: SupabaseClient, userId: string, email?: string | null) {
-  const existingProfile = await loadStudentProfile(db, userId);
-  let status: StudentEnrollmentStatus = "no_roster_match";
-  let studentProfile = existingProfile?.role === "student" ? existingProfile : null;
-
-  if (existingProfile?.role === "teacher") {
-    status = "teacher_profile";
-  } else if (studentProfile) {
-    status = "matched";
-  } else if (email) {
-    const enrollment = await autoEnrollStudentByEmail(db, userId, email);
-    studentProfile = enrollment.profile;
-    status = enrollment.status;
-  }
-
-  const courses = studentProfile ? await listStudentCourseAssignments(db, userId) : [];
+export async function studentSession(db: SupabaseClient, userId: string, _email?: string | null) {
+  // Reconcile every login, including existing profiles. The transaction reads
+  // verified email from Auth, never an email supplied by the browser.
+  const { data, error } = await db.rpc("enroll_student_by_email", { p_user_id: userId });
+  if (error) throw new HttpError(error.code === "23514" ? 409 : 500, "Failed to reconcile student enrollment", error.message);
+  if (!data || typeof data !== "object") throw new HttpError(500, "Invalid enrollment response");
+  const result = data as StudentAutoEnrollmentResult;
+  const profile = result.profile;
   return {
-    profile: studentProfile ? { id: userId, displayName: studentProfile.display_name, email: studentProfile.email ?? undefined } : null,
-    courses,
-    enrollmentStatus: status
+    profile: profile ? { id: userId, displayName: profile.display_name, email: profile.email ?? undefined } : null,
+    courses: profile ? await listStudentCourseAssignments(db, userId) : [],
+    enrollmentStatus: result.status
   };
-}
-
-async function loadStudentProfile(db: SupabaseClient, userId: string): Promise<StudentProfileRow | null> {
-  const { data: profile, error: profileError } = await db
-    .from("profiles")
-    .select("id, display_name, role, email")
-    .eq("id", userId)
-    .maybeSingle();
-  if (profileError) {
-    throw new HttpError(500, "Failed to load student session", profileError.message);
-  }
-
-  return profile ? profile as StudentProfileRow : null;
-}
-
-async function autoEnrollStudentByEmail(db: SupabaseClient, userId: string, email: string): Promise<StudentAutoEnrollmentResult> {
-  const normalizedEmail = normalizeEmail(email);
-  if (!normalizedEmail) return { profile: null, status: "no_roster_match" };
-
-  const { data: existingProfile, error: profileReadError } = await db
-    .from("profiles")
-    .select("id, role, display_name, email")
-    .eq("id", userId)
-    .maybeSingle();
-  if (profileReadError) throw new HttpError(500, "Failed to load student profile", profileReadError.message);
-  if ((existingProfile as StudentProfileRow | null)?.role === "teacher") {
-    return { profile: null, status: "teacher_profile" };
-  }
-
-  const rosterRows = (await loadRosterRowsByEmail(db, normalizedEmail))
-    .filter((row) => normalizeEmail(row.email) === normalizedEmail);
-  if (rosterRows.length === 0) return { profile: null, status: "no_roster_match" };
-
-  const claimableRows = rosterRows.filter((row) => !row.claimed_by || row.claimed_by === userId);
-  if (claimableRows.length === 0) return { profile: null, status: "claimed_by_other" };
-
-  const classIds = Array.from(new Set(claimableRows.map((row) => row.class_id)));
-  const [memberships, accessClaims] = await Promise.all([
-    loadStudentMembershipsForClasses(db, userId, classIds),
-    loadStudentAccessClaimsForClasses(db, userId, classIds)
-  ]);
-  const membershipByClass = new Map(memberships.map((row) => [row.class_id, row]));
-  const accessClaimByClass = new Map(accessClaims.map((row) => [row.class_id, row]));
-  const enrollableRows = claimableRows.filter((row) => {
-    const membership = membershipByClass.get(row.class_id);
-    if (membership && membership.roster_student_id !== row.id) return false;
-    const accessClaim = accessClaimByClass.get(row.class_id);
-    if (accessClaim && accessClaim.roster_student_id !== row.id) return false;
-    return true;
-  });
-  if (enrollableRows.length === 0) return { profile: null, status: "identity_conflict" };
-
-  const now = new Date().toISOString();
-  const displayName = enrollableRows[0].display_name;
-  const { error: profileWriteError } = await db
-    .from("profiles")
-    .upsert({
-      id: userId,
-      role: "student",
-      display_name: displayName,
-      email: normalizedEmail,
-      updated_at: now
-    }, { onConflict: "id" });
-  if (profileWriteError) throw new HttpError(500, "Failed to save student profile", profileWriteError.message);
-
-  for (const roster of enrollableRows) {
-    const { error: membershipError } = await db
-      .from("class_memberships")
-      .upsert({
-        class_id: roster.class_id,
-        student_id: userId,
-        display_name: roster.display_name,
-        roster_student_id: roster.id
-      }, { onConflict: "class_id,student_id" });
-    if (membershipError) throw new HttpError(500, "Failed to save class membership", membershipError.message);
-
-    const { error: accessUpdateError } = await db
-      .from("student_access_codes")
-      .update({ claimed_by: userId, claimed_at: now })
-      .eq("roster_student_id", roster.id);
-    if (accessUpdateError) throw new HttpError(500, "Failed to claim student access code", accessUpdateError.message);
-
-    const { error: rosterUpdateError } = await db
-      .from("roster_students")
-      .update({
-        claimed_by: userId,
-        claimed_at: roster.claimed_at ?? now,
-        updated_at: now
-      })
-      .eq("id", roster.id);
-    if (rosterUpdateError) throw new HttpError(500, "Failed to claim roster student", rosterUpdateError.message);
-  }
-
-  return {
-    profile: {
-      id: userId,
-      role: "student",
-      display_name: displayName,
-      email: normalizedEmail
-    },
-    status: "matched"
-  };
-}
-
-async function loadRosterRowsByEmail(db: SupabaseClient, normalizedEmail: string): Promise<StudentRosterRow[]> {
-  const select = "id, class_id, display_name, email, claimed_by, claimed_at";
-  const normalized = await db
-    .from("roster_students")
-    .select(select)
-    .eq("email_normalized", normalizedEmail);
-  if (!normalized.error) return (normalized.data ?? []) as StudentRosterRow[];
-  if (!isMissingEmailNormalizedColumn(normalized.error)) {
-    throw new HttpError(500, "Failed to match student roster email", normalized.error.message);
-  }
-
-  const fallback = await db
-    .from("roster_students")
-    .select(select)
-    .ilike("email", normalizedEmail);
-  if (fallback.error) throw new HttpError(500, "Failed to match student roster email", fallback.error.message);
-  return (fallback.data ?? []) as StudentRosterRow[];
-}
-
-async function loadStudentMembershipsForClasses(
-  db: SupabaseClient,
-  userId: string,
-  classIds: string[]
-): Promise<StudentMembershipRow[]> {
-  if (classIds.length === 0) return [];
-  const { data, error } = await db
-    .from("class_memberships")
-    .select("class_id, roster_student_id")
-    .eq("student_id", userId)
-    .in("class_id", classIds);
-  if (error) throw new HttpError(500, "Failed to load class memberships", error.message);
-  return (data ?? []) as StudentMembershipRow[];
-}
-
-async function loadStudentAccessClaimsForClasses(
-  db: SupabaseClient,
-  userId: string,
-  classIds: string[]
-): Promise<StudentAccessCodeClaimRow[]> {
-  if (classIds.length === 0) return [];
-  const { data, error } = await db
-    .from("student_access_codes")
-    .select("class_id, roster_student_id")
-    .eq("claimed_by", userId)
-    .in("class_id", classIds);
-  if (error) throw new HttpError(500, "Failed to load student access claims", error.message);
-  return (data ?? []) as StudentAccessCodeClaimRow[];
 }
 
 function firstClaimRow(value: unknown): StudentGoogleClaimRow | null {

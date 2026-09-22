@@ -17,14 +17,16 @@
     "security": "npm run security:repo && npm run security:dist",
     "security:repo": "node scripts/check-repo-secrets.mjs",
     "security:dist": "node scripts/check-dist-secrets.mjs",
-    "test:db": "node scripts/test-db/runner.mjs"
+    "test:db": "node scripts/test-db/runner.mjs",
+    "audit": "npm audit --audit-level=moderate"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "1.63.0",
+    "@types/jsdom": "27.0.0",
     "jsdom": "27.3.0",
     "pg": "8.23.0",
     "typescript": "5.9.3",
-    "vitest": "4.0.14"
+    "vitest": "4.1.11"
   }
 }

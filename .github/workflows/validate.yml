@@ -36,3 +36,4 @@ jobs:
           TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/causalyst_test
       - run: npm run build
       - run: npm run security
+      - run: npm run audit

@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { readFile } from 'node:fs/promises';
 
-const source = await readFile(new URL('../worker/src/lib/models.ts', import.meta.url), 'utf8');
+const source = await readFile(new URL('../src/lib/models.ts', import.meta.url), 'utf8');
 const model = role => {
   const id = source.match(new RegExp(`\\b${role}: \\{ id: "([^"]+)"`))?.[1];
   if (!id) throw new Error(`Could not identify the configured ${role} model`);

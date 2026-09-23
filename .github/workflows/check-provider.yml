@@ -22,6 +22,6 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Verify configured provider models and a bounded synthetic response
-        run: node scripts/check-provider-access.mjs
+        run: node worker/scripts/check-provider-access.mjs
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

@@ -40,28 +40,7 @@ This guide deploys the app from GitHub while keeping Supabase, Cloudflare, and O
 4. For first-teacher setup:
    - Recommended: disable email confirmation temporarily, run first setup, then re-enable if your district policy requires confirmation.
    - Alternate: keep confirmation enabled and complete teacher email confirmation before `/teacher` setup.
-5. Run SQL migrations in order from `supabase/migrations/`:
-   - `0001_init.sql`
-   - `0003_teacher_courses.sql`
-   - `0004_roster_import.sql`
-   - `0005_assignment_scoped_attempts.sql`
-   - `0006_assessment_builder.sql`
-   - `0007_gradebook.sql`
-   - `0008_grade_exports.sql`
-   - `0009_student_lifecycle.sql`
-   - `0010_release_hardening.sql`
-   - `0011_realtime_voice_assessments.sql`
-   - `0012_simulation_sketch_artifacts.sql`
-   - `0013_realtime_voice_hardening.sql`
-   - `0014_student_google_login.sql`
-   - `0015_student_google_login_stale_membership.sql`
-   - `0016_student_google_login_ambiguous_columns.sql`
-   - `0017_roster_email_normalized.sql`
-   - `0018_simulation_generation_jobs.sql`
-   - `0019_simulation_generation_reasoning_effort.sql`
-   - `0020_simulation_html_viewport_metadata.sql`
-   - `20260921034549_harden_causalyst_rpc_and_student_rls.sql`
-   - `20260921034702_optimize_causalyst_rls_auth_claims.sql`
+5. For a **new** project, apply every SQL file in `supabase/migrations/` in filename order. Generate the complete list from this checkout with `find supabase/migrations -maxdepth 1 -name '*.sql' -print | sort`; do not rely on a copied list in this guide. For an **existing** project, inspect its schema and migration history to identify the pending files. Older numbered migrations may have been applied manually without migration-history records; do not replay them just because the history is empty. Before an upgrade, use the [assessment release order](assessment-hardening.md#migration-and-deployment-order) to back up and test a representative database, then coordinate the migration and matching Worker deployment during maintenance.
 6. Optional local demo seed: run `supabase/seed.sql` (uses `CHEM101` and PIN `2468` with `PIN_PEPPER=dev-pepper`; update the seeded roster email to match your Google test account).
 7. Storage buckets are created by migrations `0001_init.sql` and `0012_simulation_sketch_artifacts.sql`; verify these private buckets exist:
    - `audio`

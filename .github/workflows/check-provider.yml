@@ -1,0 +1,27 @@
+name: Check Provider Access
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Restrict probe to reviewed main
+        env:
+          RELEASE_REF: ${{ github.ref }}
+        run: test "$RELEASE_REF" = "refs/heads/main"
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify configured provider models and a bounded synthetic response
+        run: node scripts/check-provider-access.mjs
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

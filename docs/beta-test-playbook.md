@@ -8,7 +8,7 @@ Run this on the deployed GitHub Pages frontend, deployed Worker, real Supabase p
 
 1. Confirm both GitHub workflows pass from `main`.
 2. Confirm `GET <worker-url>/api/health` returns `{ "ok": true }`.
-3. Confirm Supabase migrations are applied through `0020_simulation_html_viewport_metadata.sql`.
+3. Confirm the hosted schema includes every committed migration in `supabase/migrations/` and matches the Worker release. Inspect migration history and schema because manually applied older migrations may have no history record.
 4. Confirm private buckets exist: `audio`, `writing`, `simulation-sketch`, and `simulation-derived`.
 5. Confirm Supabase redirect URLs and Worker `ALLOWED_ORIGINS` exactly match the deployed origins.
 6. Use 2-3 test student Google accounts, including one account that should be rejected because it does not match the roster email.

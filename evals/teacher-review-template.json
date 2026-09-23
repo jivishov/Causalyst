@@ -2,6 +2,14 @@
   "dataset": "Replace with the reviewed dataset revision",
   "model": "Record the configured and returned provider model",
   "policyVersion": "rubric-v2",
-  "thresholds": { "minimumCases": null, "maximumMeanAbsoluteError": null },
-  "cases": []
+  "thresholds": {
+    "minimumCases": null,
+    "minimumCasesByModality": { "writing": null, "voice": null, "voice_realtime": null },
+    "maximumMeanAbsoluteErrorByModality": { "writing": null, "voice": null, "voice_realtime": null },
+    "minimumSafetyCases": null,
+    "maximumMeanAbsoluteError": null,
+    "maximumAbsoluteError": null
+  },
+  "cases": [],
+  "safetyCases": []
 }

@@ -1,0 +1,7 @@
+{
+  "packetSha256": "Copy the packet hash after the teacher-only check",
+  "model": "Record the configured and returned provider model",
+  "policyVersion": "rubric-v2",
+  "cases": [],
+  "safetyCases": []
+}

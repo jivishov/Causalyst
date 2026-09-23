@@ -16,6 +16,11 @@ try {
   const path = new URL('../../supabase/migrations/', import.meta.url);
   const files = (await readdir(path)).filter(f => f.endsWith('.sql')).sort();
   for (const file of files) {
+    if (file === '20260922045624_assessment_privacy.sql') {
+      // Populate the previous schema so retention migrations exercise a real
+      // upgrade, including the large historical draft-artifact backfill.
+      await exec(await readFile(new URL('./legacy-pre-upgrade.sql', import.meta.url), 'utf8'));
+    }
     let sql = await readFile(new URL(file, path), 'utf8');
     // PGlite has core gen_random_uuid but does not bundle pgcrypto. CI's native
     // PostgreSQL executes the unmodified extension declaration as well.
@@ -27,6 +32,8 @@ try {
     await exec(await readFile(new URL(file, import.meta.url), 'utf8'));
     console.log(`PASS ${file}`);
   }
+  await exec(await readFile(new URL('./legacy-backfill.upgrade.sql', import.meta.url), 'utf8'));
+  console.log('PASS legacy-backfill.upgrade.sql (pre-upgrade 2,300-row fixture)');
   if (url) await runConcurrency(url);
   console.log(`Replayed ${files.length} migrations; ${checks.length} SQL suites passed (${url ? 'native PostgreSQL' : 'PGlite PostgreSQL; pgcrypto declaration skipped'}).`);
 } catch (error) {

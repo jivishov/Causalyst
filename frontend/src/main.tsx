@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./legacy-workspace.css";
 import "./styles.css";
+import "./student-workspace.css";
 
 const base = import.meta.env.BASE_URL || "/";
 

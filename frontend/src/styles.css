@@ -46,8 +46,7 @@ a {
   color: inherit;
 }
 
-.auth-shell,
-.app-shell {
+.auth-shell {
   width: min(100% - 32px, 980px);
   min-height: 100vh;
   margin: 0 auto;
@@ -173,11 +172,6 @@ h1 {
   animation: spin 0.9s linear infinite;
 }
 
-.app-shell {
-  align-content: center;
-  gap: 24px;
-}
-
 .app-header {
   display: flex;
   align-items: flex-start;
@@ -248,8 +242,7 @@ button:focus-visible {
 }
 
 @media (max-width: 640px) {
-  .auth-shell,
-  .app-shell {
+  .auth-shell {
     width: min(100% - 24px, 980px);
     padding: 24px 0;
   }

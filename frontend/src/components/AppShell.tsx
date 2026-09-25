@@ -37,12 +37,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="rail-top">
           <Link to="/" className="brand-lockup" aria-label="Dashboard" title="Dashboard">
             <span className="brand-mark"><FlaskConical size={20} /></span>
-            {!collapsed && (
-              <span>
-                <strong>Alt Assessment</strong>
-                <small>{profile?.displayName ?? "Student"}</small>
-              </span>
-            )}
+            <span className="brand-copy">
+              <strong>Alt Assessment</strong>
+              <small>{profile?.displayName ?? "Student"}</small>
+            </span>
           </Link>
           <button
             type="button"
@@ -58,29 +56,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="side-nav">
           <Link className={location.pathname === "/" ? "active" : ""} to="/" aria-label="Dashboard" title="Dashboard">
             <ClipboardList size={18} />
-            {!collapsed && <span>Dashboard</span>}
+            <span>Dashboard</span>
           </Link>
           <Link className={location.pathname === "/login" ? "active" : ""} to="/login" aria-label="Join another course" title="Join another course">
             <UserRoundPlus size={18} />
-            {!collapsed && <span>Join course</span>}
+            <span>Join course</span>
           </Link>
           <button type="button" onClick={signOut} aria-label="Sign out" title="Sign out">
             <LogOut size={18} />
-            {!collapsed && <span>Sign out</span>}
+            <span>Sign out</span>
           </button>
-          {!collapsed && <div className="nav-section-label">Assigned</div>}
+          <div className="nav-section-label">Assigned</div>
           {assignments.slice(0, 4).map((assignment) => {
             const state = resolveStudentAssignmentState(assignment);
             const action = resolveStudentAssignmentAction(assignment, state);
             return (
               <Link
                 key={assignment.assignmentId}
+                className={`assigned-nav-link ${location.pathname === action.href ? "active" : ""}`}
                 to={action.href ?? `/assignment/${assignment.assignmentId}`}
                 aria-label={`${assignment.classCode} ${assignment.assessment.title}`}
                 title={`${assignment.classCode} · ${assignment.assessment.title}`}
               >
                 <BookOpenCheck size={18} />
-                {!collapsed && <span>{assignment.assessment.title}</span>}
+                <span>{assignment.assessment.title}</span>
               </Link>
             );
           })}

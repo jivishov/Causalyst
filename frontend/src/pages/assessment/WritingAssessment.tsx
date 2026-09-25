@@ -19,28 +19,30 @@ export function WritingAssessment({ assessment, disabled, onSubmit }: {
 
   return (
     <div className="workspace-grid">
-      <PdfImageUploader onFile={setFile} acceptedMime={acceptedMime} maxBytes={maxBytes} />
+      <div className="assessment-response">
+        <PdfImageUploader onFile={setFile} acceptedMime={acceptedMime} maxBytes={maxBytes} />
+        <button
+          className="primary-button submit-button"
+          disabled={!file || disabled}
+          type="button"
+          onClick={() => onSubmit(async (attemptId) => {
+            if (!file) return;
+            const upload = await reserveUpload({
+              attemptId,
+              kind: "writing",
+              mimeType: file.type || "application/octet-stream",
+              filename: file.name,
+              byteSize: file.size
+            });
+            await uploadArtifact(upload, file);
+            await gradeWriting({ attemptId, artifactId: upload.artifactId });
+            navigate(`/attempt/${attemptId}`);
+          })}
+        >
+          <Send size={18} /> Submit written work
+        </button>
+      </div>
       <RubricFeedback feedback={null} rubric={assessment.rubric} />
-      <button
-        className="primary-button submit-button"
-        disabled={!file || disabled}
-        type="button"
-        onClick={() => onSubmit(async (attemptId) => {
-          if (!file) return;
-          const upload = await reserveUpload({
-            attemptId,
-            kind: "writing",
-            mimeType: file.type || "application/octet-stream",
-            filename: file.name,
-            byteSize: file.size
-          });
-          await uploadArtifact(upload, file);
-          await gradeWriting({ attemptId, artifactId: upload.artifactId });
-          navigate(`/attempt/${attemptId}`);
-        })}
-      >
-        <Send size={18} /> Submit written work
-      </button>
     </div>
   );
 }

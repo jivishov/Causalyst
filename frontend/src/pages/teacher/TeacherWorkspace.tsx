@@ -4,6 +4,9 @@ import {
   BookOpen,
   ClipboardCheck,
   ClipboardList,
+  ChevronLeft,
+  ChevronRight,
+  FlaskConical,
   KeyRound,
   LogIn,
   LogOut,
@@ -12,7 +15,7 @@ import {
   Table2,
   UserPlus
 } from "lucide-react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { TeacherProfile } from "@alt-assessment/shared";
 import {
   ApiRequestError,
@@ -127,28 +130,26 @@ export function TeacherWorkspace() {
     }
   }
 
+  if (profile) {
+    return <TeacherWorkspaceDataProvider><TeacherWorkspaceShell profile={profile} onSignOut={async () => {
+      await teacherSupabase.auth.signOut();
+      setProfile(null);
+      setAuthStatus("signed_out");
+      navigate("/teacher", { replace: true });
+    }} /></TeacherWorkspaceDataProvider>;
+  }
+
   return (
-    <main className={profile ? "teacher-page" : "login-page"}>
-      <section className={profile ? "teacher-workspace" : "login-card teacher-card"}>
+    <main className="login-page">
+      <section className="login-card teacher-card">
         <header className="teacher-page-header">
           <div className="teacher-page-header-main">
             <span className="login-mark teacher-mark"><KeyRound size={24} /></span>
             <div>
               <h1>Teacher Workspace</h1>
-              <p>{profile ? teacherIdentitySummary(profile) : "Sign in with your teacher Google or email account."}</p>
+              <p>Sign in with your teacher Google or email account.</p>
             </div>
           </div>
-          {profile && (
-            <button className="secondary-button teacher-signout-button" type="button" onClick={async () => {
-              await teacherSupabase.auth.signOut();
-              setProfile(null);
-              setAuthStatus("signed_out");
-              navigate("/teacher", { replace: true });
-            }}>
-              <LogOut size={16} />
-              Sign out
-            </button>
-          )}
         </header>
 
         {!isSupabaseConfigured && <p className="field-error">Configure Supabase frontend environment variables before teacher login.</p>}
@@ -158,10 +159,6 @@ export function TeacherWorkspace() {
             <div className="loading-mark" />
             <p>Checking teacher session</p>
           </div>
-        ) : profile ? (
-          <TeacherWorkspaceDataProvider>
-            <TeacherWorkspaceShell />
-          </TeacherWorkspaceDataProvider>
         ) : (
           <>
             {setupAvailable !== false && (
@@ -231,35 +228,55 @@ export function TeacherWorkspace() {
   );
 }
 
-function TeacherWorkspaceShell() {
-  const { error } = useTeacherWorkspaceData();
+function TeacherWorkspaceShell({ profile, onSignOut }: { profile: TeacherProfile; onSignOut: () => Promise<void> }) {
+  const { error, courses } = useTeacherWorkspaceData();
+  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
   const navItems = useMemo(
     () => [
-      { to: "/teacher", label: "Courses/Roster", end: true, Icon: BookOpen },
-      { to: "/teacher/assessments", label: "Assessments", end: false, Icon: ClipboardList },
-      { to: "/teacher/assignments", label: "Assignments", end: false, Icon: ClipboardCheck },
-      { to: "/teacher/review", label: "Review", end: false, Icon: MessageSquareText },
-      { to: "/teacher/gradebook", label: "Gradebook", end: false, Icon: Table2 }
+      { to: "/teacher", label: "Courses & roster", description: "Your classes, students, and enrollment in one place.", end: true, Icon: BookOpen },
+      { to: "/teacher/assessments", label: "Assessments", description: "Create thoughtful prompts and clear criteria for success.", end: false, Icon: ClipboardList },
+      { to: "/teacher/assignments", label: "Assignments", description: "Choose what your students work on and when it is due.", end: false, Icon: ClipboardCheck },
+      { to: "/teacher/review", label: "Response review", description: "Review student thinking, evidence, and provisional scores.", end: false, Icon: MessageSquareText },
+      { to: "/teacher/gradebook", label: "Gradebook", description: "Finalize grades, publish feedback, and export your records.", end: false, Icon: Table2 }
     ],
     []
   );
+  const current = navItems.find((item) => item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)) ?? navItems[0];
 
   return (
-    <div className="teacher-dashboard">
-      <nav className="teacher-workspace-nav" aria-label="Teacher workspace sections">
+    <div className={`teacher-page account-workspace ${collapsed ? "sidebar-collapsed" : ""}`}>
+      <a className="skip-link" href="#teacher-content">Skip to content</a>
+      <aside className="side-rail" aria-label="Teacher navigation">
+        <div className="rail-top">
+          <Link to="/teacher" className="brand-lockup" aria-label="Causalyst teacher home"><span className="brand-mark"><FlaskConical size={20} /></span><span className="brand-copy"><strong>Causalyst</strong><small>Teacher workspace</small></span></Link>
+          <button className="icon-button rail-toggle" type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} onClick={() => setCollapsed(!collapsed)} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>{collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}</button>
+        </div>
+        <div className="nav-section-label">Classroom</div>
+        <nav className="teacher-workspace-nav side-nav" aria-label="Teacher workspace sections">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.end}
+            title={item.label}
+            aria-label={item.label}
             className={({ isActive }) => (isActive ? "active" : "")}
           >
             <item.Icon size={16} aria-hidden="true" />
-            {item.label}
+            <span>{item.label}</span>
           </NavLink>
         ))}
       </nav>
-
+      <div className="rail-account" title={teacherIdentitySummary(profile)}>
+        <span className="account-avatar" aria-hidden="true">{(profile.displayName.trim() || "T").slice(0, 1).toUpperCase()}</span>
+        <div className="rail-account-copy"><strong>{profile.displayName || "Teacher"}</strong><small>Teacher account</small></div>
+        <button className="icon-button" type="button" onClick={onSignOut} title="Sign out" aria-label="Sign out"><LogOut size={17} /></button>
+      </div>
+      </aside>
+      <main className="teacher-workspace content-shell" id="teacher-content" tabIndex={-1}>
+      <header className="workspace-page-header"><div><span className="workspace-eyebrow">Teacher workspace</span><h1>{current.label}</h1><p>{current.description}</p></div><span className="workspace-context"><BookOpen size={16} aria-hidden="true" />{courses.filter((course) => !course.archivedAt).length} courses</span></header>
+      <div className="teacher-dashboard">
       {error && (
         <p className="field-error teacher-workspace-error" role="alert">
           <AlertTriangle size={17} aria-hidden="true" />
@@ -267,6 +284,8 @@ function TeacherWorkspaceShell() {
         </p>
       )}
       <Outlet />
+      </div>
+      </main>
     </div>
   );
 }

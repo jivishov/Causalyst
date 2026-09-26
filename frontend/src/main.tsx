@@ -5,6 +5,7 @@ import App from "./App";
 import "./legacy-workspace.css";
 import "./styles.css";
 import "./student-workspace.css";
+import "./account-workspace.css";
 
 const base = import.meta.env.BASE_URL || "/";
 

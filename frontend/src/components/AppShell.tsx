@@ -32,14 +32,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
+    <div className={`app-shell account-workspace ${collapsed ? "sidebar-collapsed" : ""}`}>
+      <a className="skip-link" href="#student-content">Skip to content</a>
       <aside className="side-rail" aria-label="Assessment navigation">
         <div className="rail-top">
           <Link to="/" className="brand-lockup" aria-label="Dashboard" title="Dashboard">
             <span className="brand-mark"><FlaskConical size={20} /></span>
             <span className="brand-copy">
-              <strong>Alt Assessment</strong>
-              <small>{profile?.displayName ?? "Student"}</small>
+              <strong>Causalyst</strong>
+              <small>Student workspace</small>
             </span>
           </Link>
           <button
@@ -54,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
         <nav className="side-nav">
-          <Link className={location.pathname === "/" ? "active" : ""} to="/" aria-label="Dashboard" title="Dashboard">
+          <Link className={location.pathname === "/" ? "active" : ""} to="/" aria-current={location.pathname === "/" ? "page" : undefined} aria-label="Dashboard" title="Dashboard">
             <ClipboardList size={18} />
             <span>Dashboard</span>
           </Link>
@@ -62,10 +63,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <UserRoundPlus size={18} />
             <span>Join course</span>
           </Link>
-          <button type="button" onClick={signOut} aria-label="Sign out" title="Sign out">
-            <LogOut size={18} />
-            <span>Sign out</span>
-          </button>
           <div className="nav-section-label">Assigned</div>
           {assignments.slice(0, 4).map((assignment) => {
             const state = resolveStudentAssignmentState(assignment);
@@ -84,8 +81,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+        <div className="rail-account">
+          <span className="account-avatar" aria-hidden="true">{(profile?.displayName?.trim() || "S").slice(0, 1).toUpperCase()}</span>
+          <div className="rail-account-copy"><strong>{profile?.displayName || "Student"}</strong><small>Student account</small></div>
+          <button className="icon-button" type="button" onClick={signOut} aria-label="Sign out" title="Sign out"><LogOut size={17} /></button>
+        </div>
       </aside>
-      <main className="content-shell">{children}</main>
+      <main className="content-shell" id="student-content" tabIndex={-1}>{children}</main>
     </div>
   );
 }

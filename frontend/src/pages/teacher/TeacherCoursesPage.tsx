@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
-import { Archive, BookOpen, ClipboardCheck, Download, Pencil, RotateCcw, Save, Trash2, Upload, Users } from "lucide-react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { Archive, BookOpen, ClipboardCheck, Download, Pencil, Plus, RotateCcw, Save, Trash2, Upload, Users } from "lucide-react";
 import type { TeacherRosterImportCommitResponse, TeacherRosterImportPreviewResponse, TeacherRosterResponse } from "@alt-assessment/shared";
 import { commitTeacherRosterImport, deleteTeacherRoster, listTeacherRoster, previewTeacherRosterImport } from "../../lib/api";
 import { useTeacherWorkspaceData } from "./TeacherWorkspaceData";
@@ -24,6 +24,12 @@ export function TeacherCoursesPage() {
   const [term, setTerm] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [courseEditorOpen, setCourseEditorOpen] = useState(false);
+  const courseCodeRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingId && courseEditorOpen) courseCodeRef.current?.focus();
+  }, [editingId, courseEditorOpen]);
 
   const [csvText, setCsvText] = useState("");
   const [csvFileName, setCsvFileName] = useState("");
@@ -104,6 +110,7 @@ export function TeacherCoursesPage() {
   function editCourse(courseId: string) {
     const course = courses.find((item) => item.id === courseId);
     if (!course) return;
+    setCourseEditorOpen(true);
     setEditingId(course.id);
     setCode(course.code);
     setName(course.name);
@@ -245,13 +252,13 @@ export function TeacherCoursesPage() {
   }
 
   return (
-    <>
-      <section className="course-editor">
-        <h2>{editingId ? "Edit Course" : "Create Course"}</h2>
+    <div className="teacher-courses-layout">
+      <details className="course-editor workspace-disclosure" open={courseEditorOpen} onToggle={(event) => setCourseEditorOpen(event.currentTarget.open)}>
+        <summary><span><Plus size={18} aria-hidden="true" />{editingId ? "Edit course" : "Create a course"}</span><small>Course details</small></summary>
         <form className="course-form" onSubmit={submitCourse}>
           <label>
             Course code
-            <input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} autoComplete="off" placeholder="BIO101-S26" required />
+            <input ref={courseCodeRef} value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} autoComplete="off" placeholder="CHEM-10" required />
           </label>
           <label>
             Course name
@@ -263,7 +270,7 @@ export function TeacherCoursesPage() {
           </label>
           <label>
             Term
-            <input value={term} onChange={(event) => setTerm(event.target.value)} autoComplete="off" placeholder="Spring 2026" />
+            <input value={term} onChange={(event) => setTerm(event.target.value)} autoComplete="off" placeholder="Fall 2026" />
           </label>
           <div className="control-row">
             <button className="primary-button" type="submit" disabled={saving}>
@@ -272,9 +279,9 @@ export function TeacherCoursesPage() {
             {editingId && <button className="secondary-button" type="button" onClick={resetCourseForm}>Cancel</button>}
           </div>
         </form>
-      </section>
+      </details>
 
-      <section className="course-list-panel">
+      <section className="course-list-panel courses-panel">
         <div className="course-list-header">
           <h2>Courses</h2>
           <label className="checkbox-row">
@@ -302,7 +309,7 @@ export function TeacherCoursesPage() {
                   {course.archivedAt && <span className="archive-badge">Archived</span>}
                 </div>
                 <div className="course-actions">
-                  <button className="secondary-button" type="button" onClick={() => setSelectedCourseId(course.id)}>
+                  <button className="secondary-button" type="button" aria-pressed={selectedCourseId === course.id} onClick={() => setSelectedCourseId(course.id)}>
                     <Users size={16} /> Roster
                   </button>
                   <button className="secondary-button" type="button" onClick={() => editCourse(course.id)}>
@@ -324,22 +331,9 @@ export function TeacherCoursesPage() {
         )}
       </section>
 
-      <section className="course-list-panel">
-        <div className="course-list-header">
-          <h2>Roster Import</h2>
-          <label>
-            Course
-            <select value={selectedCourseId} onChange={(event) => setSelectedCourseId(event.target.value)} disabled={courses.length === 0}>
-              {courses.length === 0 ? (
-                <option value="">Create a course first</option>
-              ) : (
-                courses.map((course) => (
-                  <option key={course.id} value={course.id}>{course.code} · {course.name}</option>
-                ))
-              )}
-            </select>
-          </label>
-        </div>
+      <details className="course-list-panel workspace-disclosure roster-import-panel">
+        <summary><span><Upload size={18} aria-hidden="true" />Import & manage roster</span><small>{selectedCourse?.code || "Select a course"}</small></summary>
+        <p className="panel-description">Import a student CSV for {selectedCourse?.name || "your selected course"}. Preview it before saving.</p>
 
         <div className="roster-import-controls">
           <label className="secondary-button file-input-button">
@@ -468,12 +462,16 @@ export function TeacherCoursesPage() {
             </div>
           </div>
         )}
-      </section>
+      </details>
 
-      <section className="course-list-panel">
+      <section className="course-list-panel roster-panel">
         <div className="course-list-header">
-          <h2>Roster</h2>
-          {selectedCourse && <p>{selectedCourse.code}</p>}
+          <h2><Users size={18} aria-hidden="true" /> Roster {roster && <span className="count-badge">{roster.students.length}</span>}</h2>
+          <label className="roster-course-select">Course
+            <select value={selectedCourseId} onChange={(event) => setSelectedCourseId(event.target.value)} disabled={courses.length === 0}>
+              {courses.length === 0 ? <option value="">Create a course first</option> : courses.map((course) => <option key={course.id} value={course.id}>{course.code} · {course.name}</option>)}
+            </select>
+          </label>
         </div>
         {loadingRoster ? (
           <p className="status-line">Loading roster</p>
@@ -487,7 +485,7 @@ export function TeacherCoursesPage() {
             </div>
           </div>
         ) : (
-          <div className="roster-table">
+          <div className="roster-table" tabIndex={0} role="region" aria-label="Course roster">
             <table>
               <thead>
                 <tr>
@@ -513,7 +511,7 @@ export function TeacherCoursesPage() {
           </div>
         )}
       </section>
-    </>
+    </div>
   );
 }
 

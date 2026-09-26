@@ -1,0 +1,280 @@
+/* Shared student/teacher workspace. Baseline: 1366 × 768 CSS pixels. */
+.account-workspace {
+  --ink: #213c35;
+  --muted: #62736c;
+  --paper: #f4f5f0;
+  --surface: #ffffff;
+  --panel: #ffffff;
+  --line: #dce4dc;
+  --accent: #246b56;
+  --accent-strong: #19503f;
+  --accent-soft: #eaf3ed;
+  --amber: #875315;
+  --green: #246b56;
+  --focus: #b87424;
+  --shadow: 0 3px 14px #183b2c06;
+  --teacher-bg: var(--paper);
+  --teacher-surface: var(--surface);
+  --teacher-soft: #f5f8f4;
+  --teacher-line: var(--line);
+  --teacher-ink: var(--ink);
+  --teacher-muted: var(--muted);
+  --teacher-primary: var(--accent);
+  --teacher-primary-hover: var(--accent-strong);
+  --teacher-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr);
+  align-items: start;
+  min-height: 100dvh;
+  padding: 0;
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.5;
+}
+.account-workspace.sidebar-collapsed { grid-template-columns: 72px minmax(0, 1fr); }
+.account-workspace .skip-link { position: fixed; left: 16px; top: -100px; z-index: 20; padding: 10px 16px; border-radius: 8px; background: white; color: var(--ink); }
+.account-workspace .skip-link:focus { top: 12px; }
+.account-workspace :is(a, button, input, textarea, select, summary):focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.account-workspace .side-rail { position: sticky; top: 0; display: flex; flex-direction: column; height: 100dvh; padding: 24px 14px 16px; overflow-y: auto; color: #e5eee6; background: #193d33; border: 0; }
+.account-workspace .rail-top { display: flex; align-items: center; gap: 4px; }
+.account-workspace .brand-lockup { display: flex; align-items: center; min-width: 0; gap: 9px; text-decoration: none; }
+.account-workspace .brand-mark { flex: 0 0 32px; width: 32px; height: 36px; color: #d7ecba; background: #2c5042; border-radius: 10px; }
+.account-workspace .brand-copy { display: grid; min-width: 0; gap: 0; }
+.account-workspace .brand-copy strong { color: #fafcf6; font-size: 1.06rem; font-weight: 700; letter-spacing: -.02em; }
+.account-workspace .brand-copy small { color: #afc9ba; font-size: .65rem; font-weight: 400; white-space: nowrap; }
+.account-workspace .side-rail .icon-button { flex: 0 0 28px; width: 28px; min-height: 34px; padding: 0; color: #b4cdbe; border: 0; background: transparent; box-shadow: none; }
+.account-workspace .side-rail .icon-button:hover { color: white; background: #315347; }
+.account-workspace .rail-toggle { margin-left: auto; }
+.account-workspace .side-nav { display: grid; align-content: start; gap: 5px; margin: 28px 0 20px; }
+.account-workspace .side-nav a,
+.account-workspace .side-nav button { display: flex; align-items: center; min-width: 0; min-height: 43px; gap: 10px; padding: 10px 12px; color: #cadbce; border: 1px solid transparent; border-radius: 8px; background: transparent; box-shadow: none; text-decoration: none; font-size: .85rem; font-weight: 500; transition: background .15s ease, color .15s ease; }
+.account-workspace .side-nav a:hover,
+.account-workspace .side-nav button:hover { color: #fff; background: #284e40; border-color: transparent; }
+.account-workspace .side-nav a.active { color: #213b2e; background: #dceacb; border-color: #dceacb; box-shadow: none; font-weight: 650; }
+.account-workspace .side-nav svg { flex-shrink: 0; }
+.account-workspace .side-nav span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-workspace .nav-section-label { margin: 22px 12px 0; padding: 0; color: #9cbaa9; font-size: .65rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.account-workspace .side-nav .nav-section-label { margin: 25px 12px 6px; }
+.account-workspace .nav-section-label + .side-nav { margin-top: 10px; }
+.account-workspace .rail-account { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 16px; border-top: 1px solid #365649; }
+.account-workspace .account-avatar { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; background: #3b5d4a; color: #e5eecf; border-radius: 50%; font-size: .8rem; font-weight: 650; }
+.account-workspace .rail-account-copy { display: grid; min-width: 0; flex: 1; line-height: 1.5; }
+.account-workspace .rail-account-copy strong { color: #edf2e9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; font-weight: 550; }
+.account-workspace .rail-account-copy small { color: #adbfaf; font-size: .67rem; }
+.account-workspace.sidebar-collapsed .rail-top,
+.account-workspace.sidebar-collapsed .rail-account { flex-direction: column; }
+.account-workspace.sidebar-collapsed .rail-toggle { margin: 6px 0 0; }
+.account-workspace.sidebar-collapsed .brand-copy,
+.account-workspace.sidebar-collapsed .side-nav span,
+.account-workspace.sidebar-collapsed .nav-section-label,
+.account-workspace.sidebar-collapsed .rail-account-copy { display: none; }
+.account-workspace.sidebar-collapsed .side-nav a { justify-content: center; padding: 10px; }
+.account-workspace .content-shell { min-width: 0; width: 100%; max-width: 1536px; margin: 0 auto; padding: 26px 30px 36px; }
+.account-workspace .page-stack { width: 100%; max-width: none; min-height: 0; margin: 0; padding: 0; gap: 22px; }
+.account-workspace .workspace-page-header,
+.account-workspace .student-dashboard-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 22px; padding: 0 0 20px; border-bottom: 1px solid var(--line); }
+.account-workspace .student-dashboard-header { margin-bottom: 0; }
+.account-workspace .workspace-page-header > div { min-width: 0; }
+.account-workspace h1 { font-size: 1.75rem; line-height: 1.25; font-weight: 700; letter-spacing: -.035em; }
+.account-workspace .workspace-eyebrow { display: block; margin-bottom: 5px; color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.account-workspace .workspace-page-header p,
+.account-workspace .student-dashboard-header p { margin: 7px 0 0; color: var(--muted); font-size: .88rem; line-height: 1.5; }
+.account-workspace .workspace-context { display: inline-flex; align-items: center; flex-shrink: 0; gap: 7px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; background: #fafbf7; color: var(--muted); font-size: .78rem; }
+.account-workspace :is(.primary-button, .secondary-button, .danger-button, .card-action) { min-height: 38px; gap: 7px; padding: 8px 12px; border-radius: 7px; box-shadow: none; font-size: .82rem; font-weight: 600; line-height: 1.3; text-align: center; }
+.account-workspace :is(.primary-button, .card-action) { color: #fff; border: 1px solid var(--accent); background: var(--accent); }
+.account-workspace :is(.primary-button, .card-action):hover:not(:disabled) { border-color: var(--accent-strong); background: var(--accent-strong); }
+.account-workspace .secondary-button { color: var(--ink); border-color: #d3ddd3; background: #fff; }
+.account-workspace .secondary-button:hover:not(:disabled) { color: var(--accent-strong); border-color: #a8c1ad; background: #f1f7ee; }
+.account-workspace button:disabled { cursor: not-allowed; }
+.account-workspace :is(input, select, textarea) { min-width: 0; max-width: 100%; color: var(--ink); border: 1px solid #cedace; border-radius: 7px; background: #fff; font: inherit; font-size: .875rem; box-shadow: none; }
+.account-workspace :is(input, select):not([type=checkbox]):not([type=radio]) { width: 100%; min-height: 40px; padding: 9px 11px; }
+.account-workspace :is(input, textarea)::placeholder { color: #64736a; }
+.account-workspace input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; flex-shrink: 0; }
+.account-workspace label { min-width: 0; font-size: .8rem; font-weight: 550; }
+.account-workspace .checkbox-row { white-space: nowrap; font-size: .75rem; font-weight: 500; }
+.account-workspace .assignment-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.account-workspace .assignment-filters { display: flex; flex-wrap: wrap; gap: 5px; }
+.account-workspace .assignment-filters button { display: inline-flex; align-items: center; gap: 7px; min-height: 37px; padding: 6px 10px; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: 7px; cursor: pointer; font-size: .79rem; font-weight: 550; }
+.account-workspace .assignment-filters button[aria-pressed=true] { color: var(--accent-strong); border-color: #cddbc9; background: #e7efdf; }
+.account-workspace .assignment-filters button:hover { background: #eaf0e5; }
+.account-workspace .assignment-filters button span,
+.account-workspace .count-badge { padding: 1px 6px; border-radius: 5px; background: #ffffffb3; color: var(--muted); font-size: .7rem; font-variant-numeric: tabular-nums; }
+.account-workspace .workspace-search { display: flex; align-items: center; gap: 8px; width: 232px; padding: 0 10px; border: 1px solid #d3ded1; border-radius: 7px; background: white; color: var(--muted); }
+.account-workspace .workspace-search input { min-height: 36px; padding: 7px 0; border: 0; background: transparent; font-size: .8rem; }
+.account-workspace .student-course-section { border: 0; border-radius: 0; overflow: visible; }
+.account-workspace .student-course-header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 0 0 12px; border: 0; background: transparent; }
+.account-workspace .student-course-header h2 { font-size: 1rem; font-weight: 650; }
+.account-workspace .student-course-header .course-code { padding: 3px 7px; border: 1px solid #d8dece; border-radius: 5px; color: #577141; background: #eef1e6; font-size: .65rem; font-weight: 650; letter-spacing: .025em; }
+.account-workspace .student-course-header .course-assignment-count { margin-left: auto; color: var(--muted); font-size: .73rem; }
+.account-workspace .student-assignment-grid { padding: 0; gap: 14px; }
+.account-workspace .student-assignment-card { padding: 18px; min-height: 211px; gap: 13px; border-color: var(--line); border-radius: 12px; background: #fff; box-shadow: var(--shadow); transition: border-color .15s ease, box-shadow .15s ease; }
+.account-workspace .student-assignment-card:hover { border-color: #abc2ac; box-shadow: 0 6px 18px #25412f0a; }
+.account-workspace .student-assignment-card-header { grid-template-columns: 40px minmax(0, 1fr); gap: 12px; }
+.account-workspace .student-assignment-card-header h3 { margin: 2px 0 0; font-size: .97rem; font-weight: 650; }
+.account-workspace .assignment-type-label { display: block; color: var(--muted); font-size: .67rem; font-weight: 500; line-height: 1.3; }
+.account-workspace .student-assignment-card .type-icon { width: 40px; height: 40px; border: 0; border-radius: 10px; background: #eaf2e4; color: #577543; }
+.account-workspace .type-icon.writing { color: #9b6237; background: #f8eee0; }
+.account-workspace .type-icon.voice { color: #336f78; background: #e7f1f2; }
+.account-workspace .type-icon.voice_realtime { color: #6e5d94; background: #eeeaf5; }
+.account-workspace .student-assignment-prompt { color: var(--muted); font-size: .83rem; line-height: 1.6; }
+.account-workspace .student-assignment-prompt.is-collapsed { max-height: 3.2em; }
+.account-workspace .assignment-details-toggle { min-height: 27px; font-size: .75rem; color: var(--accent); }
+.account-workspace .student-assignment-card-footer { border-top: 1px solid #edf0e9; padding-top: 12px; gap: 10px; }
+.account-workspace .student-assignment-meta { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.account-workspace .student-assignment-card .status-row { flex-basis: 100%; gap: 5px; font-size: .71rem; font-weight: 550; }
+.account-workspace .student-assignment-card .card-action { flex-shrink: 0; min-height: 34px; font-size: .76rem; padding: 7px 10px; white-space: nowrap; }
+.account-workspace .due-pill { padding: 2px 6px; border-radius: 4px; background: #fff3d8; font-size: .67rem; }
+.account-workspace .due-overdue { background: #fcebe5; }
+.account-workspace .assignment-due-date { color: var(--muted); font-size: .7rem; }
+.account-workspace .workspace-footnote { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--muted); font-size: .74rem; }
+.account-workspace .workspace-footnote svg { flex-shrink: 0; }
+.account-workspace .empty-state { min-height: 170px; gap: 10px; background: #fff; border: 1px dashed #cbd8c9; border-radius: 10px; box-shadow: none; }
+.account-workspace .empty-state p { margin: 0; font-size: .88rem; }
+.account-workspace :is(.recorder-panel, .upload-panel, .writing-panel, .safe-preview-panel, .feedback-panel, .evidence-panel, .simulation-panel) { border-color: var(--line); border-radius: 12px; background: #fff; box-shadow: var(--shadow); }
+.account-workspace .assessment-header { padding-bottom: 18px; }
+.account-workspace .assessment-header p { max-width: 92ch; }
+.account-workspace .mode-label { padding: 5px 8px; border-radius: 5px; background: var(--accent-soft); color: var(--accent-strong); }
+.account-workspace .drop-zone { background: #f7faf5; border-color: #b9cfb9; border-radius: 9px; }
+.account-workspace .teacher-dashboard { display: grid; gap: 16px; }
+.account-workspace :is(.course-editor, .course-list-panel, .gradebook-page) { min-width: 0; padding: 18px; border-radius: 11px; box-shadow: var(--shadow); }
+.account-workspace .course-list-header { margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+.account-workspace :is(.course-editor h2, .course-list-panel h2, .gradebook-header h2) { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1rem; font-weight: 650; }
+.account-workspace .course-list { display: grid; gap: 10px; }
+.account-workspace .course-row { min-width: 0; gap: 14px; border-radius: 8px; border-color: var(--line); background: #fff; box-shadow: none; }
+.account-workspace .course-row > div { min-width: 0; }
+.account-workspace .course-row strong { font-size: .9rem; font-weight: 600; overflow-wrap: anywhere; }
+.account-workspace .course-row p { margin: 5px 0 0; font-size: .77rem; line-height: 1.55; overflow-wrap: anywhere; }
+.account-workspace .course-row.selected-course { background: #f3f8ee; border-color: #aac49b; box-shadow: inset 3px 0 #799f66; }
+.account-workspace .course-actions { flex-wrap: wrap; gap: 6px; }
+.account-workspace .course-actions .secondary-button { min-height: 32px; padding: 6px 9px; font-size: .75rem; }
+.account-workspace .teacher-courses-layout { display: grid; grid-template-columns: minmax(270px, .9fr) minmax(0, 1.6fr); gap: 16px; align-items: start; }
+.account-workspace .teacher-courses-layout .course-editor { grid-column: 1 / -1; }
+.account-workspace .courses-panel { grid-column: 1; grid-row: 2 / span 2; }
+.account-workspace .courses-panel .course-row { flex-direction: column; align-items: stretch; gap: 12px; }
+.account-workspace .roster-import-panel { grid-column: 2; grid-row: 2; }
+.account-workspace .roster-panel { grid-column: 2; grid-row: 3; }
+.account-workspace .roster-course-select { max-width: 100%; flex: 1 1 240px; }
+.account-workspace .panel-description { margin: 0 0 14px; color: var(--muted); font-size: .83rem; }
+.account-workspace .workspace-disclosure { padding: 0; display: block; }
+.account-workspace .workspace-disclosure > summary { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 14px 18px; cursor: pointer; list-style: none; border-radius: 10px; }
+.account-workspace .workspace-disclosure > summary::-webkit-details-marker { display: none; }
+.account-workspace .workspace-disclosure > summary > span { display: inline-flex; align-items: center; gap: 9px; font-size: .85rem; font-weight: 600; }
+.account-workspace .workspace-disclosure > summary small { margin-left: auto; color: var(--muted); font-size: .72rem; font-weight: 400; }
+.account-workspace .workspace-disclosure > summary::after { content: ""; flex: 0 0 6px; width: 6px; height: 6px; margin: -3px 2px 0 5px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); }
+.account-workspace .workspace-disclosure[open] > summary::after { margin-top: 4px; transform: rotate(225deg); }
+.account-workspace .workspace-disclosure[open] > summary { border-bottom: 1px solid var(--line); border-radius: 10px 10px 0 0; margin-bottom: 16px; }
+.account-workspace .workspace-disclosure > :not(summary) { margin-left: 18px; margin-right: 18px; }
+.account-workspace .workspace-disclosure > :last-child:not(summary) { margin-bottom: 18px; }
+.account-workspace .workspace-disclosure:not([open]) > :not(summary) { display: none; }
+.account-workspace .course-form { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.account-workspace :is(.course-form, .assignment-form, .review-filters) { padding: 14px; gap: 14px; background: #f6f8f3; border-color: var(--line); }
+.account-workspace :is(.course-form, .assignment-form, .review-filters) > .control-row { grid-column: 1 / -1; margin: 0; }
+.account-workspace .roster-table { max-width: 100%; overflow: auto; border-color: var(--line); border-radius: 8px; }
+.account-workspace .roster-table:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.account-workspace .roster-table table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.account-workspace .roster-table :is(th, td) { padding: 11px 10px; text-align: left; border-bottom: 1px solid #e6ece3; overflow-wrap: anywhere; }
+.account-workspace .roster-table th { position: sticky; top: 0; z-index: 1; color: #526b59; background: #f1f5ec; font-size: .65rem; font-weight: 650; letter-spacing: .04em; white-space: nowrap; }
+.account-workspace .roster-table td { color: var(--ink); }
+.account-workspace .roster-table tbody tr:hover { background: #f6f9f2; }
+.account-workspace .roster-table tbody tr:last-child td { border-bottom: 0; }
+.account-workspace .roster-panel .roster-table { max-height: max(260px, calc(100dvh - 370px)); }
+.account-workspace .gradebook-header { flex-wrap: wrap; padding-bottom: 14px; border-color: var(--line); }
+.account-workspace .gradebook-header p { font-size: .8rem; }
+.account-workspace .gradebook-summary span,
+.account-workspace .gradebook-preview-count { background: #edf4e6; border-color: #d7e4cf; font-size: .72rem; font-weight: 550; }
+.account-workspace .gradebook-toolbar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(190px, 1fr); gap: 12px; padding: 14px; }
+.account-workspace .gradebook-toolbar > .gradebook-toggles { display: flex; flex-wrap: wrap; align-self: end; gap: 5px; }
+.account-workspace .gradebook-check { min-width: 0; min-height: 32px; padding: 5px 7px; border-color: #d7e1d1; font-size: .72rem; font-weight: 500; }
+.account-workspace .gradebook-toolbar-actions { grid-column: 1 / -1; }
+.account-workspace .gradebook-export-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+.account-workspace .gradebook-export-panel { background: #f8faf5; }
+.account-workspace .gradebook-table { max-height: max(260px, calc(100dvh - 430px)); }
+.account-workspace .gradebook-table .course-actions { flex-wrap: wrap; min-width: 150px; }
+.account-workspace .gradebook-row-button { padding: 5px 7px; min-height: 30px; font-size: .7rem; }
+.account-workspace .assessment-builder-panel,
+.account-workspace .rubric-editor-row { background: #f7f9f4; border-color: var(--line); }
+.account-workspace .assessment-builder-section { border-color: var(--line); }
+.account-workspace .compact-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.account-workspace .teacher-review-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.account-workspace .teacher-review-summary-grid > * { min-width: 0; }
+.account-workspace .teacher-attempt-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+@media (min-width: 1700px) {
+  .account-workspace .student-assignment-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 1200px) {
+  .account-workspace { grid-template-columns: 196px minmax(0, 1fr); }
+  .account-workspace .content-shell { padding: 22px; }
+  .account-workspace .side-rail { padding-left: 10px; padding-right: 10px; }
+  .account-workspace .brand-copy strong { font-size: .95rem; }
+  .account-workspace .brand-copy small { font-size: .6rem; }
+  .account-workspace .side-nav a { gap: 8px; padding: 10px; font-size: .8rem; }
+  .account-workspace .teacher-courses-layout { grid-template-columns: minmax(240px, .9fr) minmax(0, 1.4fr); }
+  .account-workspace .student-assignment-card-footer { flex-wrap: wrap; }
+  .account-workspace .gradebook-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .account-workspace .gradebook-toolbar > .gradebook-toggles { grid-column: 1 / -1; }
+}
+@media (max-width: 1020px) {
+  .account-workspace .teacher-courses-layout { grid-template-columns: minmax(0, 1fr); }
+  .account-workspace .teacher-courses-layout > * { grid-column: auto; grid-row: auto; }
+  .account-workspace .course-form,
+  .account-workspace .review-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .account-workspace .workspace-page-header { align-items: flex-start; }
+  .account-workspace .workspace-context { display: none; }
+  .account-workspace .student-course-header .course-assignment-count { display: none; }
+}
+@media (max-width: 760px) {
+  .account-workspace,
+  .account-workspace.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .account-workspace .side-rail { position: static; height: auto; padding: 14px 16px 10px; overflow: visible; }
+  .account-workspace .rail-top,
+  .account-workspace.sidebar-collapsed .rail-top { flex-direction: row; }
+  .account-workspace .brand-copy,
+  .account-workspace.sidebar-collapsed .brand-copy { display: grid; }
+  .account-workspace .brand-copy strong { font-size: 1rem; }
+  .account-workspace .brand-copy small { font-size: .65rem; }
+  .account-workspace .side-nav,
+  .account-workspace.sidebar-collapsed .side-nav { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 0; }
+  .account-workspace .side-nav a,
+  .account-workspace.sidebar-collapsed .side-nav a { flex: 0 1 auto; min-height: 36px; padding: 7px 9px; gap: 6px; font-size: .76rem; }
+  .account-workspace .side-nav span,
+  .account-workspace.sidebar-collapsed .side-nav span { display: inline; }
+  .account-workspace .rail-toggle,
+  .account-workspace .nav-section-label,
+  .account-workspace .assigned-nav-link { display: none; }
+  .account-workspace .rail-account,
+  .account-workspace.sidebar-collapsed .rail-account { flex-direction: row; align-self: flex-end; margin-top: 8px; padding-top: 0; border: 0; }
+  .account-workspace .rail-account-copy { display: none; }
+  .account-workspace .account-avatar { width: 24px; height: 24px; flex-basis: 24px; font-size: .7rem; }
+  .account-workspace .content-shell { padding: 20px 16px 30px; }
+  .account-workspace h1 { font-size: 1.5rem; }
+  .account-workspace .workspace-page-header { margin-bottom: 16px; padding-bottom: 16px; }
+  .account-workspace .student-dashboard-header { display: flex; flex-wrap: wrap; }
+  .account-workspace .student-dashboard-header .secondary-button { width: auto; }
+  .account-workspace .assignment-toolbar { align-items: stretch; }
+  .account-workspace .workspace-search { width: 100%; }
+  .account-workspace .assignment-filters { gap: 2px; }
+  .account-workspace .assignment-filters button { padding: 6px 7px; font-size: .74rem; }
+  .account-workspace .student-assignment-grid,
+  .account-workspace .workspace-grid,
+  .account-workspace .simulation-input-grid,
+  .account-workspace .teacher-review-summary-grid { grid-template-columns: minmax(0, 1fr); }
+  .account-workspace .student-assignment-card { min-height: 0; padding: 16px; }
+  .account-workspace .student-assignment-card-footer { flex-direction: row; }
+  .account-workspace .workspace-disclosure > summary { padding: 14px; }
+  .account-workspace .workspace-disclosure > summary small { display: none; }
+  .account-workspace .course-form,
+  .account-workspace .assignment-form,
+  .account-workspace .review-filters,
+  .account-workspace .gradebook-toolbar,
+  .account-workspace .gradebook-export-grid,
+  .account-workspace .compact-settings-grid,
+  .account-workspace .teacher-attempt-summary-grid { grid-template-columns: minmax(0, 1fr); }
+  .account-workspace .gradebook-column-labels { grid-column: auto; }
+  .account-workspace .course-row { flex-direction: column; align-items: stretch; }
+  .account-workspace .course-list-header { align-items: flex-start; }
+  .account-workspace .roster-course-select { flex-basis: auto; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .account-workspace * { transition: none; }
+}

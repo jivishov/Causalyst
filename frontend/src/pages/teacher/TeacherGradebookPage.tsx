@@ -317,14 +317,9 @@ export function TeacherGradebookPage() {
         </div>
       </form>
 
-      <div className="gradebook-export-panel">
-        <div className="gradebook-export-heading">
-          <div>
-            <h3>Export</h3>
-            <p>Choose rows, columns, and labels before downloading.</p>
-          </div>
-          <span className="gradebook-preview-count">Preview rows: {previewCount ?? localPreviewCount}</span>
-        </div>
+      <details className="gradebook-export-panel workspace-disclosure">
+        <summary><span><Download size={18} aria-hidden="true" />Export grades</span><small>CSV settings & download</small></summary>
+        <div className="gradebook-export-heading"><p>Choose rows, columns, and labels before downloading.</p><span className="gradebook-preview-count">Preview rows: {previewCount ?? localPreviewCount}</span></div>
         <div className="gradebook-export-grid">
           <div className="gradebook-field">
             <label htmlFor="gradebook-export-format">Export format</label>
@@ -404,14 +399,14 @@ export function TeacherGradebookPage() {
             <span className="gradebook-column-keys">Available columns: {availableColumnKeys.join(", ")}</span>
           ) : null}
         </div>
-      </div>
+      </details>
 
       {loading ? (
         <p className="status-line">Loading gradebook</p>
       ) : entries.length === 0 ? (
         <p className="status-line">No gradebook rows match the current filters.</p>
       ) : (
-        <div className="roster-table gradebook-table">
+        <div className="roster-table gradebook-table" tabIndex={0} role="region" aria-label="Student grades">
           <table>
             <thead>
               <tr>

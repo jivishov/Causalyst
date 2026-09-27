@@ -142,7 +142,7 @@ describe("generateSimulationHtml", () => {
       type: "input_image",
       file_id: "file-sketch123"
     });
-    expect(content[0]).not.toHaveProperty("detail");
+    expect(content[0].detail).toBe("auto");
     expect(content[1]).toMatchObject({ type: "input_text" });
     expect(String(content[1].text)).not.toContain("assessmentPrompt");
     expect(String(content[1].text)).toContain("studentDescription");
@@ -334,12 +334,12 @@ describe("generateSimulationSketch", () => {
       description: "Cells divide into two daughter cells."
     });
 
-    expect(result.requestedModel).toBe("gpt-image-2");
-    expect(result.modelUsed).toBe("gpt-image-2");
+    expect(result.requestedModel).toBe("gpt-image-2.5-flare");
+    expect(result.modelUsed).toBe("gpt-image-2.5-flare");
     expect(result.mimeType).toBe("image/png");
     expect(new TextDecoder().decode(result.bytes)).toBe("png-bytes");
     expect(create.mock.calls[0][0]).toMatchObject({
-      model: "gpt-image-2",
+      model: "gpt-image-2.5-flare",
       output_format: "png",
       quality: "medium",
       size: "1536x1024",
@@ -447,19 +447,19 @@ describe("createImageResponseWithFallback", () => {
       .mockRejectedValueOnce({
         status: 404,
         code: "model_not_found",
-        message: "The model `gpt-image-2` does not exist"
+        message: "The model `gpt-image-2.5-flare` does not exist"
       })
       .mockResolvedValueOnce({ data: [{ b64_json: "abc" }] });
     const client = { images: { generate } } as any;
 
-    const result = await createImageResponseWithFallback(client, { id: "gpt-image-2", fallbackModelId: "gpt-image-1.5" }, {
-      model: "gpt-image-2",
+    const result = await createImageResponseWithFallback(client, { id: "gpt-image-2.5-flare", fallbackModelId: "gpt-image-2.5-sunburst" }, {
+      model: "gpt-image-2.5-flare",
       prompt: "Draw",
       n: 1
     });
 
-    expect(result.modelUsed).toBe("gpt-image-1.5");
+    expect(result.modelUsed).toBe("gpt-image-2.5-sunburst");
     expect(generate).toHaveBeenCalledTimes(2);
-    expect(generate.mock.calls[1][0].model).toBe("gpt-image-1.5");
+    expect(generate.mock.calls[1][0].model).toBe("gpt-image-2.5-sunburst");
   });
 });

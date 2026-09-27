@@ -47,7 +47,7 @@ export const modelCatalog: Record<ModelRole, ModelCatalogEntry> = {
   visionGrading: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low" },
   simulationSpec: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 32000, fallbackModelId: "gpt-5.6-sol" },
   simulationHtml: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 24000 },
-  simulationSketchImage: { id: "gpt-image-2", fallbackModelId: "gpt-image-1.5" },
+  simulationSketchImage: { id: "gpt-image-2.5-flare", fallbackModelId: "gpt-image-2.5-sunburst" },
   simulationReadinessClassifier: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low" },
   fidelityReview: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low", fallbackModelId: "gpt-5.6-sol" },
   realtimeVoice: { id: "gpt-realtime" }

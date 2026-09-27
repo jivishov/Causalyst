@@ -14,7 +14,8 @@ import {
   type RubricCriterion,
   type SimulationCodeModelId,
   type TeacherAssessment,
-  isSimulationCodeModelId
+  isSimulationCodeModelId,
+  resolveSimulationCodeModelId
 } from "@alt-assessment/shared";
 import { useTeacherWorkspaceData } from "./TeacherWorkspaceData";
 
@@ -148,9 +149,7 @@ export function TeacherAssessmentsPage() {
     if (assessment.type === "simulation") {
       setSimulationMinDescriptionChars(String((assessment.config.minDescriptionChars as number | undefined) ?? DEFAULT_SIMULATION_MIN_DESCRIPTION_CHARS));
       setSimulationCodeModelId(
-        isSimulationCodeModelId(assessment.config.simulationCodeModelId)
-          ? assessment.config.simulationCodeModelId
-          : DEFAULT_SIMULATION_CODE_MODEL_ID
+        resolveSimulationCodeModelId(assessment.config.simulationCodeModelId) ?? DEFAULT_SIMULATION_CODE_MODEL_ID
       );
     }
   }

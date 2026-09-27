@@ -7,31 +7,31 @@ describe("model catalog", () => {
     expect(getModel("grading").id).toBeTruthy();
     expect(getModel("transcription").id).toContain("transcribe");
     expect(getModel("simulationSpec")).toMatchObject({
-      id: "gpt-5.4-mini",
-      reasoningEffort: "high",
+      id: "gpt-5.6-terra",
+      reasoningEffort: "max",
       verbosity: "low",
       maxOutputTokens: 32000,
-      fallbackModelId: "gpt-5.5"
+      fallbackModelId: "gpt-5.6-sol"
     });
     expect(getModel("simulationHtml")).toMatchObject({
-      id: "gpt-5.5",
-      reasoningEffort: "medium",
+      id: "gpt-5.6-sol",
+      reasoningEffort: "max",
       verbosity: "low",
       maxOutputTokens: 24000
     });
     expect(getModel("simulationHtml").fallbackModelId).toBeUndefined();
     expect(getModel("simulationSketchImage").id).toBe("gpt-image-2");
     expect(getModel("simulationReadinessClassifier")).toMatchObject({
-      id: "gpt-5.4-mini",
-      reasoningEffort: "xhigh",
+      id: "gpt-5.6-terra",
+      reasoningEffort: "max",
       verbosity: "low"
     });
     expect(getModel("simulationReadinessClassifier").fallbackModelId).toBeUndefined();
     expect(getModel("fidelityReview")).toMatchObject({
-      id: "gpt-5.4-mini",
-      reasoningEffort: "xhigh",
+      id: "gpt-5.6-terra",
+      reasoningEffort: "max",
       verbosity: "low",
-      fallbackModelId: "gpt-5.5"
+      fallbackModelId: "gpt-5.6-sol"
     });
     expect(getModel("realtimeVoice").id).toBe("gpt-realtime");
   });
@@ -42,9 +42,9 @@ describe("model catalog", () => {
 
   it("exposes only sketch-aware simulation code models and excludes gpt-5.4-pro", () => {
     expect(Object.keys(simulationCodeModelCatalog)).toEqual([
-      "openai:gpt-5.5",
-      "openai:gpt-5.4",
-      "openai:gpt-5.4-mini",
+      "openai:gpt-5.6-sol",
+      "openai:gpt-5.6-terra",
+      "openai:gpt-5.6-luna",
       "kimi:kimi-k2.6",
       "zai:glm-5v-turbo"
     ]);
@@ -66,9 +66,9 @@ describe("model catalog", () => {
       generationApi: "chat.completions",
       inputModalities: ["text", "image"]
     });
-    expect(toOpenAIModelCatalogEntry(getSimulationCodeModel("openai:gpt-5.4-mini"))).toMatchObject({
-      id: "gpt-5.4-mini",
-      reasoningEffort: "high",
+    expect(toOpenAIModelCatalogEntry(getSimulationCodeModel("openai:gpt-5.6-terra"))).toMatchObject({
+      id: "gpt-5.6-terra",
+      reasoningEffort: "max",
       verbosity: "low",
       maxOutputTokens: 24000
     });

@@ -18,7 +18,7 @@ export type ModelRole =
 
 export interface ModelCatalogEntry {
   id: string;
-  reasoningEffort?: "low" | "medium" | "high" | "xhigh";
+  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   verbosity?: "low" | "medium" | "high";
   maxOutputTokens?: number;
   requiresConfirmation?: boolean;
@@ -34,7 +34,7 @@ export interface SimulationCodeModelEntry {
   baseURL?: string;
   generationApi: "responses" | "chat.completions";
   inputModalities: Array<"text" | "image">;
-  reasoningEffort?: "low" | "medium" | "high" | "xhigh";
+  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   verbosity?: "low" | "medium" | "high";
   maxOutputTokens?: number;
 }
@@ -43,50 +43,50 @@ const CONFIRMATION_REQUIRED_MODEL_IDS = new Set<string>();
 
 export const modelCatalog: Record<ModelRole, ModelCatalogEntry> = {
   transcription: { id: "gpt-4o-transcribe" },
-  grading: { id: "gpt-5.5", reasoningEffort: "low", verbosity: "low" },
-  visionGrading: { id: "gpt-5.5", reasoningEffort: "medium", verbosity: "low" },
-  simulationSpec: { id: "gpt-5.4-mini", reasoningEffort: "high", verbosity: "low", maxOutputTokens: 32000, fallbackModelId: "gpt-5.5" },
-  simulationHtml: { id: "gpt-5.5", reasoningEffort: "medium", verbosity: "low", maxOutputTokens: 24000 },
+  grading: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low" },
+  visionGrading: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low" },
+  simulationSpec: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 32000, fallbackModelId: "gpt-5.6-sol" },
+  simulationHtml: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 24000 },
   simulationSketchImage: { id: "gpt-image-2", fallbackModelId: "gpt-image-1.5" },
-  simulationReadinessClassifier: { id: "gpt-5.4-mini", reasoningEffort: "xhigh", verbosity: "low" },
-  fidelityReview: { id: "gpt-5.4-mini", reasoningEffort: "xhigh", verbosity: "low", fallbackModelId: "gpt-5.5" },
+  simulationReadinessClassifier: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low" },
+  fidelityReview: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low", fallbackModelId: "gpt-5.6-sol" },
   realtimeVoice: { id: "gpt-realtime" }
 };
 
 export const simulationCodeModelCatalog: Record<SimulationCodeModelId, SimulationCodeModelEntry> = {
-  "openai:gpt-5.5": {
-    id: "openai:gpt-5.5",
-    label: simulationCodeModelLabel("openai:gpt-5.5"),
+  "openai:gpt-5.6-sol": {
+    id: "openai:gpt-5.6-sol",
+    label: simulationCodeModelLabel("openai:gpt-5.6-sol"),
     provider: "openai",
-    providerModelId: "gpt-5.5",
+    providerModelId: "gpt-5.6-sol",
     apiKeyEnv: "OPENAI_API_KEY",
     generationApi: "responses",
     inputModalities: ["text", "image"],
-    reasoningEffort: "medium",
+    reasoningEffort: "max",
     verbosity: "low",
     maxOutputTokens: 24000
   },
-  "openai:gpt-5.4": {
-    id: "openai:gpt-5.4",
-    label: simulationCodeModelLabel("openai:gpt-5.4"),
+  "openai:gpt-5.6-terra": {
+    id: "openai:gpt-5.6-terra",
+    label: simulationCodeModelLabel("openai:gpt-5.6-terra"),
     provider: "openai",
-    providerModelId: "gpt-5.4",
+    providerModelId: "gpt-5.6-terra",
     apiKeyEnv: "OPENAI_API_KEY",
     generationApi: "responses",
     inputModalities: ["text", "image"],
-    reasoningEffort: "medium",
+    reasoningEffort: "max",
     verbosity: "low",
     maxOutputTokens: 24000
   },
-  "openai:gpt-5.4-mini": {
-    id: "openai:gpt-5.4-mini",
-    label: simulationCodeModelLabel("openai:gpt-5.4-mini"),
+  "openai:gpt-5.6-luna": {
+    id: "openai:gpt-5.6-luna",
+    label: simulationCodeModelLabel("openai:gpt-5.6-luna"),
     provider: "openai",
-    providerModelId: "gpt-5.4-mini",
+    providerModelId: "gpt-5.6-luna",
     apiKeyEnv: "OPENAI_API_KEY",
     generationApi: "responses",
     inputModalities: ["text", "image"],
-    reasoningEffort: "high",
+    reasoningEffort: "max",
     verbosity: "low",
     maxOutputTokens: 24000
   },

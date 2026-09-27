@@ -124,7 +124,7 @@ If the Worker logs `column reference "class_id" is ambiguous` during `POST /api/
 
 If simulation HTML generation reports that job storage is not ready, apply `supabase/migrations/0018_simulation_generation_jobs.sql`. This table is required for queued background preview generation and refinement.
 
-If simulation HTML generation or draft recovery reports a missing `reasoning_effort` column on `simulation_generation_jobs`, apply `supabase/migrations/0019_simulation_generation_reasoning_effort.sql`. This column records the GPT-5.5 reasoning effort used for each HTML preview job.
+If simulation HTML generation or draft recovery reports a missing `reasoning_effort` column on `simulation_generation_jobs`, apply `supabase/migrations/0019_simulation_generation_reasoning_effort.sql`. This column records the reasoning effort used for each HTML preview job. GPT-5.6 jobs also require `20260927182456_gpt56_max_reasoning.sql`, which permits `max` and preserves historical effort values.
 
 If simulation previews fail to restore or teacher review fails after the 1024x640 preview update, apply `supabase/migrations/0020_simulation_html_viewport_metadata.sql`. This stores the viewport used for each HTML artifact while preserving older 1200x800 previews.
 

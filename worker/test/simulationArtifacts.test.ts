@@ -32,15 +32,24 @@ describe("simulation artifact flow", () => {
     });
   });
 
-  it("starts generated HTML as a draft background job without claiming submission", async () => {
+  it.each([
+    [undefined, "openai:gpt-5.6-sol"],
+    ["openai:gpt-5.6-sol", "openai:gpt-5.6-sol"],
+    ["openai:gpt-5.6-terra", "openai:gpt-5.6-terra"],
+    ["openai:gpt-5.6-luna", "openai:gpt-5.6-luna"],
+    ["openai:gpt-5.5", "openai:gpt-5.6-sol"],
+    ["openai:gpt-5.4", "openai:gpt-5.6-sol"],
+    ["openai:gpt-5.4-mini", "openai:gpt-5.6-terra"]
+  ])("starts %s as a Max background job without claiming submission", async (savedModel, expectedModel) => {
+    const providerModel = expectedModel!.slice("openai:".length);
     const description = "Water evaporates, condenses, and returns as precipitation in a closed cycle.";
     vi.spyOn(openaiLib, "enforceModelConfirmation").mockImplementation(() => {});
     vi.spyOn(openaiLib, "openaiClient").mockReturnValue({} as any);
     vi.spyOn(openaiLib, "startSimulationHtmlBackgroundResponse").mockResolvedValue({
       responseId: "resp-html-1",
       status: "queued",
-      modelUsed: "gpt-5.5",
-      requestedModel: "openai:gpt-5.5"
+      modelUsed: providerModel,
+      requestedModel: expectedModel
     });
     vi.spyOn(openaiLib, "uploadUserDataFile").mockResolvedValue("file-sketch123");
     vi.spyOn(dbLib, "requireAttempt").mockResolvedValue({
@@ -51,7 +60,7 @@ describe("simulation artifact flow", () => {
         title: "Sim",
         prompt: "Prompt",
         rubric: [],
-        config: {}
+        config: { simulationCodeModelId: savedModel }
       }
     } as any);
     vi.spyOn(dbLib, "requireArtifact").mockResolvedValue({
@@ -136,9 +145,9 @@ describe("simulation artifact flow", () => {
     expect(result.jobId).toBe("job-1");
     expect(result.status).toBe("queued");
     expect(result.operation).toBe("generate");
-    expect(result.modelUsed).toBe("gpt-5.5");
-    expect(result.requestedModel).toBe("openai:gpt-5.5");
-    expect(result.htmlReasoningEffort).toBe("medium");
+    expect(result.modelUsed).toBe(providerModel);
+    expect(result.requestedModel).toBe(expectedModel);
+    expect(result.htmlReasoningEffort).toBe("max");
 
     expect(insertedJobs).toHaveLength(1);
     expect(insertedJobs[0]).toMatchObject({
@@ -147,9 +156,9 @@ describe("simulation artifact flow", () => {
       operation: "generate",
       status: "queued",
       provider_response_id: "resp-html-1",
-      requested_model: "openai:gpt-5.5",
-      model_used: "gpt-5.5",
-      reasoning_effort: "medium",
+      requested_model: expectedModel,
+      model_used: providerModel,
+      reasoning_effort: "max",
       sketch_artifact_id: "sketch-1",
       input_html_artifact_id: null,
       source_description_sha256: await descriptionHash(description),
@@ -157,7 +166,8 @@ describe("simulation artifact flow", () => {
     expect(downloadSpy).toHaveBeenCalledTimes(1);
     expect(openaiLib.startSimulationHtmlBackgroundResponse).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       sketchFileId: "file-sketch123",
-      htmlReasoningEffort: "medium"
+      htmlReasoningEffort: "max",
+      model: expect.objectContaining({ id: providerModel, reasoningEffort: "max" })
     }));
     expect(updatedArtifactRows).toHaveLength(1);
     expect(updatedArtifactRows[0]).toMatchObject({
@@ -319,7 +329,7 @@ describe("simulation artifact flow", () => {
     expect(backgroundSpy).not.toHaveBeenCalled();
   });
 
-  it("reuses only active HTML jobs matching the selected reasoning effort", async () => {
+  it("reuses only active HTML jobs matching the current Max reasoning policy", async () => {
     const description = "A pendulum swings back and forth while its angle changes.";
     const sourceDescriptionSha256 = await descriptionHash(description);
     vi.spyOn(openaiLib, "enforceModelConfirmation").mockImplementation(() => {});
@@ -353,9 +363,9 @@ describe("simulation artifact flow", () => {
       status: "in_progress",
       provider: "openai",
       provider_response_id: "resp-active",
-      requested_model: "openai:gpt-5.5",
-      model_used: "gpt-5.5",
-      reasoning_effort: "high",
+      requested_model: "openai:gpt-5.6-sol",
+      model_used: "gpt-5.6-sol",
+      reasoning_effort: "max",
       sketch_artifact_id: "sketch-active",
       input_html_artifact_id: null,
       result_artifact_id: null,
@@ -392,7 +402,7 @@ describe("simulation artifact flow", () => {
               },
               async maybeSingle() {
                 return {
-                  data: eqFilters.some((filter) => filter.column === "reasoning_effort" && filter.value === "high")
+                  data: eqFilters.some((filter) => filter.column === "reasoning_effort" && filter.value === "max")
                     ? activeJob
                     : null,
                   error: null
@@ -411,7 +421,7 @@ describe("simulation artifact flow", () => {
         attemptId: "attempt-active",
         sketchArtifactId: "sketch-active",
         description,
-        htmlReasoningEffort: "high"
+        htmlReasoningEffort: "max"
       })
     });
 
@@ -420,11 +430,11 @@ describe("simulation artifact flow", () => {
     expect(result).toMatchObject({
       jobId: "job-active",
       status: "in_progress",
-      requestedModel: "openai:gpt-5.5",
-      modelUsed: "gpt-5.5",
-      htmlReasoningEffort: "high"
+      requestedModel: "openai:gpt-5.6-sol",
+      modelUsed: "gpt-5.6-sol",
+      htmlReasoningEffort: "max"
     });
-    expect(eqFilters).toContainEqual({ column: "reasoning_effort", value: "high" });
+    expect(eqFilters).toContainEqual({ column: "reasoning_effort", value: "max" });
     expect(openaiClientSpy).not.toHaveBeenCalled();
     expect(backgroundSpy).not.toHaveBeenCalled();
   });
@@ -657,8 +667,8 @@ describe("simulation artifact flow", () => {
     vi.spyOn(openaiLib, "startRefineSimulationHtmlBackgroundResponse").mockResolvedValue({
       responseId: "resp-refine-1",
       status: "queued",
-      modelUsed: "gpt-5.5",
-      requestedModel: "openai:gpt-5.5"
+      modelUsed: "gpt-5.6-sol",
+      requestedModel: "openai:gpt-5.6-sol"
     });
     vi.spyOn(dbLib, "logAudit").mockResolvedValue();
     vi.spyOn(dbLib, "requireAttempt").mockResolvedValue({
@@ -728,18 +738,18 @@ describe("simulation artifact flow", () => {
       jobId: "job-1",
       status: "queued",
       operation: "refine",
-      requestedModel: "openai:gpt-5.5",
-      modelUsed: "gpt-5.5",
-      htmlReasoningEffort: "high"
+      requestedModel: "openai:gpt-5.6-sol",
+      modelUsed: "gpt-5.6-sol",
+      htmlReasoningEffort: "max"
     });
     expect(openaiLib.startRefineSimulationHtmlBackgroundResponse).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       sketchFileId: "file-sketch-refine",
       currentHtml: expect.stringContaining("distorted"),
-      htmlReasoningEffort: "high"
+      htmlReasoningEffort: "max"
     }));
     expect(insertedJobs[0]).toMatchObject({
       provider_response_id: "resp-refine-1",
-      reasoning_effort: "high",
+      reasoning_effort: "max",
       sketch_artifact_id: "sketch-refine",
       input_html_artifact_id: "html-refine",
       source_description_sha256: sourceDescriptionSha256,
@@ -1195,8 +1205,8 @@ describe("simulation artifact flow", () => {
     const backgroundSpy = vi.spyOn(openaiLib, "startSimulationHtmlBackgroundResponse").mockResolvedValue({
       responseId: "resp-html-1",
       status: "in_progress",
-      modelUsed: "gpt-5.5",
-      requestedModel: "openai:gpt-5.5"
+      modelUsed: "gpt-5.6-sol",
+      requestedModel: "openai:gpt-5.6-sol"
     });
     vi.spyOn(dbLib, "logAudit").mockResolvedValue();
     const insertedJobs: Record<string, unknown>[] = [];
@@ -1237,7 +1247,7 @@ describe("simulation artifact flow", () => {
     expect(backgroundSpy).toHaveBeenCalledWith(client, expect.objectContaining({
       description,
       sketchFileId: "file-sketch",
-      htmlReasoningEffort: "medium"
+      htmlReasoningEffort: "max"
     }));
   });
 

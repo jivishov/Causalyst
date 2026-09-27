@@ -18,11 +18,11 @@ describe("teacher assessment assignments", () => {
 
     expect(result.assessment.config).toMatchObject({
       minDescriptionChars: 55,
-      simulationCodeModelId: "openai:gpt-5.5"
+      simulationCodeModelId: "openai:gpt-5.6-sol"
     });
     expect(state.assessments[0].config).toMatchObject({
       minDescriptionChars: 55,
-      simulationCodeModelId: "openai:gpt-5.5"
+      simulationCodeModelId: "openai:gpt-5.6-sol"
     });
   });
 

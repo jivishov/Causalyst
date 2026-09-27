@@ -21,7 +21,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Verify configured provider models and a bounded synthetic response
+      - name: Verify configured provider models and bounded Max responses
         run: node worker/scripts/check-provider-access.mjs
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

@@ -11,9 +11,10 @@ begin
  insert into assessment_assignments(id,class_id,assessment_id) values(assignment,course,assessment);
  insert into attempts(id,assessment_id,assignment_id,student_id) values(attempt,assessment,assignment,student);
  insert into attempt_artifacts(id,attempt_id,student_id,kind,bucket,storage_key,mime_type,cleanup_at) values(artifact,attempt,student,'simulation-sketch','simulation-sketch','retention-test','image/png',now()-interval '1 day');
- params:=jsonb_build_object('operation','generate','provider','openai','requestedModel','synthetic','htmlReasoningEffort','low','sketchArtifactId',artifact,'sourceDescriptionSha256',repeat('a',64));
+ params:=jsonb_build_object('operation','generate','provider','openai','requestedModel','openai:gpt-5.6-sol','htmlReasoningEffort','max','sketchArtifactId',artifact,'sourceDescriptionSha256',repeat('a',64));
  execute 'set local role service_role';
  j:=reserve_simulation_job(student,attempt,'stable-operation',params);
+ if j->'job'->>'reasoning_effort'<>'max' then raise exception 'Max reasoning was not persisted'; end if;
  again:=reserve_simulation_job(student,attempt,'stable-operation',params);
  if not (j->>'claimed')::boolean or (again->>'claimed')::boolean or j->'job'->>'id'<>again->'job'->>'id' then raise exception 'Reservation is not idempotent'; end if;
  if (select count(*) from ai_usage_reservations where attempt_id=attempt)<>1 then raise exception 'Retry consumed duplicate allowance'; end if;

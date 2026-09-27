@@ -72,11 +72,12 @@ export interface StudentPublishedGrade {
   feedback?: GradeFeedback | null;
 }
 
-export const SIMULATION_HTML_REASONING_EFFORTS = ["low", "medium", "high"] as const;
+// Retain historical effort values when restoring completed or running jobs.
+export const SIMULATION_HTML_REASONING_EFFORTS = ["low", "medium", "high", "max"] as const;
 
 export type SimulationHtmlReasoningEffort = typeof SIMULATION_HTML_REASONING_EFFORTS[number];
 
-export const DEFAULT_SIMULATION_HTML_REASONING_EFFORT: SimulationHtmlReasoningEffort = "medium";
+export const DEFAULT_SIMULATION_HTML_REASONING_EFFORT: SimulationHtmlReasoningEffort = "max";
 
 export interface SimulationHtmlViewport {
   width: number;

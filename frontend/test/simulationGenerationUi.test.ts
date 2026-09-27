@@ -185,9 +185,9 @@ describe("simulation generation UI helpers", () => {
     })).toBe(false);
   });
 
-  it("uses medium as the default HTML reasoning effort and exposes low/medium/high options", () => {
-    expect(DEFAULT_SIMULATION_HTML_REASONING_EFFORT).toBe("medium");
-    expect(SIMULATION_HTML_REASONING_EFFORTS).toEqual(["low", "medium", "high"]);
+  it("defaults new HTML jobs to Max and recognizes historical efforts", () => {
+    expect(DEFAULT_SIMULATION_HTML_REASONING_EFFORT).toBe("max");
+    expect(SIMULATION_HTML_REASONING_EFFORTS).toEqual(["low", "medium", "high", "max"]);
   });
 
   it("serializes selected HTML reasoning effort for generation and refinement requests", () => {

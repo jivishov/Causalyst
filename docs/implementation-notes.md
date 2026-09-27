@@ -27,7 +27,9 @@ The Worker rejects output unless `description.slice(start, end) === quote` for e
 
 ## Model Catalog
 
-OpenAI model choices live in `worker/src/lib/models.ts`. The app remains OpenAI-only for v1, but logical roles prevent model IDs from being scattered across route handlers.
+Model choices live in `worker/src/lib/models.ts`, with the shared simulation picker in `shared/src/assessmentConfig.ts`. The OpenAI text choices are GPT-5.6 Sol, Terra, and Luna, all using `max` reasoning. Sol is the default for HTML generation and grading; Terra handles simulation specifications, readiness checks, and fidelity review, with Sol fallback where configured. Kimi and Z.AI remain available for simulation HTML through their existing adapters.
+
+Saved GPT-5.5 and GPT-5.4 assessments resolve to Sol; saved GPT-5.4 Mini assessments resolve to Terra. Retired model IDs are compatibility inputs only, never selectable options or new provider requests. Existing job records retain their original model and effort for recovery and audit. Apply `20260927182456_gpt56_max_reasoning.sql` before deploying this release to allow new Max jobs. Audio transcription, Realtime voice, and image generation use their specialized models.
 
 ## Teacher Auth Setup
 

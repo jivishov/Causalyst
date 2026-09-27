@@ -76,8 +76,8 @@ describe("generateSimulationHtml", () => {
     });
 
     expect(result.html).toContain("<!doctype html>");
-    expect(result.requestedModel).toBe("gpt-5.5");
-    expect(result.modelUsed).toBe("gpt-5.5");
+    expect(result.requestedModel).toBe("gpt-5.6-sol");
+    expect(result.modelUsed).toBe("gpt-5.6-sol");
   });
 
   it("asks generated HTML to fit a no-scroll 1024 by 640 viewport without adding unstated facts", async () => {
@@ -92,8 +92,8 @@ describe("generateSimulationHtml", () => {
 
     const systemPrompt = String(create.mock.calls[0][0].input[0].content);
     expect(create.mock.calls[0][0]).toMatchObject({
-      model: "gpt-5.5",
-      reasoning: { effort: "medium" },
+      model: "gpt-5.6-sol",
+      reasoning: { effort: "max" },
       text: { verbosity: "low" },
       max_output_tokens: 24000
     });
@@ -190,8 +190,8 @@ describe("refineSimulationHtml", () => {
 
     const systemPrompt = String(create.mock.calls[0][0].input[0].content);
     expect(create.mock.calls[0][0]).toMatchObject({
-      model: "gpt-5.5",
-      reasoning: { effort: "medium" },
+      model: "gpt-5.6-sol",
+      reasoning: { effort: "max" },
       text: { verbosity: "low" },
       max_output_tokens: 24000
     });
@@ -219,15 +219,15 @@ describe("refineSimulationHtml", () => {
     expect(systemPrompt).not.toContain("900px");
   });
 
-  it("uses the requested GPT-5.5 reasoning effort for generated and refined HTML", () => {
-    for (const effort of ["low", "medium", "high"] as const) {
+  it("uses Max for generated and refined HTML even with legacy effort inputs", () => {
+    for (const effort of ["low", "medium", "high", "max"] as const) {
       expect(buildSimulationHtmlResponsePayload({
         description: "A to B",
         sketchFileId: "file-sketch",
         htmlReasoningEffort: effort
       }).payload).toMatchObject({
-        model: "gpt-5.5",
-        reasoning: { effort }
+        model: "gpt-5.6-sol",
+        reasoning: { effort: "max" }
       });
       expect(buildRefineSimulationHtmlResponsePayload({
         description: "A to B",
@@ -235,8 +235,8 @@ describe("refineSimulationHtml", () => {
         currentHtml: "<!doctype html><html><body>old</body></html>",
         htmlReasoningEffort: effort
       }).payload).toMatchObject({
-        model: "gpt-5.5",
-        reasoning: { effort }
+        model: "gpt-5.6-sol",
+        reasoning: { effort: "max" }
       });
     }
   });
@@ -362,7 +362,7 @@ describe("generateSimulationSketch", () => {
 });
 
 describe("classifySimulationReadiness", () => {
-  it("uses gpt-5.4-mini with xhigh reasoning and structured output", async () => {
+  it("uses gpt-5.6-terra with Max reasoning and structured output", async () => {
     const create = vi.fn().mockResolvedValueOnce({
       output_parsed: {
         decision: "allow",
@@ -393,12 +393,12 @@ describe("classifySimulationReadiness", () => {
     });
 
     expect(result.result.decision).toBe("allow");
-    expect(result.requestedModel).toBe("gpt-5.4-mini");
-    expect(result.modelUsed).toBe("gpt-5.4-mini");
+    expect(result.requestedModel).toBe("gpt-5.6-terra");
+    expect(result.modelUsed).toBe("gpt-5.6-terra");
     expect(create).toHaveBeenCalledTimes(1);
     expect(create.mock.calls[0][0]).toMatchObject({
-      model: "gpt-5.4-mini",
-      reasoning: { effort: "xhigh" },
+      model: "gpt-5.6-terra",
+      reasoning: { effort: "max" },
       text: {
         verbosity: "low",
         format: {
@@ -414,7 +414,7 @@ describe("classifySimulationReadiness", () => {
     const unavailable = {
       status: 404,
       code: "model_not_found",
-      message: "The model `gpt-5.4-mini` does not exist"
+      message: "The model `gpt-5.6-terra` does not exist"
     };
     const create = vi.fn().mockRejectedValueOnce(unavailable);
     const client = { responses: { create } } as any;

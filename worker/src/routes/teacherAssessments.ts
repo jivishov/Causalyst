@@ -12,7 +12,7 @@ import {
   type TeacherAssessmentsResponse,
   type TeacherAssignment,
   type TeacherAssignmentsResponse,
-  isSimulationCodeModelId
+  resolveSimulationCodeModelId
 } from "@alt-assessment/shared";
 import type { AppDatabaseClient } from "../lib/database";
 import { toJson, type TablesUpdate } from "../lib/database";
@@ -568,7 +568,8 @@ function defaultConfigForType(type: AssessmentType): Record<string, unknown> {
 
 function parseSimulationCodeModelId(value: unknown): string {
   if (value === undefined || value === null || value === "") return DEFAULT_SIMULATION_CODE_MODEL_ID;
-  if (isSimulationCodeModelId(value)) return value;
+  const modelId = resolveSimulationCodeModelId(value);
+  if (modelId) return modelId;
   throw new HttpError(400, "config.simulationCodeModelId must be an allowed simulation code model");
 }
 

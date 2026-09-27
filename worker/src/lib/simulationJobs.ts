@@ -1,6 +1,6 @@
 import type { AppDatabaseClient } from "./database";
 import { isJsonObject, type Tables } from "./database";
-import type { StudentSimulationGenerationJobOperation, StudentSimulationGenerationJobStatus, SimulationHtmlReasoningEffort } from "@alt-assessment/shared";
+import { SIMULATION_HTML_REASONING_EFFORTS, type StudentSimulationGenerationJobOperation, type StudentSimulationGenerationJobStatus, type SimulationHtmlReasoningEffort } from "@alt-assessment/shared";
 import { contentDigest } from "./evidence";
 import { HttpError } from "./http";
 
@@ -21,7 +21,7 @@ function isSimulationJob(value: unknown): value is SimulationGenerationJobRow {
   return strings.every(key => typeof row[key] === "string")
     && nullableStrings.every(key => row[key] === null || typeof row[key] === "string")
     && (row.operation === "generate" || row.operation === "refine")
-    && (row.reasoning_effort === "low" || row.reasoning_effort === "medium" || row.reasoning_effort === "high")
+    && (SIMULATION_HTML_REASONING_EFFORTS as readonly unknown[]).includes(row.reasoning_effort)
     && typeof row.status === "string"
     && ["queued", "in_progress", "finalizing", "completed", "failed", "incomplete", "cancelled", "expired"].includes(row.status);
 }

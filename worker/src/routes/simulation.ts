@@ -14,7 +14,7 @@ import {
   SIMULATION_INSUFFICIENT_DETAIL_MESSAGE,
   SIMULATION_READINESS_UNAVAILABLE_MESSAGE,
   DEFAULT_SIMULATION_CODE_MODEL_ID,
-  isSimulationCodeModelId,
+  resolveSimulationCodeModelId,
   type SimulationHtmlViewport,
   assessSimulationDescriptionReadiness
 } from "@alt-assessment/shared";
@@ -974,7 +974,10 @@ function toSimulationGenerationJobRow(data: any): SimulationGenerationJobRow {
 }
 
 function readSimulationHtmlReasoningEffort(body: Record<string, unknown>): SimulationHtmlReasoningEffort {
-  return normalizeSimulationHtmlReasoningEffort(body.htmlReasoningEffort, true);
+  // Accept previously supported inputs from older tabs, but new jobs always use
+  // the current Max policy. Historical jobs retain their recorded effort.
+  normalizeSimulationHtmlReasoningEffort(body.htmlReasoningEffort, true);
+  return DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
 }
 
 function normalizeSimulationHtmlReasoningEffort(value: unknown, rejectInvalid = false): SimulationHtmlReasoningEffort {
@@ -1033,10 +1036,11 @@ function readAssessmentSimulationCodeModel(config: Record<string, unknown>): Sim
   if (modelId === undefined || modelId === null || modelId === "") {
     return getSimulationCodeModel(DEFAULT_SIMULATION_CODE_MODEL_ID);
   }
-  if (!isSimulationCodeModelId(modelId)) {
+  const resolvedModelId = resolveSimulationCodeModelId(modelId);
+  if (!resolvedModelId) {
     throw new HttpError(400, "Simulation code model is not available");
   }
-  return getSimulationCodeModel(modelId);
+  return getSimulationCodeModel(resolvedModelId);
 }
 
 function enforceSimulationCodeModelConfirmation(model: SimulationCodeModelEntry, confirmed: boolean | undefined): void {

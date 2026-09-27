@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Send } from "lucide-react";
-import { DEFAULT_SIMULATION_HTML_REASONING_EFFORT, SIMULATION_HTML_REASONING_EFFORTS,
-  assessSimulationDescriptionReadiness, getSimulationCodeModelLabel, type AssessmentSummary,
+import { DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
+  assessSimulationDescriptionReadiness, getSimulationCodeModelLabel, getSimulationCodeModelProvider, type AssessmentSummary,
   type SimulationHtmlReasoningEffort, type StudentSimulationGenerationJob, type StudentSimulationPreview } from "@alt-assessment/shared";
 import { RubricFeedback } from "../../components/RubricFeedback";
 import { SimulationPreviewFrame, type SimulationPreviewHealthReport } from "../../components/SimulationPreviewFrame";
@@ -24,6 +24,7 @@ export interface SimulationDraftState {
 }
 
 function formatSimulationHtmlReasoningEffort(effort: SimulationHtmlReasoningEffort): string {
+  if (effort === "max") return "Max";
   if (effort === "low") return "Low";
   if (effort === "high") return "High";
   return "Medium";
@@ -56,7 +57,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
   const [htmlPreviewToken, setHtmlPreviewToken] = useState<string | null>(null);
   const [htmlPreviewGenerationSource, setHtmlPreviewGenerationSource] = useState<StudentSimulationPreview["generationSource"] | null>(null);
   const [htmlPreviewViewport, setHtmlPreviewViewport] = useState<StudentSimulationPreview["htmlViewport"] | null>(null);
-  const [selectedHtmlReasoningEffort, setSelectedHtmlReasoningEffort] = useState<SimulationHtmlReasoningEffort>(DEFAULT_SIMULATION_HTML_REASONING_EFFORT);
+  const selectedHtmlReasoningEffort = DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
   const [currentHtmlReasoningEffort, setCurrentHtmlReasoningEffort] = useState<SimulationHtmlReasoningEffort | null>(null);
   const [htmlPreviewUrl, setHtmlPreviewUrl] = useState<string | null>(null);
   const [htmlRequestedModel, setHtmlRequestedModel] = useState<string | null>(null);
@@ -601,22 +602,9 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
             <RubricFeedback feedback={null} rubric={assessment.rubric} />
             <div className="simulation-html-options">
               <div>
-                <label htmlFor="html-reasoning-effort">HTML reasoning</label>
-                <select
-                  id="html-reasoning-effort"
-                  value={selectedHtmlReasoningEffort}
-                  disabled={actionBusy}
-                  onChange={(event) => {
-                    const nextEffort = event.target.value;
-                    if ((SIMULATION_HTML_REASONING_EFFORTS as readonly string[]).includes(nextEffort)) {
-                      setSelectedHtmlReasoningEffort(nextEffort as SimulationHtmlReasoningEffort);
-                    }
-                  }}
-                >
-                  {SIMULATION_HTML_REASONING_EFFORTS.map((effort) => (
-                    <option key={effort} value={effort}>{formatSimulationHtmlReasoningEffort(effort)}</option>
-                  ))}
-                </select>
+                <p id="html-reasoning-effort" className="overall-comment">
+                  HTML reasoning: {getSimulationCodeModelProvider(assessment.config.simulationCodeModelId) === "openai" ? "Max" : "Provider default"}
+                </p>
               </div>
               <p className="overall-comment">Model: {getSimulationCodeModelLabel(assessment.config.simulationCodeModelId)}</p>
             </div>

@@ -191,7 +191,7 @@ export function buildSimulationHtmlResponsePayload(input: {
   model?: ModelCatalogEntry;
 }): { model: ModelCatalogEntry; payload: ResponsePayload } {
   const model = input.model ?? getModel("simulationHtml");
-  const reasoningEffort = input.htmlReasoningEffort ?? model.reasoningEffort ?? DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
+  const reasoningEffort = model.reasoningEffort ?? DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
   const userContent: Array<Record<string, unknown>> = [];
   if (input.sketchFileId) {
     userContent.push({
@@ -296,7 +296,7 @@ export function buildRefineSimulationHtmlResponsePayload(input: {
   model?: ModelCatalogEntry;
 }): { model: ModelCatalogEntry; payload: ResponsePayload } {
   const model = input.model ?? getModel("simulationHtml");
-  const reasoningEffort = input.htmlReasoningEffort ?? model.reasoningEffort ?? DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
+  const reasoningEffort = model.reasoningEffort ?? DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
   return {
     model,
     payload: {

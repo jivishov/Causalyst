@@ -25,7 +25,7 @@ const SIMULATION_HTML_TYPOGRAPHY_CONSTRAINTS = [
 const OPENAI_BACKGROUND_START_TIMEOUT_MS = 60000;
 const OPENAI_BACKGROUND_STATUS_TIMEOUT_MS = 20000;
 
-type ResponsePayload = Record<string, unknown>;
+type ResponsePayload = OpenAI.Responses.ResponseCreateParamsNonStreaming;
 
 export function openaiClient(apiKey: string, baseURL?: string): OpenAI {
   return new OpenAI({ apiKey, baseURL, maxRetries: 0, timeout: 90_000 });
@@ -81,7 +81,7 @@ export async function gradeVoice(client: OpenAI, input: {
         ]
       }
     ]
-  } as any);
+  });
   return validateGradeFeedback(parseOutput<GradeFeedback>(response), input.rubric, input.scoringPolicy);
 }
 
@@ -120,7 +120,7 @@ export async function gradeWriting(client: OpenAI, input: {
         ]
       }
     ]
-  } as any);
+  });
   const parsed = parseOutput<{ transcribedText: string; feedback: GradeFeedback }>(response);
   return { ...parsed, feedback: validateGradeFeedback(parsed.feedback, input.rubric, input.scoringPolicy) };
 }
@@ -160,7 +160,7 @@ export async function generateSimulationSpec(client: OpenAI, input: {
         ]
       }
     ]
-  } as any);
+  });
   return {
     spec: parseOutput<SimulationSpec>(response.response),
     modelUsed: response.modelUsed,
@@ -192,11 +192,12 @@ export function buildSimulationHtmlResponsePayload(input: {
 }): { model: ModelCatalogEntry; payload: ResponsePayload } {
   const model = input.model ?? getModel("simulationHtml");
   const reasoningEffort = model.reasoningEffort ?? DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
-  const userContent: Array<Record<string, unknown>> = [];
+  const userContent: OpenAI.Responses.ResponseInputContent[] = [];
   if (input.sketchFileId) {
     userContent.push({
       type: "input_image",
-      file_id: input.sketchFileId
+      file_id: input.sketchFileId,
+      detail: "auto"
     });
   }
   userContent.push({
@@ -350,7 +351,8 @@ export function buildRefineSimulationHtmlResponsePayload(input: {
           content: [
             {
               type: "input_image",
-              file_id: input.sketchFileId
+              file_id: input.sketchFileId,
+              detail: "auto"
             },
             {
               type: "input_text",
@@ -472,7 +474,7 @@ export async function generateSimulationSketch(client: OpenAI, input: {
     quality: "medium",
     size: "1536x1024",
     n: 1
-  } as any);
+  });
   const b64 = response.response?.data?.[0]?.b64_json;
   if (typeof b64 !== "string" || b64.trim().length === 0) {
     throw new HttpError(502, "Image model response did not include image data");
@@ -530,7 +532,7 @@ export async function classifySimulationReadiness(client: OpenAI, input: {
         ]
       }
     ]
-  } as any);
+  });
   return {
     result: parseOutput<SimulationReadinessClassifierResult>(response),
     modelUsed: model.id,
@@ -570,7 +572,7 @@ export async function reviewSimulationFidelity(client: OpenAI, input: {
         ]
       }
     ]
-  } as any);
+  });
   const parsed = parseOutput<{ feedback: GradeFeedback; missingElements: string[]; addedElements: string[] }>(response.response);
   return { ...parsed, feedback: validateGradeFeedback(parsed.feedback, input.rubric, input.scoringPolicy), modelUsed: response.modelUsed };
 }
@@ -588,7 +590,7 @@ export async function deleteOpenAIFile(client: OpenAI, fileId: string): Promise<
   await client.files.delete(fileId);
 }
 
-function structuredTextFormat(name: string, schema: object, verbosity?: "low" | "medium" | "high") {
+function structuredTextFormat(name: string, schema: Record<string, unknown>, verbosity?: "low" | "medium" | "high"): OpenAI.Responses.ResponseTextConfig {
   return {
     verbosity,
     format: {
@@ -791,39 +793,39 @@ async function startSimulationBackgroundResponse(
   };
 }
 
-export async function createSimulationResponseWithFallback<T>(
+export async function createSimulationResponseWithFallback(
   client: OpenAI,
   preferredModel: ModelCatalogEntry,
-  payload: T,
+  payload: ResponsePayload,
   options?: { timeout?: number; maxRetries?: number }
-): Promise<{ response: any; modelUsed: string }> {
+): Promise<{ response: OpenAI.Responses.Response; modelUsed: string }> {
   const requestedModel = getRequestedModelId(payload) ?? preferredModel.id;
   try {
-    const response = await client.responses.create(payload as any, options as any);
+    const response = await client.responses.create(payload, options);
     return { response, modelUsed: requestedModel };
   } catch (error) {
     const fallbackModel = preferredModel.fallbackModelId;
     if (!fallbackModel || fallbackModel === requestedModel) throw error;
     if (!shouldFallbackToAlternateModel(error)) throw error;
-    const response = await client.responses.create({ ...(payload as any), model: fallbackModel }, options as any);
+    const response = await client.responses.create({ ...payload, model: fallbackModel }, options);
     return { response, modelUsed: fallbackModel };
   }
 }
 
-export async function createImageResponseWithFallback<T>(
+export async function createImageResponseWithFallback(
   client: OpenAI,
   preferredModel: ModelCatalogEntry,
-  payload: T
-): Promise<{ response: any; modelUsed: string }> {
+  payload: OpenAI.Images.ImageGenerateParamsNonStreaming
+): Promise<{ response: OpenAI.Images.ImagesResponse; modelUsed: string }> {
   const requestedModel = getRequestedModelId(payload) ?? preferredModel.id;
   try {
-    const response = await client.images.generate(payload as any);
+    const response = await client.images.generate(payload, { timeout: 180_000, maxRetries: 0 });
     return { response, modelUsed: requestedModel };
   } catch (error) {
     const fallbackModel = preferredModel.fallbackModelId;
     if (!fallbackModel || fallbackModel === requestedModel) throw error;
     if (!shouldFallbackToAlternateModel(error)) throw error;
-    const response = await client.images.generate({ ...(payload as any), model: fallbackModel });
+    const response = await client.images.generate({ ...payload, model: fallbackModel }, { timeout: 180_000, maxRetries: 0 });
     return { response, modelUsed: fallbackModel };
   }
 }

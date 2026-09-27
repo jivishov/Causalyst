@@ -20,7 +20,7 @@ describe("model catalog", () => {
       maxOutputTokens: 24000
     });
     expect(getModel("simulationHtml").fallbackModelId).toBeUndefined();
-    expect(getModel("simulationSketchImage").id).toBe("gpt-image-2");
+    expect(getModel("simulationSketchImage").id).toBe("gpt-image-2.5-flare");
     expect(getModel("simulationReadinessClassifier")).toMatchObject({
       id: "gpt-5.6-terra",
       reasoningEffort: "max",

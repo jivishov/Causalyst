@@ -31,6 +31,8 @@ Model choices live in `worker/src/lib/models.ts`, with the shared simulation pic
 
 Saved GPT-5.5 and GPT-5.4 assessments resolve to Sol; saved GPT-5.4 Mini assessments resolve to Terra. Retired model IDs are compatibility inputs only, never selectable options or new provider requests. Existing job records retain their original model and effort for recovery and audit. Apply `20260927182456_gpt56_max_reasoning.sql` before deploying this release to allow new Max jobs. Audio transcription, Realtime voice, and image generation use their specialized models.
 
+The Worker pins OpenAI SDK `7.23.0` (Node 22+ in CI; Cloudflare Workers in production). Responses and Images payloads use SDK types so unsupported request fields fail typechecking. Text generation uses Responses with `reasoning.effort: "max"`; sketches use Images with `gpt-image-2.5-flare`, with `gpt-image-2.5-sunburst` fallback only for model-unavailable errors. Both image paths retain medium quality, 1536×1024 PNG output, and a bounded 180-second request timeout. Image quality is separate from text reasoning effort. The provider check exercises all three text models and generates one synthetic PNG with the configured primary image model. No student data or image bytes are logged.
+
 ## Teacher Auth Setup
 
 Teacher identity uses Supabase email/password auth. Student identity uses Supabase Google auth plus class-code/PIN enrollment, with roster email as the account binding.

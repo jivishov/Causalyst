@@ -34,6 +34,24 @@ try {
     }
     console.log(`Synthetic Responses request completed at Max. Requested: ${id}; returned: ${result.model}.`);
   }));
+  const imageModel = model('simulationSketchImage');
+  await client.models.retrieve(imageModel);
+  // Match the application's image request settings; use no student input.
+  const image = await client.images.generate({
+    model: imageModel,
+    prompt: 'A simple classroom diagram of two blue circles joined by one arrow on a white background. No text.',
+    quality: 'medium',
+    size: '1536x1024',
+    output_format: 'png',
+    n: 1
+  }, { timeout: 180000, maxRetries: 0 });
+  const png = Buffer.from(image.data?.[0]?.b64_json ?? '', 'base64');
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  if (png.length < 24 || !png.subarray(0, 8).equals(signature)
+      || png.readUInt32BE(16) !== 1536 || png.readUInt32BE(20) !== 1024) {
+    throw new Error('InvalidSyntheticImage');
+  }
+  console.log(`Synthetic Images request completed: ${imageModel}; PNG 1536x1024. Image data discarded.`);
 } catch (error) {
   const status = Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599 ? error.status : 'none';
   // Do not emit SDK error messages, bodies, request IDs, headers, or stacks.

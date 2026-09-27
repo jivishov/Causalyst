@@ -9,7 +9,7 @@ permissions:
 jobs:
   provider:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - name: Restrict probe to reviewed main
         env:
@@ -21,7 +21,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Verify configured provider models and bounded Max responses
+      - name: Verify configured models, Max responses, and image generation
         run: node worker/scripts/check-provider-access.mjs
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

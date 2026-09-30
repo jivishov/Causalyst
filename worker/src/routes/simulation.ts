@@ -10,6 +10,8 @@ import {
   type StudentSimulationGenerationJobStatus,
   type SimulationHtmlReasoningEffort,
   type StudentSimulationPreview,
+  type SimulationHtmlStreamEvent,
+  MAX_SIMULATION_STREAM_CHARS,
   DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
   SIMULATION_HTML_REASONING_EFFORTS,
   SIMULATION_INSUFFICIENT_DETAIL_MESSAGE,
@@ -19,10 +21,10 @@ import {
   type SimulationHtmlViewport,
   assessSimulationDescriptionReadiness
 } from "@alt-assessment/shared";
-import { cancelSimulationBackgroundResponse, classifySimulationReadiness, deleteOpenAIFile, enforceModelConfirmation, generateSimulationHtmlChatCompletion, generateSimulationSketch as generateSimulationSketchImage, openaiClient, parseSimulationHtmlResponse, refineSimulationHtmlChatCompletion, retrieveSimulationBackgroundResponse, startRefineSimulationHtmlBackgroundResponse, startSimulationHtmlBackgroundResponse, uploadUserDataFile } from "../lib/openai";
+import { cancelSimulationBackgroundResponse, classifySimulationReadiness, deleteOpenAIFile, enforceModelConfirmation, generateSimulationHtmlChatCompletion, generateSimulationSketch as generateSimulationSketchImage, openaiClient, parseSimulationHtmlResponse, refineSimulationHtmlChatCompletion, retrieveSimulationBackgroundResponse, streamSimulationBackgroundResponse, startRefineSimulationHtmlBackgroundResponse, startSimulationHtmlBackgroundResponse, uploadUserDataFile } from "../lib/openai";
 import { requireArtifact, requireAttempt, logAudit } from "../lib/db";
 import type { Env } from "../lib/env";
-import { HttpError, getOptionalString, getRequiredString, readJson } from "../lib/http";
+import { HttpError, corsHeaders, getOptionalString, getRequiredString, readJson } from "../lib/http";
 import { signPreviewToken } from "../lib/crypto";
 import { assertDraftAttemptStatus, claimAttemptSubmission } from "../lib/attemptLifecycle";
 import { getModel, getSimulationCodeModel, toOpenAIModelCatalogEntry, type SimulationCodeModelEntry } from "../lib/models";
@@ -411,6 +413,104 @@ export async function fallbackSimulation(request: Request, env: Env, db: AppData
     generationSource: "structured_fallback" as const,
     htmlViewport: CURRENT_SIMULATION_HTML_VIEWPORT
   };
+}
+
+export async function streamSimulationGenerationJob(request: Request, env: Env, db: AppDatabaseClient, userId: string, jobId: string): Promise<Response> {
+  // Ownership is checked before sending any headers or generated content.
+  const job = await requireSimulationGenerationJob(db, userId, jobId);
+  env = await resolveAttemptAiEnv(db, env, job.attempt_id);
+  const rawCursor = new URL(request.url).searchParams.get("after");
+  const cursor = rawCursor === null ? undefined : Number(rawCursor);
+  if (rawCursor !== null && (!/^\d+$/.test(rawCursor) || !Number.isSafeInteger(cursor))) {
+    throw new HttpError(400, "Invalid stream position");
+  }
+  const upstreamAbort = new AbortController();
+  const encoder = new TextEncoder();
+  let close = () => {};
+  let disconnect = () => {};
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      let closed = false;
+      let receivedChars = 0;
+      let heartbeat: ReturnType<typeof setInterval> | undefined;
+      let deadline: ReturnType<typeof setTimeout> | undefined;
+      disconnect = () => {
+        if (closed) return;
+        closed = true;
+        clearInterval(heartbeat);
+        clearTimeout(deadline);
+        request.signal.removeEventListener("abort", close);
+        upstreamAbort.abort();
+      };
+      close = () => {
+        if (closed) return;
+        disconnect();
+        controller.close();
+      };
+      const send = (event: SimulationHtmlStreamEvent) => {
+        if (!closed) controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+      };
+      request.signal.addEventListener("abort", close, { once: true });
+      if (request.signal.aborted) {
+        close();
+        return;
+      }
+      heartbeat = setInterval(() => send({ type: "heartbeat" }), 10_000);
+      // Short, resumable sessions bound Worker lifetime and recheck ownership/job
+      // state on reconnect. A disconnected tab never cancels provider work.
+      deadline = setTimeout(close, Math.max(1, Math.min(55_000, Date.parse(job.expires_at) - Date.now())));
+      void (async () => {
+        try {
+          send({ type: "job", job: toStudentSimulationJob(job, await previewForCompletedSimulationJob(db, env, userId, job)) });
+          if (closed) return;
+          if (TERMINAL_SIMULATION_JOB_STATUSES.includes(job.status)) return;
+          if (Date.parse(job.expires_at) <= Date.now() || job.status === "finalizing" || job.provider !== "openai" || !job.provider_response_id) {
+            send({ type: "unavailable" });
+            return;
+          }
+          const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+          const stream = await streamSimulationBackgroundResponse(client, job.provider_response_id, cursor, upstreamAbort.signal);
+          for await (const event of stream) {
+            if (closed) break;
+            const position = event.sequence_number;
+            if (event.type === "response.output_text.delta") {
+              receivedChars += event.delta.length;
+              if (receivedChars > MAX_SIMULATION_STREAM_CHARS) {
+                send({ type: "unavailable" });
+                return;
+              }
+              send({ type: "html_delta", delta: event.delta, cursor: position });
+            } else if (event.type === "response.completed" || event.type === "response.failed" || event.type === "response.incomplete") {
+              // Wake the client's normal status request immediately. Validation
+              // and saving stay in that awaited HTTP handler, rather than a
+              // stream callback that might be terminated by a disconnect.
+              send({ type: "job", job: { ...toStudentSimulationJob(job), status: "finalizing", message: "Checking and saving your preview..." } });
+              return;
+            } else if (Number.isSafeInteger(position)) {
+              // A numeric cursor allows replay without revealing reasoning,
+              // provider IDs, tool payloads, or raw error messages.
+              send({ type: "checkpoint", cursor: position });
+            }
+          }
+        } catch (error) {
+          const status = error && typeof error === "object" && "status" in error ? Number(error.status) : undefined;
+          if (!closed && (status === 400 || status === 404 || status === 401 || status === 403)) send({ type: "unavailable" });
+          // Transient failures close the connection for cursor-based replay.
+          // Old non-streaming jobs and interrupted streams still finish through
+          // the existing status endpoint; this never starts another generation.
+        } finally {
+          close();
+        }
+      })();
+    },
+    cancel() { disconnect(); }
+  });
+  return new Response(body, { headers: {
+    ...corsHeaders(request, env),
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-store, no-transform",
+    "X-Accel-Buffering": "no"
+  } });
 }
 
 export async function getSimulationGenerationJob(_request: Request, env: Env, db: AppDatabaseClient, userId: string, jobId: string) {

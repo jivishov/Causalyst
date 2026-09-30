@@ -120,6 +120,16 @@ export interface StudentSimulationGenerationJob {
   errorMessage?: string;
 }
 
+// Only app-owned events cross the student API boundary, never raw provider events.
+export type SimulationHtmlStreamEvent =
+  | { type: "job"; job: StudentSimulationGenerationJob }
+  | { type: "html_delta"; delta: string; cursor: number }
+  | { type: "checkpoint"; cursor: number }
+  | { type: "unavailable" }
+  | { type: "heartbeat" };
+
+export const MAX_SIMULATION_STREAM_CHARS = 2 * 1024 * 1024;
+
 export type StudentLifecycleErrorCode =
   | "same_course_identity_conflict"
   | "roster_email_required"

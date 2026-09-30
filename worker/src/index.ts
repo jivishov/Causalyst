@@ -12,7 +12,7 @@ import { createUploadToken, previewArtifact, uploadArtifact } from "./routes/art
 import { gradeVoiceAttempt } from "./routes/voice";
 import { appendRealtimeVoiceEvents, connectRealtimeVoice, finalizeRealtimeVoice } from "./routes/voiceRealtime";
 import { gradeWritingAttempt } from "./routes/writing";
-import { cancelSimulationGenerationJob, fallbackSimulation, generateSimulation, generateSimulationSketch, getSimulationGenerationJob, refineSimulation, submitSimulation } from "./routes/simulation";
+import { cancelSimulationGenerationJob, fallbackSimulation, generateSimulation, generateSimulationSketch, getSimulationGenerationJob, streamSimulationGenerationJob, refineSimulation, submitSimulation } from "./routes/simulation";
 import {
   commitTeacherRosterImport,
   createTeacherCourse,
@@ -294,6 +294,9 @@ const routes: readonly RouteDefinition[] = [
   studentRoute("POST", "/api/simulation/fallback", /^\/api\/simulation\/fallback$/, async (request, env, _match, auth) => {
     const db = serviceSupabase(env);
     return jsonResponse(request, env, await fallbackSimulation(request, env, db, auth.userId));
+  }),
+  studentRoute("GET", "/api/simulation/jobs/:jobId/stream", /^\/api\/simulation\/jobs\/([^/]+)\/stream$/, async (request, env, match, auth) => {
+    return streamSimulationGenerationJob(request, env, serviceSupabase(env), auth.userId, match[1]);
   }),
   studentRoute("GET", "/api/simulation/jobs/:jobId", /^\/api\/simulation\/jobs\/([^/]+)$/, async (request, env, match, auth) => {
     const db = serviceSupabase(env);

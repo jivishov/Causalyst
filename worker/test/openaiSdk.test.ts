@@ -1,10 +1,37 @@
 import OpenAI from "openai";
 import { describe, expect, it } from "vitest";
-import { generateSimulationHtml, generateSimulationSketch } from "../src/lib/openai";
+import { generateSimulationHtml, generateSimulationSketch, startSimulationHtmlBackgroundResponse, streamSimulationBackgroundResponse } from "../src/lib/openai";
 import { getSimulationCodeModel, toOpenAIModelCatalogEntry } from "../src/lib/models";
 
 // Exercise the installed SDK's serialization and response handling, not a mock of its methods.
 describe("OpenAI SDK request compatibility", () => {
+  it("acknowledges a streaming background job before HTML finishes and resumes it without another generation", async () => {
+    const requests: { method: string; url: string }[] = [];
+    const model = toOpenAIModelCatalogEntry(getSimulationCodeModel("openai:gpt-5.6-terra"));
+    let initialDisconnected = false;
+    const client = new OpenAI({ apiKey: "synthetic-test-key", maxRetries: 0, fetch: async (url, options) => {
+      requests.push({ method: options?.method ?? "GET", url: String(url) });
+      if (options?.method === "POST") {
+        expect(JSON.parse(String(options.body))).toMatchObject({ model: model.id, background: true, stream: true, store: true, reasoning: { effort: "max" } });
+        return new Response(new ReadableStream({
+          start(controller) { controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: "response.created", sequence_number: 0, response: { id: "resp_background", status: "queued" } })}\n\n`)); },
+          cancel() { initialDisconnected = true; }
+        }), { headers: { "Content-Type": "text/event-stream" } });
+      }
+      expect(String(url)).toBe("https://api.openai.com/v1/responses/resp_background?stream=true&starting_after=7");
+      return new Response(`data: ${JSON.stringify({ type: "response.output_text.delta", sequence_number: 8, delta: "<h1>Resumed HTML</h1>" })}\n\n`, { headers: { "Content-Type": "text/event-stream" } });
+    } });
+    const job = await startSimulationHtmlBackgroundResponse(client, { description: "Two circles", model });
+    expect(job).toMatchObject({ responseId: "resp_background", modelUsed: "gpt-5.6-terra", status: "queued" });
+    expect(initialDisconnected).toBe(true);
+    const stream = await streamSimulationBackgroundResponse(client, job.responseId, 7);
+    const events = [];
+    for await (const event of stream) events.push(event);
+    expect(events).toEqual([expect.objectContaining({ sequence_number: 8, delta: "<h1>Resumed HTML</h1>" })]);
+    expect(requests.map(r => r.method)).toEqual(["POST", "GET"]);
+    expect(requests.some(r => r.url.includes("/cancel"))).toBe(false);
+  });
+
   it("sends Max reasoning and image inputs through Responses for every selected text model", async () => {
     for (const id of ["openai:gpt-5.6-sol", "openai:gpt-5.6-terra", "openai:gpt-5.6-luna"] as const) {
       const model = toOpenAIModelCatalogEntry(getSimulationCodeModel(id));

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createServer, type ServerResponse } from "node:http";
 import type { AssessmentSummary, AttemptResult, StudentAssignmentSummary } from "@alt-assessment/shared";
 
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jh1sAAAAASUVORK5CYII=", "base64");
@@ -7,7 +8,7 @@ const job = { jobId: "job", operation: "generate", status: "in_progress", messag
 const sketch = { artifactId: "sketch", previewPath: "/artifacts/sketch/preview", previewToken: "synthetic", outputKind: "image" };
 const preview = { artifactId: "html", previewPath: "/artifacts/html/preview", previewToken: "synthetic", outputKind: "html", htmlViewport: { width: 1024, height: 768 } };
 
-async function studentFixture(page: Page, type: "simulation" | "writing") {
+async function studentFixture(page: Page, type: "simulation" | "writing", activeJob: typeof job | null = job) {
   const user = { id: "11111111-1111-4111-8111-111111111111", email: "student@test.invalid", is_anonymous: false, role: "authenticated", app_metadata: { provider: "google" }, user_metadata: {} };
   await page.addInitScript((user) => {
     const token = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" })) + "." + btoa(JSON.stringify({ sub: user.id, exp: Math.floor(Date.now() / 1000) + 3600, email: user.email })) + ".synthetic";
@@ -20,7 +21,7 @@ async function studentFixture(page: Page, type: "simulation" | "writing") {
     const path = new URL(route.request().url()).pathname;
     if (route.request().method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
     if (path === "/api/student/me") await route.fulfill({ headers, json: { profile: { id: user.id, displayName: "Student", email: user.email }, enrollmentStatus: "matched", courses: [{ classId: "course", classCode: "TEST", className: "Test course", assignments: [assignment] }] } });
-    else if (path === "/api/attempts/start") await route.fulfill({ headers, json: { attemptId: "attempt", assignment, ...(type === "simulation" ? { simulationDraft: { description: "Move the contents from container A to container B.", simulationSketchPreview: sketch, simulationPreview: null, activeSimulationJob: job } } : {}) } });
+    else if (path === "/api/attempts/start") await route.fulfill({ headers, json: { attemptId: "attempt", assignment, ...(type === "simulation" ? { simulationDraft: { description: "Move the contents from container A to container B.", simulationSketchPreview: sketch, simulationPreview: null, activeSimulationJob: activeJob } } : {}) } });
     else if (path === "/api/artifacts/sketch/preview") await route.fulfill({ headers, contentType: "image/png", body: png });
     else await route.fulfill({ headers, json: {} });
   });
@@ -32,6 +33,67 @@ function savedResult(assessment: AssessmentSummary): AttemptResult {
     transcript: null, ocrText: null, simulationDescription: "Move the contents from container A to container B.", simulationSpec: null,
     simulationSketchPreview: sketch, simulationPreview: preview, submittedAt: "2026-09-30T19:21:27Z", submittedAfterDue: false };
 }
+
+test("HTML generation streams before completion and reconnects without regenerating or executing partial code", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await studentFixture(page, "simulation", null);
+  let generationRequests = 0;
+  await page.route("**/api/simulation/generate", async route => {
+    generationRequests++;
+    await route.fulfill({ headers, json: job });
+  });
+  await page.route("**/api/simulation/jobs/job", route => route.fulfill({ headers, json: job }));
+  await page.route("**/api/artifacts/html/preview?**", route => route.fulfill({ headers, contentType: "text/html", body: '<!doctype html><html><body><h1>Finished simulation</h1><button id="step">Step forward</button><script>document.getElementById("step").onclick=function(){this.textContent="Advanced"};</script></body></html>' }));
+  const connections: ServerResponse[] = [];
+  const cursors: (string | null)[] = [];
+  const send = (response: ServerResponse, event: unknown) => response.write(`data: ${JSON.stringify(event)}\n\n`);
+  const initialCode = '<h1>Unfinished simulation</h1>\n<script>window.partialCodeRan=true;</script>\n';
+  const server = createServer((request, response) => {
+    response.writeHead(200, { ...headers, "content-type": "text/event-stream", "cache-control": "no-store" });
+    response.flushHeaders();
+    if (request.method === "OPTIONS") { response.end(); return; }
+    cursors.push(new URL(request.url!, "http://stream.test").searchParams.get("after"));
+    connections.push(response);
+    send(response, { type: "job", job });
+    send(response, { type: "html_delta", cursor: 3, delta: initialCode });
+    if (connections.length > 1) send(response, { type: "html_delta", cursor: 4, delta: '<p>More code has arrived</p>\n' });
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as { port: number }).port;
+  await page.route(/\/api\/simulation\/jobs\/job\/stream(?:\?.*)?$/, async route => {
+    if (route.request().method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
+    await route.continue({ url: `http://127.0.0.1:${port}/stream${new URL(route.request().url()).search}` });
+  });
+  try {
+    await page.goto("./assignment/assignment");
+    await page.getByRole("button", { name: "Regenerate HTML Preview", exact: true }).click();
+    const code = page.getByLabel("Generated HTML code", { exact: true });
+    await expect(code).toContainText("Unfinished simulation");
+    await expect(page.getByText("HTML is arriving", { exact: true })).toBeVisible();
+    await expect(page.locator('iframe[title="Safe simulation preview"]')).toHaveCount(0);
+    expect(await page.evaluate(() => (window as unknown as Record<string, unknown>).partialCodeRan)).toBeUndefined();
+    await expect(page.getByRole("button", { name: "Submit Simulation", exact: true })).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("html-streaming.png") });
+    connections[0].end();
+    await expect(code).toContainText("More code has arrived");
+    expect(cursors.slice(0, 2)).toEqual([null, "3"]);
+    expect((await code.textContent())!.split("Unfinished simulation")).toHaveLength(2);
+    expect(generationRequests).toBe(1);
+    await expect(page.getByLabel("Description", { exact: true })).toHaveValue("Move the contents from container A to container B.");
+    send(connections[1], { type: "job", job: { ...job, status: "completed", preview } });
+    connections[1].end();
+    const frame = page.frameLocator('iframe[title="Safe simulation preview"]');
+    await expect(frame.getByRole("heading", { name: "Finished simulation" })).toBeVisible();
+    await frame.getByRole("button", { name: "Step forward" }).click();
+    await expect(frame.getByRole("button", { name: "Advanced" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Submit Simulation", exact: true })).toBeEnabled();
+    await expect(page.getByRole("progressbar")).toHaveCount(0);
+  } finally {
+    for (const response of connections) response.destroy();
+    server.closeAllConnections();
+    await new Promise<void>(resolve => server.close(() => resolve()));
+  }
+});
 
 test("restored simulation work shows progress, renders completed HTML and signals submission", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
@@ -59,7 +121,9 @@ test("restored simulation work shows progress, renders completed HTML and signal
   await expect(page.getByRole("progressbar", { name: "Finishing your interactive preview" })).toBeVisible();
   phase = "completed";
   const frame = page.frameLocator('iframe[title="Safe simulation preview"]');
-  await expect(frame.getByRole("heading", { name: "Container movement" })).toBeVisible();
+  // Legacy jobs recover through polling, whose interval can exceed the default
+  // assertion timeout once the fixture advances between two status reads.
+  await expect(frame.getByRole("heading", { name: "Container movement" })).toBeVisible({ timeout: 12_000 });
   await frame.getByRole("button", { name: "Step forward" }).click();
   await expect(frame.getByRole("button", { name: "Advanced" })).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);

@@ -1,4 +1,5 @@
 import { protectPreviewDocument } from "./previewPolicy";
+import { consumeSimulationHtmlStream } from "./simulationStream";
 import type {
   AttemptResult,
   SimulationHtmlReasoningEffort,
@@ -7,6 +8,7 @@ import type {
   StudentCourseAssignments,
   StudentSessionResponse,
   StudentSimulationGenerationJob,
+  SimulationHtmlStreamEvent,
   StudentSimulationPreview,
   StudentPublishedFinalResultResponse,
   TeacherAssessment,
@@ -794,6 +796,35 @@ export function getSimulationGenerationJob(jobId: string) {
   return apiFetch<StudentSimulationGenerationJob>(`/simulation/jobs/${jobId}`, {
     method: "GET"
   }, SIMULATION_JOB_STATUS_TIMEOUT_MS);
+}
+
+export async function streamSimulationGenerationJob(jobId: string, input: {
+  after?: number;
+  signal: AbortSignal;
+  onEvent: (event: SimulationHtmlStreamEvent) => void;
+}): Promise<void> {
+  const session = await requireStudentSession();
+  if (input.signal.aborted) return;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  input.signal.addEventListener("abort", abort, { once: true });
+  // The server rotates the connection after 55s. Also bound a stalled proxy or
+  // browser connection so it can reconnect or fall back to status polling.
+  const timeout = setTimeout(abort, 75_000);
+  try {
+    const query = input.after === undefined ? "" : `?after=${input.after}`;
+    const response = await fetch(`${workerUrl}/api/simulation/jobs/${encodeURIComponent(jobId)}/stream${query}`, {
+      headers: { Authorization: `Bearer ${session.access_token}`, Accept: "text/event-stream" },
+      cache: "no-store",
+      signal: controller.signal
+    });
+    if (!response.ok) throw toApiRequestError(await response.json().catch(() => ({})), response.status);
+    await consumeSimulationHtmlStream(response, input.onEvent, controller.signal);
+  } finally {
+    clearTimeout(timeout);
+    input.signal.removeEventListener("abort", abort);
+    controller.abort();
+  }
 }
 
 export function cancelSimulationGenerationJob(jobId: string) {

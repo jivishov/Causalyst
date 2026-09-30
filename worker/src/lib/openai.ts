@@ -775,6 +775,13 @@ export async function retrieveSimulationBackgroundResponse(client: OpenAI, respo
   } as any);
 }
 
+export async function streamSimulationBackgroundResponse(client: OpenAI, responseId: string, startingAfter?: number, signal?: AbortSignal) {
+  return client.responses.retrieve(responseId, {
+    stream: true,
+    ...(startingAfter === undefined ? {} : { starting_after: startingAfter })
+  }, { timeout: OPENAI_BACKGROUND_STATUS_TIMEOUT_MS, maxRetries: 0, signal });
+}
+
 export async function cancelSimulationBackgroundResponse(client: OpenAI, responseId: string): Promise<any> {
   return client.responses.cancel(responseId, {
     timeout: OPENAI_BACKGROUND_STATUS_TIMEOUT_MS,
@@ -791,22 +798,38 @@ async function startSimulationBackgroundResponse(
   model: ModelCatalogEntry,
   payload: ResponsePayload
 ): Promise<{ responseId: string; status: string; modelUsed: string; requestedModel: string }> {
-  const response = await createSimulationResponseWithFallback(client, model, {
-    ...payload,
-    background: true,
-    store: true
-  }, {
-    timeout: OPENAI_BACKGROUND_START_TIMEOUT_MS,
-    maxRetries: 0
-  });
-  const responseId = typeof response.response?.id === "string" ? response.response.id : "";
-  if (!responseId) throw new HttpError(502, "Simulation generation did not return a background response id");
-  return {
-    responseId,
-    status: typeof response.response.status === "string" ? response.response.status : "queued",
-    modelUsed: response.modelUsed,
-    requestedModel: model.id
-  };
+  // A response must be created with streaming enabled to replay/resume its events.
+  // Disconnect after the acknowledgement; background mode keeps the generation
+  // running, and the authenticated job stream reconnects to this same response.
+  const create = (modelId: string) => client.responses.create({
+    ...payload, model: modelId, background: true, store: true, stream: true
+  }, { timeout: OPENAI_BACKGROUND_START_TIMEOUT_MS, maxRetries: 0 });
+  let modelUsed = model.id;
+  let stream;
+  try {
+    stream = await create(modelUsed);
+  } catch (error) {
+    if (!model.fallbackModelId || model.fallbackModelId === modelUsed || !shouldFallbackToAlternateModel(error)) throw error;
+    modelUsed = model.fallbackModelId;
+    stream = await create(modelUsed);
+  }
+  try {
+    for await (const event of stream) {
+      if (event.type === "response.created" || event.type === "response.queued" || event.type === "response.in_progress") {
+        if (!event.response.id) break;
+        return {
+          responseId: event.response.id,
+          status: event.response.status ?? "queued",
+          modelUsed,
+          requestedModel: model.id
+        };
+      }
+    }
+    throw new HttpError(502, "Simulation generation did not return a background response id");
+  } finally {
+    // Aborts this HTTP connection, not the background generation.
+    stream.controller.abort();
+  }
 }
 
 export async function createSimulationResponseWithFallback(

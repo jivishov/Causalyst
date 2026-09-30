@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { LoaderCircle, Send } from "lucide-react";
-import { DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
+import { DEFAULT_SIMULATION_HTML_REASONING_EFFORT, MAX_SIMULATION_STREAM_CHARS,
   assessSimulationDescriptionReadiness, type AssessmentSummary,
   type SimulationHtmlReasoningEffort, type StudentSimulationGenerationJob, type StudentSimulationPreview } from "@alt-assessment/shared";
 import { RubricFeedback } from "../../components/RubricFeedback";
 import { StudentActionProgress } from "../../components/StudentActionProgress";
+import { SimulationHtmlStream } from "../../components/SimulationHtmlStream";
 import { SimulationPreviewFrame, type SimulationPreviewHealthReport } from "../../components/SimulationPreviewFrame";
 import { ApiRequestError, cancelSimulationGenerationJob, fallbackSimulationPreview, generateSimulation,
-  generateSimulationSketch, getSimulationGenerationJob, getSimulationPreviewUrl, refineSimulation, submitSimulation } from "../../lib/api";
+  generateSimulationSketch, getSimulationGenerationJob, streamSimulationGenerationJob, getSimulationPreviewUrl, refineSimulation, submitSimulation } from "../../lib/api";
 import { SIMULATION_STALE_ATTEMPT_RETRY_MESSAGE, canCancelSimulationGenerationJob, canRetrySimulationHtmlPreview,
   isActiveSimulationGenerationJob, isRetryableSimulationAttemptError, isTerminalSimulationJobStatus,
   resolveSimulationGenerateButtonLabel, resolveSimulationReadinessMessage, resolveSimulationRunMessage,
@@ -76,6 +77,8 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
   const [htmlPreviewHealthMessage, setHtmlPreviewHealthMessage] = useState<string | null>(null);
   const [htmlGenerationJob, setHtmlGenerationJob] = useState<StudentSimulationGenerationJob | null>(null);
   const [htmlGenerationMessage, setHtmlGenerationMessage] = useState<string | null>(null);
+  const [htmlStreamSource, setHtmlStreamSource] = useState("");
+  const [htmlStreamLive, setHtmlStreamLive] = useState(true);
   const [refiningPreview, setRefiningPreview] = useState(false);
   const [fallbackPreviewRunning, setFallbackPreviewRunning] = useState(false);
   const [fallbackPreviewError, setFallbackPreviewError] = useState<string | null>(null);
@@ -83,16 +86,19 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
   const [submittingSimulation, setSubmittingSimulation] = useState(false);
   const [inputPanelOpen, setInputPanelOpen] = useState(true);
   const sketchPanelRef = useRef<HTMLElement | null>(null);
+  const htmlPanelRef = useRef<HTMLElement | null>(null);
   const generationRunTokenRef = useRef(0);
   const sketchPreviewLoadTokenRef = useRef(0);
   const htmlPreviewLoadTokenRef = useRef(0);
   const htmlJobPollTokenRef = useRef(0);
+  const htmlStreamAbortRef = useRef<AbortController | null>(null);
   const restoredDraftKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
       generationRunTokenRef.current += 1;
       htmlJobPollTokenRef.current += 1;
+      htmlStreamAbortRef.current?.abort();
     };
   }, []);
 
@@ -109,6 +115,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
   }, [htmlPreviewUrl]);
 
   function resetGeneratedState() {
+    htmlStreamAbortRef.current?.abort();
     generationRunTokenRef.current += 1;
     sketchPreviewLoadTokenRef.current += 1;
     htmlPreviewLoadTokenRef.current += 1;
@@ -146,6 +153,8 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
     setHtmlPreviewHealthMessage(null);
     setHtmlGenerationJob(null);
     setHtmlGenerationMessage(null);
+    setHtmlStreamSource("");
+    setHtmlStreamLive(true);
     setFallbackPreviewRunning(false);
     setFallbackPreviewError(null);
     setHtmlPreviewUrl((existing) => {
@@ -253,55 +262,130 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
     setHtmlGenerationMessage(currentJob.message);
     setCurrentHtmlReasoningEffort(currentJob.htmlReasoningEffort ?? null);
 
-    while (generationRunTokenRef.current === input.runToken && htmlJobPollTokenRef.current === pollToken) {
-      if (currentJob.status === "completed" && currentJob.preview) {
-        setHtmlArtifactId(currentJob.preview.artifactId);
-        setHtmlPreviewPath(currentJob.preview.previewPath);
-        setHtmlPreviewToken(currentJob.preview.previewToken);
-        setHtmlPreviewGenerationSource(currentJob.preview.generationSource ?? "model");
-        setHtmlPreviewViewport(currentJob.preview.htmlViewport ?? null);
-        setHtmlRequestedModel(currentJob.requestedModel ?? null);
-        setHtmlModelUsed(currentJob.modelUsed ?? null);
-        setCurrentHtmlReasoningEffort(currentJob.preview.htmlReasoningEffort ?? currentJob.htmlReasoningEffort ?? null);
-        setHtmlGenerationMessage(currentJob.message);
-        await requestHtmlPreview(currentJob.preview);
-        setGenerationStage("done");
-        return currentJob;
-      }
-
-      if (isTerminalSimulationJobStatus(currentJob.status)) {
-        const message = currentJob.errorMessage ?? currentJob.message;
-        setHtmlGenerationMessage(message);
-        setHtmlPreviewError(input.preservePreviewOnFailure ? input.preservePreviewFailureMessage ?? "Could not refine preview. Current preview was not changed." : message);
-        setGenerationStage("done");
-        return currentJob;
-      }
-
-      await waitForSimulationJobPoll(resolveSimulationJobPollDelayMs(startedAt));
-      if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
-      try {
-        currentJob = await getSimulationGenerationJob(currentJob.jobId);
-      } catch {
-        if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
-        // A failed finalization is persisted before its HTTP error is returned.
-        // Read that terminal state once; this never starts another generation.
-        setHtmlGenerationMessage("Checking the preview response...");
+    htmlStreamAbortRef.current?.abort();
+    const streamAbort = new AbortController();
+    htmlStreamAbortRef.current = streamAbort;
+    setHtmlStreamSource("");
+    setHtmlStreamLive(true);
+    let cursor: number | undefined;
+    let streamAvailable = true;
+    let streamFailures = 0;
+    let wakePoll: (() => void) | null = null;
+    const isCurrent = () => !streamAbort.signal.aborted && generationRunTokenRef.current === input.runToken && htmlJobPollTokenRef.current === pollToken;
+    window.requestAnimationFrame(() => {
+      if (isCurrent()) htmlPanelRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+    // Polling remains the recovery path for old jobs and networks that buffer
+    // streams. Both paths observe the same job; neither starts provider work.
+    void (async () => {
+      while (isCurrent() && streamAvailable && !isTerminalSimulationJobStatus(currentJob.status)) {
         try {
-          currentJob = await getSimulationGenerationJob(currentJob.jobId);
-        } catch (error) {
-          if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
-          setHtmlGenerationJob(null);
-          setGenerationStage("done");
-          throw error;
+          await streamSimulationGenerationJob(job.jobId, {
+            after: cursor,
+            signal: streamAbort.signal,
+            onEvent(event) {
+              if (!isCurrent()) return;
+              if (event.type === "html_delta" || event.type === "checkpoint") {
+                if (cursor !== undefined && event.cursor <= cursor) return;
+                cursor = event.cursor;
+                streamFailures = 0;
+                setHtmlStreamLive(true);
+                if (event.type === "html_delta") {
+                  setHtmlStreamSource(source => (source + event.delta).slice(0, MAX_SIMULATION_STREAM_CHARS));
+                }
+              } else if (event.type === "job" && event.job.jobId === job.jobId && !isTerminalSimulationJobStatus(currentJob.status)) {
+                const changed = currentJob.status !== event.job.status;
+                currentJob = event.job;
+                setHtmlGenerationJob(currentJob);
+                setHtmlGenerationMessage(currentJob.message);
+                if (currentJob.status === "finalizing") streamAvailable = false;
+                if (changed) wakePoll?.();
+              } else if (event.type === "unavailable") {
+                streamAvailable = false;
+                setHtmlStreamLive(false);
+              }
+            }
+          });
+        } catch {
+          if (!isCurrent()) return;
+          setHtmlStreamLive(false);
+          if (++streamFailures >= 3) streamAvailable = false;
+        }
+        if (isCurrent() && streamAvailable && !isTerminalSimulationJobStatus(currentJob.status)) {
+          await waitForSimulationJobPoll(1000);
         }
       }
-      if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
-      setHtmlGenerationJob(currentJob);
-      setHtmlGenerationMessage(currentJob.message);
-      setCurrentHtmlReasoningEffort(currentJob.htmlReasoningEffort ?? null);
-      if (currentJob.status === "finalizing") setGenerationStage("html");
+    })();
+
+    try {
+      while (generationRunTokenRef.current === input.runToken && htmlJobPollTokenRef.current === pollToken) {
+        if (currentJob.status === "completed" && currentJob.preview) {
+          setHtmlArtifactId(currentJob.preview.artifactId);
+          setHtmlPreviewPath(currentJob.preview.previewPath);
+          setHtmlPreviewToken(currentJob.preview.previewToken);
+          setHtmlPreviewGenerationSource(currentJob.preview.generationSource ?? "model");
+          setHtmlPreviewViewport(currentJob.preview.htmlViewport ?? null);
+          setHtmlRequestedModel(currentJob.requestedModel ?? null);
+          setHtmlModelUsed(currentJob.modelUsed ?? null);
+          setCurrentHtmlReasoningEffort(currentJob.preview.htmlReasoningEffort ?? currentJob.htmlReasoningEffort ?? null);
+          setHtmlGenerationMessage(currentJob.message);
+          await requestHtmlPreview(currentJob.preview);
+          setGenerationStage("done");
+          return currentJob;
+        }
+
+        if (isTerminalSimulationJobStatus(currentJob.status)) {
+          const message = currentJob.errorMessage ?? currentJob.message;
+          setHtmlGenerationMessage(message);
+          setHtmlPreviewError(input.preservePreviewOnFailure ? input.preservePreviewFailureMessage ?? "Could not refine preview. Current preview was not changed." : message);
+          setGenerationStage("done");
+          return currentJob;
+        }
+
+        await new Promise<void>(resolve => {
+          const finish = () => {
+            window.clearTimeout(timer);
+            streamAbort.signal.removeEventListener("abort", finish);
+            wakePoll = null;
+            resolve();
+          };
+          const timer = window.setTimeout(finish, resolveSimulationJobPollDelayMs(startedAt));
+          wakePoll = finish;
+          streamAbort.signal.addEventListener("abort", finish, { once: true });
+        });
+        if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
+        if (isTerminalSimulationJobStatus(currentJob.status)) continue;
+        try {
+          const nextJob = await getSimulationGenerationJob(currentJob.jobId);
+          if (!isTerminalSimulationJobStatus(currentJob.status)) currentJob = nextJob;
+        } catch {
+          if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
+          if (isTerminalSimulationJobStatus(currentJob.status)) continue;
+          // A failed finalization is persisted before its HTTP error is returned.
+          // Read that terminal state once; this never starts another generation.
+          setHtmlGenerationMessage("Checking the preview response...");
+          try {
+            const nextJob = await getSimulationGenerationJob(currentJob.jobId);
+            if (!isTerminalSimulationJobStatus(currentJob.status)) currentJob = nextJob;
+          } catch (error) {
+            if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
+            if (isTerminalSimulationJobStatus(currentJob.status)) continue;
+            setHtmlGenerationJob(null);
+            setGenerationStage("done");
+            throw error;
+          }
+        }
+        if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
+        setHtmlGenerationJob(currentJob);
+        setHtmlGenerationMessage(currentJob.message);
+        setCurrentHtmlReasoningEffort(currentJob.htmlReasoningEffort ?? null);
+        if (currentJob.status === "finalizing") setGenerationStage("html");
+      }
+      return null;
+    } finally {
+      streamAbort.abort();
+      if (htmlStreamAbortRef.current === streamAbort) htmlStreamAbortRef.current = null;
     }
-    return null;
   }
 
   useEffect(() => {
@@ -368,6 +452,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
 
   async function cancelHtmlGeneration() {
     if (!htmlGenerationJob || isTerminalSimulationJobStatus(htmlGenerationJob.status)) return;
+    htmlStreamAbortRef.current?.abort();
     generationRunTokenRef.current += 1;
     htmlJobPollTokenRef.current += 1;
     setCancellingGeneration(true);
@@ -620,7 +705,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
 
   return (
     <div className="simulation-layout">
-      <StudentActionProgress active={actionBusy} title={progressTitle} />
+      <StudentActionProgress active={actionBusy} title={progressTitle} message={generationStage === "html" && htmlStreamSource ? "HTML is arriving. Your preview will open after the code is complete and checked." : undefined} />
       <details
         className="simulation-input-accordion"
         open={inputPanelOpen}
@@ -772,7 +857,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
             <div className="safe-preview-empty">Generate to create the visual sketch.</div>
           )}
         </section>
-        <section className="safe-preview-panel safe-preview-primary">
+        <section className="safe-preview-panel safe-preview-primary" ref={htmlPanelRef}>
           <div className="safe-preview-header">
             <h2>Interactive Preview</h2>
             <div className="preview-actions">
@@ -824,6 +909,13 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
             {fallbackPreviewError && <p className="field-error">{fallbackPreviewError}</p>}
             {htmlPreviewError && <p className="field-error">{htmlPreviewError}</p>}
           </div>
+          <SimulationHtmlStream
+            active={generationStage === "html" || isActiveSimulationGenerationJob(htmlGenerationJob)}
+            source={htmlStreamSource}
+            startedAt={htmlGenerationJob?.startedAt}
+            live={htmlStreamLive}
+            finalizing={htmlGenerationJob?.status === "finalizing"}
+          />
           {htmlPreviewUrl && htmlPreviewRequested && htmlArtifactId ? (
             <SimulationPreviewFrame
               artifactId={htmlArtifactId}
@@ -840,7 +932,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
               }}
             />
           ) : (
-            <div className="safe-preview-empty">The interactive HTML will appear after the sketch is converted.</div>
+            <div className="safe-preview-empty">{generationActive ? "Your interactive simulation will open here after the HTML is complete and checked." : "Generate HTML to open your interactive simulation here."}</div>
           )}
         </section>
 

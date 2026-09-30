@@ -44,9 +44,15 @@ test("teacher provider lists, model assignments, and token controls work on desk
   await expect(card.getByLabel("Display name", { exact: true })).toBeFocused();
   const dimensions = await card.evaluate(element => ({
     cardHeight: element.getBoundingClientRect().height,
-    fields: [...element.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input:not([type=checkbox]), select")].map(input => ({ width: input.getBoundingClientRect().width, height: input.getBoundingClientRect().height }))
+    fields: [...element.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input:not([type=checkbox]), select")].map(input => ({ left: input.getBoundingClientRect().left, top: input.getBoundingClientRect().top, width: input.getBoundingClientRect().width, height: input.getBoundingClientRect().height })),
+    checkboxTop: element.querySelector<HTMLInputElement>("input[type=checkbox]")!.getBoundingClientRect().top,
+    removeTop: element.querySelector<HTMLButtonElement>(".ai-remove-model")!.getBoundingClientRect().top
   }));
   expect(dimensions.cardHeight).toBeLessThan(170);
+  expect(dimensions.fields).toHaveLength(5);
+  expect(Math.max(...dimensions.fields.map(field => field.top)) - Math.min(...dimensions.fields.map(field => field.top))).toBeLessThanOrEqual(1);
+  expect(dimensions.checkboxTop).toBeGreaterThan(dimensions.fields[0].top);
+  expect(dimensions.removeTop).toBeGreaterThan(dimensions.fields[0].top);
   for (const field of dimensions.fields) {
     expect(field.width).toBeLessThanOrEqual(260);
     expect(field.height).toBeLessThanOrEqual(38);

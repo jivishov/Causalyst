@@ -170,22 +170,23 @@ export function TeacherAiSettingsPage() {
             <label>Model capability<select value={model.capability} disabled={isAssigned(model)} onChange={event => editProviderModel(model.id, { capability: event.target.value as TeacherProviderModel["capability"] })}>
               {(model.provider === "openai" ? AI_MODEL_CAPABILITIES : ["text"] as const).map(capability => <option key={capability} value={capability}>{capabilityNames[capability]}</option>)}
             </select></label>
-            <div className="ai-model-actions">
-              {isAssigned(model) && <span className="ai-model-assignment" title="Choose a replacement in the defaults or assessment roles before removing this model."><ShieldCheck size={13} aria-hidden="true" />Assigned</span>}
-              <button className="secondary-button ai-remove-model" type="button" aria-label={`Remove ${model.label}`} disabled={isAssigned(model)} onClick={() => removeProviderModel(model.id)}><Trash2 size={14} />Remove</button>
-            </div>
-          </div>
-          {model.capability === "text" && <div className="ai-provider-model-controls">
-            <label className="checkbox-label"><input type="checkbox" checked={model.enabled} aria-label={`Enable ${model.label}`}
-              onChange={event => editProviderModel(model.id, { enabled: event.target.checked })} />Allow for student simulations</label>
-            {model.provider === "openai" ? <>
+            {model.capability === "text" && model.provider === "openai" && <>
               <label>Reasoning effort<select aria-label={`${model.label} reasoning`} value={model.reasoningEffort} onChange={event => editProviderModel(model.id, { reasoningEffort: event.target.value as AiReasoningEffort })}>
                 {reasoningEffortsForModel(model.modelId).map(effort => <option key={effort} value={effort}>{effort === "none" ? "Provider default" : effort}</option>)}
               </select></label>
               <label title="Maximum reasoning and answer tokens combined">Token limit<input aria-label={`${model.label} token limit`} type="number" min={AI_MIN_OUTPUT_TOKENS} max={AI_MAX_OUTPUT_TOKENS} step={1}
                 value={model.maxOutputTokens ?? ""} placeholder="App default" onChange={event => editProviderModel(model.id, { maxOutputTokens: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>
-            </> : <p className="field-help">Reasoning: Provider default</p>}
-          </div>}
+            </>}
+          </div>
+          <div className="ai-provider-model-controls">
+            {model.capability === "text" && <label className="checkbox-label"><input type="checkbox" checked={model.enabled} aria-label={`Enable ${model.label}`}
+              onChange={event => editProviderModel(model.id, { enabled: event.target.checked })} />Allow for student simulations</label>}
+            {model.capability === "text" && model.provider !== "openai" && <p className="field-help">Reasoning: Provider default</p>}
+            <div className="ai-model-actions">
+              {isAssigned(model) && <span className="ai-model-assignment" title="Choose a replacement in the defaults or assessment roles before removing this model."><ShieldCheck size={13} aria-hidden="true" />Assigned</span>}
+              <button className="secondary-button ai-remove-model" type="button" aria-label={`Remove ${model.label}`} disabled={isAssigned(model)} onClick={() => removeProviderModel(model.id)}><Trash2 size={14} />Remove</button>
+            </div>
+          </div>
         </article>)}</div>
         <div className="ai-student-policy">
           <label>Default student simulation model<select value={settings.defaultSimulationModelId} onChange={event => setSettings(current => current && ({ ...current, defaultSimulationModelId: event.target.value as typeof current.defaultSimulationModelId }))}>

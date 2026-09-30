@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { defaultAiSettings, publicAiSettings, resolveAttemptAiEnv, validateAiModelSettings } from "../src/lib/aiSettings";
 import { encryptProviderSecret, decryptProviderSecret } from "../src/lib/providerSecrets";
 import { getSimulationCodeModel } from "../src/lib/models";
-import { openaiClient, transcribeAudio } from "../src/lib/openai";
+import { buildSimulationHtmlResponsePayload, classifySimulationReadiness, openaiClient, transcribeAudio } from "../src/lib/openai";
+import { toOpenAIModelCatalogEntry } from "../src/lib/models";
 import { getTeacherAiSettings, updateTeacherAiSettings } from "../src/routes/teacherAiSettings";
 import type { Env } from "../src/lib/env";
 
@@ -39,9 +40,11 @@ describe("teacher assessment AI settings", () => {
   it("uses the frozen attempt credential after teacher/server key changes", async () => {
     const settings = defaultAiSettings(env);
     settings.apiKeys.openai = await encryptProviderSecret("synthetic-original-key", "teacher:openai", env);
+    settings.codeModels[0] = { ...settings.codeModels[0], modelId: "gpt-5.6-sol", reasoningEffort: "high", maxOutputTokens: 32000 };
     const db = { rpc: vi.fn(async () => ({ data: { teacherId: "teacher", runtime: settings, settings: null }, error: null })) };
     const result = await resolveAttemptAiEnv(db as never, { ...env, OPENAI_API_KEY: "synthetic-new-key" }, "attempt");
     expect(result.OPENAI_API_KEY).toBe("synthetic-original-key");
+    expect(getSimulationCodeModel(settings.codeModels[0].id, result.AI_SETTINGS)).toMatchObject({ providerModelId: "gpt-5.6-sol", reasoningEffort: "high", maxOutputTokens: 32000 });
     expect(db.rpc).toHaveBeenCalledTimes(1);
   });
 
@@ -68,7 +71,42 @@ describe("teacher assessment AI settings", () => {
     settings.forceDefaultSimulationModel = true;
     expect(getSimulationCodeModel(settings.codeModels[2].id, settings).providerModelId).toBe("future-approved-model");
     settings.codeModels[1].enabled = false;
-    expect(() => validateAiModelSettings({ ...settings }, settings)).toThrow("default student model must be enabled");
+    expect(() => validateAiModelSettings({ ...settings, providerModels: undefined }, settings)).toThrow("default student model must be enabled");
+  });
+
+  it("adds provider models, removes unused models, and applies a custom student default", () => {
+    const settings = defaultAiSettings(env);
+    const custom = { ...settings.providerModels![0], id: "openai:classroom-sol" as const, modelId: "synthetic-approved-text-model", label: "Classroom Sol", reasoningEffort: "xhigh" as const, maxOutputTokens: 28000 };
+    const next = validateAiModelSettings({ ...settings, providerModels: [...settings.providerModels!.filter(model => model.id !== "openai:gpt-5.6-luna"), custom],
+      defaultSimulationModelId: custom.id, forceDefaultSimulationModel: true,
+      roleModels: { ...settings.roleModels, grading: { id: custom.modelId, catalogModelId: custom.id, reasoningEffort: "low", maxOutputTokens: 22000 } } }, settings);
+    expect(next.codeModels.some(model => model.id === "openai:gpt-5.6-luna")).toBe(false);
+    expect(getSimulationCodeModel("openai:gpt-5.6-luna", next)).toMatchObject({ id: custom.id, providerModelId: "synthetic-approved-text-model", reasoningEffort: "xhigh", maxOutputTokens: 28000 });
+    const payload = buildSimulationHtmlResponsePayload({ description: "Synthetic classroom example", model: toOpenAIModelCatalogEntry(getSimulationCodeModel(custom.id, next)) });
+    expect(payload.payload).toMatchObject({ model: "synthetic-approved-text-model", reasoning: { effort: "xhigh" }, max_output_tokens: 28000 });
+  });
+
+  it("rejects duplicates, removed role assignments, incompatible capabilities, and untrusted providers", () => {
+    const settings = defaultAiSettings(env);
+    expect(() => validateAiModelSettings({ ...settings, providerModels: [...settings.providerModels!, settings.providerModels![0]] }, settings)).toThrow("unique");
+    expect(() => validateAiModelSettings({ ...settings, providerModels: settings.providerModels!.filter(model => model.modelId !== settings.roleModels.transcription.id) }, settings)).toThrow("compatible OpenAI model");
+    expect(() => validateAiModelSettings({ ...settings, roleModels: { ...settings.roleModels, transcription: { ...settings.roleModels.transcription, catalogModelId: settings.providerModels![0].id } } }, settings)).toThrow("compatible OpenAI model");
+    expect(() => validateAiModelSettings({ ...settings, providerModels: [{ ...settings.providerModels![0], provider: "https://untrusted.invalid" }] }, settings)).toThrow("supported provider");
+  });
+
+  it.each([15, 128001, 25.5, "25000", null])("rejects an invalid token limit %s", maxOutputTokens => {
+    const settings = defaultAiSettings(env);
+    expect(() => validateAiModelSettings({ ...settings, roleModels: { ...settings.roleModels, grading: { ...settings.roleModels.grading, maxOutputTokens } } }, settings)).toThrow("whole numbers");
+  });
+
+  it("rejects None for GPT-6.1 Sol and sends teacher role limits to Responses", async () => {
+    const settings = defaultAiSettings(env);
+    expect(() => validateAiModelSettings({ ...settings, roleModels: { ...settings.roleModels, grading: { id: "gpt-6.1-sol", reasoningEffort: "none" } } }, settings)).toThrow("supported reasoning effort");
+    settings.roleModels.simulationReadinessClassifier = { id: "gpt-6.1-sol", reasoningEffort: "low", maxOutputTokens: 25000 };
+    const client = openaiClient("synthetic", undefined, settings);
+    const call = vi.spyOn(client.responses, "create").mockResolvedValue({ output_parsed: { decision: "allow" } } as never);
+    await classifySimulationReadiness(client, { assessmentPrompt: "Synthetic", studentDescription: "A to B", deterministicSignals: {} as never });
+    expect(call.mock.calls[0][0]).toMatchObject({ model: "gpt-6.1-sol", reasoning: { effort: "low" }, max_output_tokens: 25000 });
   });
 
   it("applies custom models per client without contaminating another classroom request", async () => {

@@ -23,11 +23,14 @@ begin
   raise exception 'Concurrent work allowed';
  exception when check_violation then null; end;
  update simulation_generation_jobs set status='failed' where id=(j->'job'->>'id')::uuid;
+ again:=reserve_simulation_job(student,attempt,'teacher-xhigh-operation',jsonb_set(params,'{htmlReasoningEffort}','"xhigh"'));
+ if again->'job'->>'reasoning_effort'<>'xhigh' then raise exception 'Teacher XHigh reasoning was not persisted'; end if;
+ update simulation_generation_jobs set status='failed' where id=(again->'job'->>'id')::uuid;
  begin
   update simulation_generation_jobs set status='in_progress' where id=(j->'job'->>'id')::uuid;
   raise exception 'Terminal job reopened';
  exception when check_violation then null; end;
- for i in 1..11 loop perform consume_ai_budget(student,attempt,'test',5); end loop;
+ for i in 1..10 loop perform consume_ai_budget(student,attempt,'test',5); end loop;
  begin
   perform consume_ai_budget(student,attempt,'test',1);
   raise exception 'Budget was exceeded' using errcode='23514';

@@ -16,15 +16,15 @@ try {
     await client.models.retrieve(id);
     console.log(`Configured ${role} model visible in catalog: ${id}`);
   }
-  // Exercise every selectable OpenAI text model with the configured Max policy.
+  // Verify Sol's documented efforts and retain a Max probe for other text models.
   // Only synthetic input is sent; never log raw responses or SDK errors.
   const textModels = [...new Set([...source.matchAll(/providerModelId: "(gpt-[^"]+)"/g)].map(match => match[1]))];
   if (textModels.length !== 3) throw new Error('UnexpectedTextModelCatalog');
-  await Promise.all(textModels.map(async id => {
+  await Promise.all(textModels.flatMap(id => (id === 'gpt-6.1-sol' ? ['low', 'medium', 'high', 'xhigh', 'max'] : ['max']).map(async effort => {
     await client.models.retrieve(id);
     const result = await client.responses.create({
       model: id,
-      reasoning: { effort: 'max' },
+      reasoning: { effort },
       max_output_tokens: 2048,
       store: false,
       input: 'Answer with the single word OK.'
@@ -32,8 +32,12 @@ try {
     if (result.status !== 'completed' || result.output_text?.trim() !== 'OK') {
       throw new Error('IncompleteSyntheticResponse');
     }
-    console.log(`Synthetic Responses request completed at Max. Requested: ${id}; returned: ${result.model}.`);
-  }));
+    console.log(`Synthetic Responses request completed at ${effort}. Requested: ${id}; returned: ${result.model}.`);
+  })));
+  if (process.env.CHECK_IMAGES !== 'true') {
+    console.log('Unchanged image settings were not probed again.');
+    process.exit(0);
+  }
   const imageModel = model('simulationSketchImage');
   await client.models.retrieve(imageModel);
   // Match the application's image request settings; use no student input.

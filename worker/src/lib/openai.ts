@@ -66,7 +66,7 @@ export async function gradeVoice(client: OpenAI, input: {
   const response = await client.responses.create({
     model: model.id,
     reasoning: model.reasoningEffort ? { effort: model.reasoningEffort } : undefined,
-    max_output_tokens: 8192,
+    max_output_tokens: model.maxOutputTokens ?? 8192,
     text: structuredTextFormat("voice_grade", gradeFeedbackSchema, model.verbosity),
     input: [
       {
@@ -105,7 +105,7 @@ export async function gradeWriting(client: OpenAI, input: {
   const response = await client.responses.create({
     model: model.id,
     reasoning: model.reasoningEffort ? { effort: model.reasoningEffort } : undefined,
-    max_output_tokens: 8192,
+    max_output_tokens: model.maxOutputTokens ?? 8192,
     text: structuredTextFormat("writing_grade", writingGradeSchema, model.verbosity),
     input: [
       {
@@ -144,6 +144,7 @@ export async function generateSimulationSpec(client: OpenAI, input: {
     model: model.id,
     reasoning: model.reasoningEffort ? { effort: model.reasoningEffort } : undefined,
     text: structuredTextFormat("simulation_spec", simulationGenerationSchema, model.verbosity),
+    max_output_tokens: model.maxOutputTokens,
     input: [
       {
         role: "system",
@@ -517,6 +518,7 @@ export async function classifySimulationReadiness(client: OpenAI, input: {
     model: model.id,
     reasoning: model.reasoningEffort ? { effort: model.reasoningEffort } : undefined,
     text: structuredTextFormat("simulation_readiness", simulationReadinessClassifierSchema, model.verbosity),
+    max_output_tokens: model.maxOutputTokens,
     input: [
       {
         role: "system",
@@ -563,6 +565,7 @@ export async function reviewSimulationFidelity(client: OpenAI, input: {
     model: model.id,
     reasoning: model.reasoningEffort ? { effort: model.reasoningEffort } : undefined,
     text: structuredTextFormat("simulation_fidelity", fidelityReviewSchema, model.verbosity),
+    max_output_tokens: model.maxOutputTokens,
     input: [
       {
         role: "system",

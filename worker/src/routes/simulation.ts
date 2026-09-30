@@ -109,7 +109,7 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
   const description = getRequiredString(body, "description");
   boundStudentText(description);
   const sketchArtifactId = getRequiredString(body, "sketchArtifactId");
-  const htmlReasoningEffort = readSimulationHtmlReasoningEffort(body);
+  normalizeSimulationHtmlReasoningEffort(body.htmlReasoningEffort, true);
   const confirmed = body.expensiveModelConfirmed === true;
 
   const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
@@ -117,6 +117,7 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
   if (assessment.type !== "simulation") throw new HttpError(400, "Attempt is not a simulation assessment");
   assertDraftAttemptStatus(attempt.id, attempt.status);
   const simulationCodeModel = readAssessmentSimulationCodeModel(assessment.config, env);
+  const htmlReasoningEffort = readSimulationHtmlReasoningEffort(body, simulationCodeModel);
   enforceSimulationCodeModelConfirmation(simulationCodeModel, confirmed);
 
   const sourceDescriptionSha256 = await hashSimulationDescription(description);
@@ -216,7 +217,7 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
   boundStudentText(description);
   const sketchArtifactId = getRequiredString(body, "sketchArtifactId");
   const htmlArtifactId = getRequiredString(body, "htmlArtifactId");
-  const htmlReasoningEffort = readSimulationHtmlReasoningEffort(body);
+  normalizeSimulationHtmlReasoningEffort(body.htmlReasoningEffort, true);
   const confirmed = body.expensiveModelConfirmed === true;
 
   const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
@@ -224,6 +225,7 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
   if (assessment.type !== "simulation") throw new HttpError(400, "Attempt is not a simulation assessment");
   assertDraftAttemptStatus(attempt.id, attempt.status);
   const simulationCodeModel = readAssessmentSimulationCodeModel(assessment.config, env);
+  const htmlReasoningEffort = readSimulationHtmlReasoningEffort(body, simulationCodeModel);
   enforceSimulationCodeModelConfirmation(simulationCodeModel, confirmed);
 
   const sourceDescriptionSha256 = await hashSimulationDescription(description);
@@ -976,11 +978,11 @@ function toSimulationGenerationJobRow(data: any): SimulationGenerationJobRow {
   };
 }
 
-function readSimulationHtmlReasoningEffort(body: Record<string, unknown>): SimulationHtmlReasoningEffort {
-  // Accept previously supported inputs from older tabs, but new jobs always use
-  // the current Max policy. Historical jobs retain their recorded effort.
+function readSimulationHtmlReasoningEffort(body: Record<string, unknown>, model: SimulationCodeModelEntry): SimulationHtmlReasoningEffort {
+  // Older tabs may send their former effort choice. The teacher's immutable
+  // attempt configuration determines the actual request and recorded job effort.
   normalizeSimulationHtmlReasoningEffort(body.htmlReasoningEffort, true);
-  return DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
+  return model.provider === "openai" ? model.reasoningEffort ?? "none" : DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
 }
 
 function normalizeSimulationHtmlReasoningEffort(value: unknown, rejectInvalid = false): SimulationHtmlReasoningEffort {

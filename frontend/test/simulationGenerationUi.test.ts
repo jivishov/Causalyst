@@ -187,7 +187,7 @@ describe("simulation generation UI helpers", () => {
 
   it("defaults new HTML jobs to Max and recognizes historical efforts", () => {
     expect(DEFAULT_SIMULATION_HTML_REASONING_EFFORT).toBe("max");
-    expect(SIMULATION_HTML_REASONING_EFFORTS).toEqual(["low", "medium", "high", "max"]);
+    expect(SIMULATION_HTML_REASONING_EFFORTS).toEqual(["none", "low", "medium", "high", "xhigh", "max"]);
   });
 
   it("serializes selected HTML reasoning effort for generation and refinement requests", () => {

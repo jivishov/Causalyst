@@ -2,6 +2,11 @@ name: Check Provider Access
 
 on:
   workflow_dispatch:
+    inputs:
+      check_images:
+        description: Also verify unchanged image generation settings
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -21,7 +26,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Verify configured models, Max responses, and image generation
+      - name: Verify configured models and supported reasoning efforts
         run: node worker/scripts/check-provider-access.mjs
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CHECK_IMAGES: ${{ inputs.check_images }}

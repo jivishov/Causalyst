@@ -47,13 +47,13 @@ const SIMULATION_HTML_MAX_OUTPUT_TOKENS = 64000;
 
 export const modelCatalog: Record<ModelRole, ModelCatalogEntry> = {
   transcription: { id: "gpt-4o-transcribe" },
-  grading: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low" },
-  visionGrading: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low" },
-  simulationSpec: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 32000, fallbackModelId: "gpt-5.6-sol" },
-  simulationHtml: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low", maxOutputTokens: SIMULATION_HTML_MAX_OUTPUT_TOKENS },
+  grading: { id: "gpt-6.1-sol", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 8192 },
+  visionGrading: { id: "gpt-6.1-sol", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 8192 },
+  simulationSpec: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 32000, fallbackModelId: "gpt-6.1-sol" },
+  simulationHtml: { id: "gpt-6.1-sol", reasoningEffort: "max", verbosity: "low", maxOutputTokens: SIMULATION_HTML_MAX_OUTPUT_TOKENS },
   simulationSketchImage: { id: "gpt-image-2.5-flare", fallbackModelId: "gpt-image-2.5-sunburst" },
   simulationReadinessClassifier: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low" },
-  fidelityReview: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low", fallbackModelId: "gpt-5.6-sol" },
+  fidelityReview: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low", fallbackModelId: "gpt-6.1-sol" },
   realtimeVoice: { id: "gpt-realtime" }
 };
 
@@ -62,7 +62,7 @@ export const simulationCodeModelCatalog: Record<SimulationCodeModelId, Simulatio
     id: "openai:gpt-5.6-sol",
     label: simulationCodeModelLabel("openai:gpt-5.6-sol"),
     provider: "openai",
-    providerModelId: "gpt-5.6-sol",
+    providerModelId: "gpt-6.1-sol",
     apiKeyEnv: "OPENAI_API_KEY",
     generationApi: "responses",
     inputModalities: ["text", "image"],
@@ -123,16 +123,20 @@ export function getModel(role: ModelRole, settings?: StoredAiSettings): ModelCat
   const override = settings?.roleModels[role];
   if (!override) return base;
   return { ...base, id: override.id, reasoningEffort: override.reasoningEffort === "none" ? undefined : override.reasoningEffort,
+    // Older snapshots omitted this field and retain their original role limits.
+    maxOutputTokens: override.maxOutputTokens,
     fallbackModelId: override.id === base.id ? base.fallbackModelId : undefined };
 }
 
 export function getSimulationCodeModel(modelId: SimulationCodeModelId = DEFAULT_SIMULATION_CODE_MODEL_ID, settings?: StoredAiSettings): SimulationCodeModelEntry {
-  if (!settings) return simulationCodeModelCatalog[modelId];
+  if (!settings) return simulationCodeModelCatalog[modelId] ?? simulationCodeModelCatalog[DEFAULT_SIMULATION_CODE_MODEL_ID];
   const requested = settings.codeModels.find(model => model.id === modelId);
   const selected = settings.forceDefaultSimulationModel || !requested?.enabled
     ? settings.codeModels.find(model => model.id === settings.defaultSimulationModelId) : requested;
   if (!selected?.enabled) throw new Error("No enabled student model");
-  return { ...simulationCodeModelCatalog[selected.id], label: selected.label, providerModelId: selected.modelId,
+  const base = simulationCodeModelCatalog[selected.id] ?? Object.values(simulationCodeModelCatalog).find(model => model.provider === selected.provider)!;
+  return { ...base, id: selected.id, provider: selected.provider, label: selected.label, providerModelId: selected.modelId,
+    maxOutputTokens: selected.maxOutputTokens ?? base.maxOutputTokens,
     reasoningEffort: selected.reasoningEffort === "none" ? undefined : selected.reasoningEffort };
 }
 

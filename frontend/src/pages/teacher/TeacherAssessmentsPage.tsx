@@ -71,6 +71,11 @@ export function TeacherAssessmentsPage() {
   const [builderOpen, setBuilderOpen] = useState(false);
 
   useEffect(() => {
+    if (!aiSettings) return;
+    setSimulationCodeModelId(current => aiSettings.codeModels.some(model => model.id === current && model.enabled) ? current : aiSettings.defaultSimulationModelId);
+  }, [aiSettings]);
+
+  useEffect(() => {
     if (!loadingAssessments && assessments.length === 0) {
       setBuilderOpen(true);
     }
@@ -91,7 +96,7 @@ export function TeacherAssessmentsPage() {
     setWritingAcceptedMime(defaultWritingAcceptedMime);
     setWritingMaxBytes(String(DEFAULT_WRITING_MAX_BYTES));
     setSimulationMinDescriptionChars(String(DEFAULT_SIMULATION_MIN_DESCRIPTION_CHARS));
-    setSimulationCodeModelId(DEFAULT_SIMULATION_CODE_MODEL_ID);
+    setSimulationCodeModelId(aiSettings?.defaultSimulationModelId ?? DEFAULT_SIMULATION_CODE_MODEL_ID);
   }
 
   function applyAssessmentTemplate(template: AssessmentTemplate) {
@@ -112,7 +117,7 @@ export function TeacherAssessmentsPage() {
     setVoiceMaxRecordingSec(String(DEFAULT_VOICE_MAX_RECORDING_SEC));
     setRealtimeVoiceMaxSessionSec(String(DEFAULT_REALTIME_VOICE_MAX_SESSION_SEC));
     setSimulationMinDescriptionChars(String(DEFAULT_SIMULATION_MIN_DESCRIPTION_CHARS));
-    setSimulationCodeModelId(DEFAULT_SIMULATION_CODE_MODEL_ID);
+    setSimulationCodeModelId(aiSettings?.defaultSimulationModelId ?? DEFAULT_SIMULATION_CODE_MODEL_ID);
     const acceptedMime = Array.isArray(template.config.acceptedMime)
       ? template.config.acceptedMime.filter((item): item is string => typeof item === "string")
       : [...DEFAULT_WRITING_ACCEPTED_MIME];

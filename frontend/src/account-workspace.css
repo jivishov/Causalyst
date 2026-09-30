@@ -288,13 +288,20 @@
 .ai-key-card .field-help { display: flex; align-items: center; gap: 6px; min-height: 36px; }
 .ai-key-card button { margin-top: auto; }
 .ai-model-list { display: grid; gap: 12px; }
-.ai-code-model-row { display: grid; grid-template-columns: 125px 1fr 1fr 135px; gap: 12px; align-items: end; padding-bottom: 12px; border-bottom: 1px solid var(--line, #d5ddd8); }
-.ai-role-model-row { display: grid; grid-template-columns: 220px minmax(0, 1fr) 145px; gap: 12px; align-items: center; }
+.ai-provider-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+.ai-provider-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; }
+.ai-provider-heading h3 { margin: 0; }
+.ai-provider-model-card { border: 1px solid var(--line, #d5ddd8); border-radius: 12px; padding: 16px; }
+.ai-provider-model-card > .field-help { margin-bottom: 0; }
+.ai-provider-model-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 175px auto; gap: 12px; align-items: end; }
+.ai-provider-model-controls { display: grid; grid-template-columns: minmax(0, 1fr) 150px 190px; gap: 18px; align-items: end; margin-top: 14px; }
+.ai-code-model-row { display: grid; grid-template-columns: 105px minmax(0, 1fr) minmax(0, 1fr) 105px 165px; gap: 12px; align-items: end; padding-bottom: 12px; border-bottom: 1px solid var(--line, #d5ddd8); }
+.ai-role-model-row { display: grid; grid-template-columns: 200px minmax(0, 1fr) 130px 165px; gap: 12px; align-items: center; }
 .ai-settings-page input:not([type=checkbox]), .ai-settings-page select { width: 100%; min-width: 0; }
 .ai-settings-page .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .ai-student-policy { display: grid; grid-template-columns: minmax(200px, 1fr) 1fr; align-items: center; gap: 24px; margin-top: 20px; }
 .ai-settings-actions { display: flex; justify-content: flex-end; gap: 12px; }
 .roster-paste-label { display: grid; gap: 8px; margin: 16px 0 8px; }
 .roster-paste-label textarea { min-height: 130px; resize: vertical; font-family: ui-monospace, monospace; font-size: 14px; line-height: 1.5; }
-@media (max-width: 1100px) { .ai-key-grid { grid-template-columns: 1fr; } .ai-code-model-row { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 720px) { .ai-role-model-row, .ai-student-policy { grid-template-columns: 1fr; } .ai-settings-intro { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 1100px) { .ai-key-grid { grid-template-columns: 1fr; } .ai-code-model-row, .ai-role-model-row, .ai-provider-model-fields { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 720px) { .ai-code-model-row, .ai-role-model-row, .ai-student-policy, .ai-provider-model-fields, .ai-provider-model-controls { grid-template-columns: 1fr; } .ai-settings-intro { align-items: flex-start; flex-direction: column; } }

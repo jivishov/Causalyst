@@ -6,28 +6,30 @@ export const DEFAULT_WRITING_MAX_BYTES = 10_485_760;
 export const DEFAULT_SIMULATION_MIN_DESCRIPTION_CHARS = 40;
 
 export const SIMULATION_CODE_MODEL_OPTIONS = [
-  { id: "openai:gpt-5.6-sol", label: "OpenAI GPT-5.6 Sol / Max", provider: "openai" },
-  { id: "openai:gpt-5.6-terra", label: "OpenAI GPT-5.6 Terra / Max", provider: "openai" },
-  { id: "openai:gpt-5.6-luna", label: "OpenAI GPT-5.6 Luna / Max", provider: "openai" },
+  // Keep stored assignment IDs stable; the server maps Sol to its current API ID.
+  { id: "openai:gpt-5.6-sol", label: "OpenAI GPT-6.1 Sol", provider: "openai" },
+  { id: "openai:gpt-5.6-terra", label: "OpenAI GPT-5.6 Terra", provider: "openai" },
+  { id: "openai:gpt-5.6-luna", label: "OpenAI GPT-5.6 Luna", provider: "openai" },
   { id: "kimi:kimi-k2.6", label: "Kimi K2.6", provider: "kimi" },
   { id: "zai:glm-5v-turbo", label: "Z.AI GLM-5V Turbo", provider: "zai" }
 ] as const;
 
-export type SimulationCodeModelId = typeof SIMULATION_CODE_MODEL_OPTIONS[number]["id"];
 export type SimulationCodeModelProvider = typeof SIMULATION_CODE_MODEL_OPTIONS[number]["provider"];
+export type SimulationCodeModelId = `${SimulationCodeModelProvider}:${string}`;
 
 export const DEFAULT_SIMULATION_CODE_MODEL_ID: SimulationCodeModelId = "openai:gpt-5.6-sol";
 
 export function isSimulationCodeModelId(value: unknown): value is SimulationCodeModelId {
-  return typeof value === "string" && SIMULATION_CODE_MODEL_OPTIONS.some((option) => option.id === value);
+  if (["openai:gpt-5.5", "openai:gpt-5.4", "openai:gpt-5.4-mini", "openai:gpt-5.4-pro"].includes(String(value))) return false;
+  return typeof value === "string" && /^(openai|kimi|zai):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value);
 }
 
 // Resolve saved assessments and requests from older browser tabs without
 // advertising retired models or sending their IDs to the provider.
 export function resolveSimulationCodeModelId(value: unknown): SimulationCodeModelId | null {
-  if (isSimulationCodeModelId(value)) return value;
   if (value === "openai:gpt-5.5" || value === "openai:gpt-5.4") return "openai:gpt-5.6-sol";
   if (value === "openai:gpt-5.4-mini") return "openai:gpt-5.6-terra";
+  if (isSimulationCodeModelId(value)) return value;
   return null;
 }
 
@@ -38,5 +40,5 @@ export function getSimulationCodeModelLabel(value: unknown): string {
 
 export function getSimulationCodeModelProvider(value: unknown): SimulationCodeModelProvider {
   const modelId = resolveSimulationCodeModelId(value) ?? DEFAULT_SIMULATION_CODE_MODEL_ID;
-  return SIMULATION_CODE_MODEL_OPTIONS.find((option) => option.id === modelId)?.provider ?? "openai";
+  return modelId.split(":")[0] as SimulationCodeModelProvider;
 }

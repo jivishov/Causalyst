@@ -24,6 +24,8 @@ export interface SimulationDraftState {
 }
 
 function formatSimulationHtmlReasoningEffort(effort: SimulationHtmlReasoningEffort): string {
+  if (effort === "none") return "Provider default";
+  if (effort === "xhigh") return "XHigh";
   if (effort === "max") return "Max";
   if (effort === "low") return "Low";
   if (effort === "high") return "High";
@@ -601,7 +603,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
             </section>
             <RubricFeedback feedback={null} rubric={assessment.rubric} />
             <div className="simulation-html-options">
-              <p id="html-reasoning-effort" className="overall-comment">OpenAI reasoning: Max. Other providers use their defaults.</p>
+              <p id="html-reasoning-effort" className="overall-comment">Reasoning effort and token limits are assigned by your teacher.</p>
               <p className="overall-comment">Model: {htmlModelUsed || "Assigned by your teacher"}</p>
             </div>
             <button
@@ -822,7 +824,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
               {htmlRequestedModel ? `HTML requested model: ${htmlRequestedModel}` : "HTML requested model: n/a"} | {htmlModelUsed ? `HTML model used: ${htmlModelUsed}` : "HTML model used: n/a"} | Output kind: html
             </p>
             <p className="overall-comment">
-              Selected next HTML reasoning: {formatSimulationHtmlReasoningEffort(selectedHtmlReasoningEffort)} | Current preview/job HTML reasoning: {currentHtmlReasoningEffort ? formatSimulationHtmlReasoningEffort(currentHtmlReasoningEffort) : "n/a"}
+              Next HTML reasoning: assigned by your teacher | Current preview/job HTML reasoning: {currentHtmlReasoningEffort ? formatSimulationHtmlReasoningEffort(currentHtmlReasoningEffort) : "n/a"}
             </p>
             <p className="overall-comment">{sketchArtifactId ? `Sketch artifact ID: ${sketchArtifactId}` : "Sketch artifact ID: n/a"}</p>
             <p className="overall-comment">{htmlArtifactId ? `HTML artifact ID: ${htmlArtifactId}` : "HTML artifact ID: n/a"}</p>

@@ -11,10 +11,10 @@ describe("model catalog", () => {
       reasoningEffort: "max",
       verbosity: "low",
       maxOutputTokens: 32000,
-      fallbackModelId: "gpt-5.6-sol"
+      fallbackModelId: "gpt-6.1-sol"
     });
     expect(getModel("simulationHtml")).toMatchObject({
-      id: "gpt-5.6-sol",
+      id: "gpt-6.1-sol",
       reasoningEffort: "max",
       verbosity: "low",
       maxOutputTokens: 64000
@@ -31,7 +31,7 @@ describe("model catalog", () => {
       id: "gpt-5.6-terra",
       reasoningEffort: "max",
       verbosity: "low",
-      fallbackModelId: "gpt-5.6-sol"
+      fallbackModelId: "gpt-6.1-sol"
     });
     expect(getModel("realtimeVoice").id).toBe("gpt-realtime");
   });

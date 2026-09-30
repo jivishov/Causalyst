@@ -76,8 +76,8 @@ describe("generateSimulationHtml", () => {
     });
 
     expect(result.html).toContain("<!doctype html>");
-    expect(result.requestedModel).toBe("gpt-5.6-sol");
-    expect(result.modelUsed).toBe("gpt-5.6-sol");
+    expect(result.requestedModel).toBe("gpt-6.1-sol");
+    expect(result.modelUsed).toBe("gpt-6.1-sol");
   });
 
   it("asks generated HTML to fit a no-scroll 1024 by 640 viewport without adding unstated facts", async () => {
@@ -92,7 +92,7 @@ describe("generateSimulationHtml", () => {
 
     const systemPrompt = String(create.mock.calls[0][0].input[0].content);
     expect(create.mock.calls[0][0]).toMatchObject({
-      model: "gpt-5.6-sol",
+      model: "gpt-6.1-sol",
       reasoning: { effort: "max" },
       text: { verbosity: "low" },
       max_output_tokens: 64000
@@ -190,7 +190,7 @@ describe("refineSimulationHtml", () => {
 
     const systemPrompt = String(create.mock.calls[0][0].input[0].content);
     expect(create.mock.calls[0][0]).toMatchObject({
-      model: "gpt-5.6-sol",
+      model: "gpt-6.1-sol",
       reasoning: { effort: "max" },
       text: { verbosity: "low" },
       max_output_tokens: 64000
@@ -226,7 +226,7 @@ describe("refineSimulationHtml", () => {
         sketchFileId: "file-sketch",
         htmlReasoningEffort: effort
       }).payload).toMatchObject({
-        model: "gpt-5.6-sol",
+        model: "gpt-6.1-sol",
         reasoning: { effort: "max" }
       });
       expect(buildRefineSimulationHtmlResponsePayload({
@@ -235,7 +235,7 @@ describe("refineSimulationHtml", () => {
         currentHtml: "<!doctype html><html><body>old</body></html>",
         htmlReasoningEffort: effort
       }).payload).toMatchObject({
-        model: "gpt-5.6-sol",
+        model: "gpt-6.1-sol",
         reasoning: { effort: "max" }
       });
     }

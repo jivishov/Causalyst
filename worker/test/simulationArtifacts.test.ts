@@ -39,11 +39,19 @@ describe("simulation artifact flow", () => {
     ["openai:gpt-5.6-sol", "openai:gpt-5.6-sol"],
     ["openai:gpt-5.6-terra", "openai:gpt-5.6-terra"],
     ["openai:gpt-5.6-luna", "openai:gpt-5.6-luna"],
+    ["openai:classroom-sol", "openai:classroom-sol"],
     ["openai:gpt-5.5", "openai:gpt-5.6-sol"],
     ["openai:gpt-5.4", "openai:gpt-5.6-sol"],
     ["openai:gpt-5.4-mini", "openai:gpt-5.6-terra"]
-  ])("starts %s as a Max background job without claiming submission", async (savedModel, expectedModel) => {
-    const providerModel = expectedModel!.slice("openai:".length);
+  ])("starts %s with teacher reasoning without claiming submission", async (savedModel, expectedModel) => {
+    const customModel = savedModel === "openai:classroom-sol";
+    const assignedEffort = customModel ? "xhigh" : "max";
+    const providerModel = expectedModel === "openai:gpt-5.6-sol" || customModel ? "gpt-6.1-sol" : expectedModel!.slice("openai:".length);
+    const aiSettings = customModel ? aiSettingsLib.defaultAiSettings({ OPENAI_API_KEY: "key" } as never) : undefined;
+    if (aiSettings) {
+      aiSettings.codeModels[0] = { ...aiSettings.codeModels[0], id: "openai:classroom-sol", reasoningEffort: "xhigh", maxOutputTokens: 30000 };
+      aiSettings.defaultSimulationModelId = "openai:classroom-sol";
+    }
     const description = "Water evaporates, condenses, and returns as precipitation in a closed cycle.";
     vi.spyOn(openaiLib, "enforceModelConfirmation").mockImplementation(() => {});
     vi.spyOn(openaiLib, "openaiClient").mockReturnValue({} as any);
@@ -134,12 +142,14 @@ describe("simulation artifact flow", () => {
       body: JSON.stringify({
         attemptId: "attempt-1",
         sketchArtifactId: "sketch-1",
-        description
+        description,
+        htmlReasoningEffort: "low"
       })
     });
 
     const result = await generateSimulation(request, {
       OPENAI_API_KEY: "key",
+      AI_SETTINGS: aiSettings,
       PIN_PEPPER: "pepper",
       WORKER_PUBLIC_BASE_URL: "https://worker.test"
     } as any, db, "student-1");
@@ -149,7 +159,7 @@ describe("simulation artifact flow", () => {
     expect(result.operation).toBe("generate");
     expect(result.modelUsed).toBe(providerModel);
     expect(result.requestedModel).toBe(expectedModel);
-    expect(result.htmlReasoningEffort).toBe("max");
+    expect(result.htmlReasoningEffort).toBe(assignedEffort);
 
     expect(insertedJobs).toHaveLength(1);
     expect(insertedJobs[0]).toMatchObject({
@@ -160,7 +170,7 @@ describe("simulation artifact flow", () => {
       provider_response_id: "resp-html-1",
       requested_model: expectedModel,
       model_used: providerModel,
-      reasoning_effort: "max",
+      reasoning_effort: assignedEffort,
       sketch_artifact_id: "sketch-1",
       input_html_artifact_id: null,
       source_description_sha256: await descriptionHash(description),
@@ -168,8 +178,8 @@ describe("simulation artifact flow", () => {
     expect(downloadSpy).toHaveBeenCalledTimes(1);
     expect(openaiLib.startSimulationHtmlBackgroundResponse).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       sketchFileId: "file-sketch123",
-      htmlReasoningEffort: "max",
-      model: expect.objectContaining({ id: providerModel, reasoningEffort: "max" })
+      htmlReasoningEffort: assignedEffort,
+      model: expect.objectContaining({ id: providerModel, reasoningEffort: assignedEffort, maxOutputTokens: customModel ? 30000 : 64000 })
     }));
     expect(updatedArtifactRows).toHaveLength(1);
     expect(updatedArtifactRows[0]).toMatchObject({
@@ -318,7 +328,7 @@ describe("simulation artifact flow", () => {
         attemptId: "attempt-1",
         sketchArtifactId: "sketch-1",
         description: "A cell divides into two daughter cells.",
-        htmlReasoningEffort: "xhigh"
+        htmlReasoningEffort: "ultra"
       })
     });
 

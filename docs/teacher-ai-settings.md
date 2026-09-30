@@ -6,12 +6,28 @@ saved keys. A teacher can enter a replacement OpenAI, Kimi/Moonshot, or Z.AI key
 test text inference with synthetic content, and save it without a code deployment.
 The test does not establish image, file, transcription, or Realtime permissions.
 
-Teachers can edit exact provider model IDs and assessment reasoning settings, enable or
+Teachers can add, edit, and remove models in the OpenAI, Kimi/Moonshot, and Z.AI
+provider lists. Each model has an exact provider ID, display name, and capability.
+Assessment roles use dropdowns containing compatible models from these lists.
+OpenAI serves text assessment roles, transcription, images, and live voice;
+Kimi and Z.AI serve simulation code through their existing adapters. Assign a
+replacement before removing a model used by an assessment role or the default.
+Removed or disabled assignment choices resolve to the current enabled default
+for new attempts. Existing attempts retain their captured list and configuration.
+
+Teachers can edit reasoning settings and output token limits, enable or
 disable simulation options, select a default, and apply the default to every new
 simulation attempt. Otherwise the assignment's enabled model is used. A disabled
 assignment choice resolves to the teacher's enabled default. Model IDs must be
 available to the selected provider account and support the requested capability.
-Simulation code retains Max reasoning for OpenAI and provider defaults for Kimi/Z.AI.
+The current Sol provider ID is `gpt-6.1-sol`, with `low`, `medium`, `high`, `xhigh`,
+and `max` reasoning efforts. Max remains the app default. Terra and Luna remain
+available, preserving the existing tiered roles. OpenAI's numeric limit is
+`max_output_tokens`: it caps reasoning and answer tokens together, not reasoning
+alone. Teachers may enter whole-number limits from 16 to 128,000; a lower limit
+can stop a response before any visible answer. Blank limits restore app defaults.
+Kimi/Z.AI continue to use provider default reasoning. Transcription, image, and
+Realtime roles do not use text reasoning or output token controls.
 
 Saving settings freezes the prior configuration of existing attempts in the same
 database transaction. New AI operations also capture their configuration before

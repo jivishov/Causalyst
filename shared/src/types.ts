@@ -73,7 +73,7 @@ export interface StudentPublishedGrade {
 }
 
 // Retain historical effort values when restoring completed or running jobs.
-export const SIMULATION_HTML_REASONING_EFFORTS = ["low", "medium", "high", "max"] as const;
+export const SIMULATION_HTML_REASONING_EFFORTS = ["none", "low", "medium", "high", "xhigh", "max"] as const;
 
 export type SimulationHtmlReasoningEffort = typeof SIMULATION_HTML_REASONING_EFFORTS[number];
 

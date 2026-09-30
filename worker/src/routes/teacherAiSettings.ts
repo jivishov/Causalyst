@@ -62,6 +62,7 @@ export async function testTeacherAiSettings(request: Request, db: AppDatabaseCli
   if (!apiKey || apiKey.length > 1024 || /\s/.test(apiKey)) throw new HttpError(400, "No valid key is configured for this provider");
   const codeModel = settings.codeModels.find(model => model.provider === selectedProvider && model.enabled)
     ?? settings.codeModels.find(model => model.provider === selectedProvider)!;
+  if (selectedProvider !== "openai" && !codeModel) throw new HttpError(400, "Add a text model for this provider before testing its key");
   const model = selectedProvider === "openai" ? settings.roleModels.grading : { id: codeModel.modelId, reasoningEffort: codeModel.reasoningEffort };
   const client = openaiClient(apiKey, selectedProvider === "openai" ? undefined : getSimulationCodeModel(codeModel.id).baseURL);
   try {

@@ -17,7 +17,7 @@ describe("model catalog", () => {
       id: "gpt-5.6-sol",
       reasoningEffort: "max",
       verbosity: "low",
-      maxOutputTokens: 24000
+      maxOutputTokens: 64000
     });
     expect(getModel("simulationHtml").fallbackModelId).toBeUndefined();
     expect(getModel("simulationSketchImage").id).toBe("gpt-image-2.5-flare");
@@ -70,7 +70,7 @@ describe("model catalog", () => {
       id: "gpt-5.6-terra",
       reasoningEffort: "max",
       verbosity: "low",
-      maxOutputTokens: 24000
+      maxOutputTokens: 64000
     });
   });
 

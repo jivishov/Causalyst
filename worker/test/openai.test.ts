@@ -95,7 +95,7 @@ describe("generateSimulationHtml", () => {
       model: "gpt-5.6-sol",
       reasoning: { effort: "max" },
       text: { verbosity: "low" },
-      max_output_tokens: 24000
+      max_output_tokens: 64000
     });
     expect(systemPrompt).toContain("Write the HTML now. Do not spend many tokens planning.");
     expect(systemPrompt).toContain("Use the app-provided SVG.js v3 global SVG");
@@ -193,7 +193,7 @@ describe("refineSimulationHtml", () => {
       model: "gpt-5.6-sol",
       reasoning: { effort: "max" },
       text: { verbosity: "low" },
-      max_output_tokens: 24000
+      max_output_tokens: 64000
     });
     expect(systemPrompt).toContain("Write the final HTML now. Do not spend many tokens planning.");
     expect(systemPrompt).toContain("Use the app-provided SVG.js v3 global SVG");

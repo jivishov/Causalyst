@@ -64,7 +64,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: worker
-          wranglerVersion: "4.136.1"
+          wranglerVersion: "4.145.0"
           command: >-
             deploy
             --var SUPABASE_URL:${{ vars.SUPABASE_URL }}

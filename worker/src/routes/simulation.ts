@@ -21,7 +21,7 @@ import {
 import { cancelSimulationBackgroundResponse, classifySimulationReadiness, deleteOpenAIFile, enforceModelConfirmation, generateSimulationHtmlChatCompletion, generateSimulationSketch as generateSimulationSketchImage, openaiClient, parseSimulationHtmlResponse, refineSimulationHtmlChatCompletion, retrieveSimulationBackgroundResponse, startRefineSimulationHtmlBackgroundResponse, startSimulationHtmlBackgroundResponse, uploadUserDataFile } from "../lib/openai";
 import { requireArtifact, requireAttempt, logAudit } from "../lib/db";
 import type { Env } from "../lib/env";
-import { HttpError, getRequiredString, readJson } from "../lib/http";
+import { HttpError, getOptionalString, getRequiredString, readJson } from "../lib/http";
 import { signPreviewToken } from "../lib/crypto";
 import { assertDraftAttemptStatus, claimAttemptSubmission } from "../lib/attemptLifecycle";
 import { getModel, getSimulationCodeModel, toOpenAIModelCatalogEntry, type SimulationCodeModelEntry } from "../lib/models";
@@ -330,7 +330,7 @@ export async function fallbackSimulation(request: Request, env: Env, db: AppData
   const description = getRequiredString(body, "description");
   boundStudentText(description);
   const sketchArtifactId = getRequiredString(body, "sketchArtifactId");
-  const htmlArtifactId = getRequiredString(body, "htmlArtifactId");
+  const htmlArtifactId = getOptionalString(body, "htmlArtifactId");
   const reasonCodes = Array.isArray(body.reasonCodes)
     ? body.reasonCodes.filter((value): value is string => typeof value === "string" && value.trim().length > 0).slice(0, 12)
     : [];
@@ -348,14 +348,11 @@ export async function fallbackSimulation(request: Request, env: Env, db: AppData
     "simulation-sketch",
     sourceDescriptionSha256
   );
-  await requireSimulationArtifactForDescription(
-    db,
-    userId,
-    attempt.id,
-    htmlArtifactId,
-    "simulation-derived",
-    sourceDescriptionSha256
-  );
+  if (htmlArtifactId) {
+    await requireSimulationArtifactForDescription(
+      db, userId, attempt.id, htmlArtifactId, "simulation-derived", sourceDescriptionSha256
+    );
+  }
 
   const rendered = buildSimulationFallbackHtml({
     title: assessment.title,
@@ -383,7 +380,7 @@ export async function fallbackSimulation(request: Request, env: Env, db: AppData
     requestSummary: {
       descriptionLength: description.length,
       sketchArtifactId,
-      inputHtmlArtifactId: htmlArtifactId,
+      inputHtmlArtifactId: htmlArtifactId ?? null,
       outputKind: "html",
       artifactId: artifact.id,
       artifactByteSize: artifact.byteSize,
@@ -925,7 +922,7 @@ function providerFailureMessage(response: any, status: StudentSimulationGenerati
   if (status === "cancelled") return "Generation was cancelled.";
   if (status === "incomplete") {
     if (providerMessage === "max_output_tokens") {
-      return "Generation used too much reasoning before producing HTML. Try again with the faster setting.";
+      return "The interactive preview could not finish. Your sketch is saved. Select Regenerate HTML Preview to retry, or Use Structured Fallback to continue now.";
     }
     return providerMessage ? `Generation stopped before completion: ${providerMessage}` : "Generation stopped before producing a complete preview.";
   }

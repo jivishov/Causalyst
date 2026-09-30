@@ -781,7 +781,7 @@ export function fallbackSimulationPreview(input: {
   attemptId: string;
   description: string;
   sketchArtifactId: string;
-  htmlArtifactId: string;
+  htmlArtifactId?: string;
   reasonCodes?: string[];
 }) {
   return apiFetch<StudentSimulationPreview>("/simulation/fallback", {

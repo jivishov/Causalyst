@@ -1,7 +1,46 @@
 import { describe, expect, it } from "vitest";
+import { runInNewContext } from "node:vm";
 import { prepareGeneratedSimulationHtml, validateGeneratedSimulationHtml } from "../src/lib/simulationHtmlPolicy";
 
 describe("simulation HTML policy", () => {
+  it("keeps DOM helper variables and comments named parent without confusing them with a browser window", () => {
+    const html = '<!doctype html><html><body><main id="stage"></main><script>function draw(parent) { parent.appendChild(document.createElement("span")); } draw(document.getElementById("stage")); // window.parent is not used\n</script></body></html>';
+    expect(() => validateGeneratedSimulationHtml(html)).not.toThrow();
+    expect(prepareGeneratedSimulationHtml(html)).toContain('parent.appendChild');
+  });
+
+  it.each([
+    "window.parent.postMessage({height: 720}, '*');",
+    "parent.postMessage({height: 720}, '*');",
+    "window['parent']['postMessage']({height: 720}, '*');",
+    "window.parent?.postMessage({height: 720}, '*');"
+  ])("removes generated host notification %s while keeping simulation behavior", (notification) => {
+    const html = `<!doctype html><html><body><script>let step = 0; function next(){step += 1; ${notification} } next();</script></body></html>`;
+    const prepared = prepareGeneratedSimulationHtml(html);
+    expect(prepared).toContain('step += 1; (void 0)');
+    expect(prepared).not.toContain(notification);
+    const script = prepared.match(/<script>([\s\S]*?)<\/script>/)![1];
+    const isolatedWindow = Object.defineProperty({}, "parent", { get() { throw new Error("Host window accessed"); } });
+    expect(runInNewContext(script + "; next(); step;", { window: isolatedWindow })).toBe(2);
+  });
+
+  it.each([
+    "window.parent.document.body.textContent = 'x';",
+    "window['parent'].document;",
+    "globalThis.parent.document;",
+    "self.top.document;",
+    "const host = parent;",
+    "function unsafe(){ parent.document.body; } function safe(parent){ parent.appendChild(document.createElement('span')); }",
+    "window.parent.postMessage({}, '*'); window.parent.document;"
+  ])("still rejects cross-window access after notification removal: %s", (code) => {
+    expect(() => prepareGeneratedSimulationHtml(`<!doctype html><html><body><script>${code}</script></body></html>`)).toThrow(/forbidden parent window access/);
+  });
+
+  it("validates inline event handlers and rejects malformed scripts", () => {
+    expect(() => prepareGeneratedSimulationHtml('<!doctype html><html><body><button onclick="return parent.document;">x</button></body></html>')).toThrow(/forbidden parent window access/);
+    expect(() => prepareGeneratedSimulationHtml('<!doctype html><html><body><script>function broken( {</script></body></html>')).toThrow(/invalid JavaScript/);
+  });
+
   it("injects the app-owned SVG.js runtime before generated scripts", () => {
     const html = [
       "<!doctype html>",

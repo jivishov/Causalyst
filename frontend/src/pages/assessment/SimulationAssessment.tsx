@@ -450,7 +450,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
   }
 
   async function useStructuredFallback(reasonCodes: string[]) {
-    if (!sketchArtifactId || !htmlArtifactId) return;
+    if (!sketchArtifactId) return;
     const inputHtmlArtifactId = htmlArtifactId;
     const activeDescription = description;
     const activeSketchArtifactId = sketchArtifactId;
@@ -464,7 +464,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
           attemptId,
           description: activeDescription,
           sketchArtifactId: activeSketchArtifactId,
-          htmlArtifactId: inputHtmlArtifactId,
+          htmlArtifactId: inputHtmlArtifactId ?? undefined,
           reasonCodes
         });
         setRunStarted(true);
@@ -567,7 +567,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
   const htmlPreviewLoading = htmlPreviewRequested && !htmlPreviewLoaded && !htmlPreviewError && Boolean(htmlArtifactId);
   const actionBusy = disabled || generationActive || refiningPreview || fallbackPreviewRunning || cancellingGeneration || submittingSimulation || sketchPreviewLoading || htmlPreviewLoading;
   const canRefinePreview = Boolean(sketchArtifactId && htmlArtifactId && sketchPreviewUrl && htmlPreviewUrl);
-  const canUseStructuredFallback = Boolean(sketchArtifactId && htmlArtifactId && htmlPreviewUrl && htmlPreviewGenerationSource !== "structured_fallback");
+  const canUseStructuredFallback = Boolean(sketchArtifactId && htmlPreviewGenerationSource !== "structured_fallback");
   const canRegenerateHtmlPreview = canRetrySimulationHtmlPreview({
     sketchReady: Boolean(sketchArtifactId && sketchPreviewPath && sketchPreviewToken),
     htmlReady: Boolean(htmlArtifactId || htmlPreviewUrl),

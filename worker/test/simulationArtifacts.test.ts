@@ -573,13 +573,13 @@ describe("simulation artifact flow", () => {
     expect(result).toMatchObject({
       jobId: "job-incomplete",
       status: "incomplete",
-      message: "Generation used too much reasoning before producing HTML. Try again with the faster setting.",
-      errorMessage: "Generation used too much reasoning before producing HTML. Try again with the faster setting."
+      message: "The interactive preview could not finish. Your sketch is saved. Select Regenerate HTML Preview to retry, or Use Structured Fallback to continue now.",
+      errorMessage: "The interactive preview could not finish. Your sketch is saved. Select Regenerate HTML Preview to retry, or Use Structured Fallback to continue now."
     });
     expect(jobRow).toMatchObject({
       status: "incomplete",
       provider_status: "incomplete",
-      error_message: "Generation used too much reasoning before producing HTML. Try again with the faster setting."
+      error_message: "The interactive preview could not finish. Your sketch is saved. Select Regenerate HTML Preview to retry, or Use Structured Fallback to continue now."
     });
   });
 
@@ -760,7 +760,7 @@ describe("simulation artifact flow", () => {
     expect(JSON.stringify(result)).not.toContain("resp-refine-1");
   });
 
-  it("creates a structured fallback HTML artifact without claiming submission", async () => {
+  it.each(["html-fallback", undefined])("creates a structured fallback HTML artifact from %s without claiming submission", async (htmlArtifactId) => {
     const description = "Gay-Lussac's Law: a scuba oxygen tank gets hotter, pressure increases, and the tank volume stays constant. When cooler, pressure decreases.";
     const sourceDescriptionSha256 = await descriptionHash(description);
     vi.spyOn(dbLib, "requireAttempt").mockResolvedValue({
@@ -814,7 +814,7 @@ describe("simulation artifact flow", () => {
         attemptId: "attempt-fallback",
         description,
         sketchArtifactId: "sketch-fallback",
-        htmlArtifactId: "html-fallback",
+        htmlArtifactId,
         reasonCodes: ["clipped_elements", "text_overflow"]
       })
     });
@@ -859,7 +859,7 @@ describe("simulation artifact flow", () => {
       model: "none"
     });
     expect((auditSpy.mock.calls[0][1] as any).requestSummary).toMatchObject({
-      inputHtmlArtifactId: "html-fallback",
+      inputHtmlArtifactId: htmlArtifactId ?? null,
       htmlViewport: SIMULATION_HTML_VIEWPORT,
       renderer: "generic",
       reasonCodes: ["clipped_elements", "text_overflow"]

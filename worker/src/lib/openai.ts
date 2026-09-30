@@ -24,6 +24,7 @@ const SIMULATION_HTML_TYPOGRAPHY_CONSTRAINTS = [
 ] as const;
 const OPENAI_BACKGROUND_START_TIMEOUT_MS = 60000;
 const OPENAI_BACKGROUND_STATUS_TIMEOUT_MS = 20000;
+const SIMULATION_FRAME_ISOLATION_INSTRUCTIONS = "The simulation runs in an isolated iframe. Use only its own document and window. Do not access window.parent, parent, window.top, top, opener, or send postMessage notifications. The host already handles sizing and preview health. Use a name such as containerNode for DOM helper variables instead of parent or opener.";
 
 type ResponsePayload = OpenAI.Responses.ResponseCreateParamsNonStreaming;
 
@@ -259,6 +260,7 @@ export function buildSimulationHtmlResponsePayload(input: {
             "Use no external scripts, stylesheets, fonts, images, network requests, imports, or frameworks.",
             "Do not use p5.js, Konva, Matter.js, Three.js, D3, GSAP, prebuilt assets, domain-specific asset packs, or any graphics library other than the injected SVG.js global.",
             "Use only HTML, CSS, plain DOM JavaScript for controls, and SVG.js for main-stage graphics.",
+            SIMULATION_FRAME_ISOLATION_INSTRUCTIONS,
             "Do not use fetch, XMLHttpRequest, WebSocket, localStorage, sessionStorage, cookies, eval, Function, document.write, or parent/window opener access.",
             "Keep the interface simple, readable, and appropriate for a classroom assessment."
           ].join(" ")
@@ -320,6 +322,7 @@ export function buildRefineSimulationHtmlResponsePayload(input: {
             "Do not use p5.js, Konva, Matter.js, Three.js, D3, GSAP, prebuilt assets, domain-specific asset packs, or any graphics library other than the injected SVG.js global.",
             "Keep Play, Pause, Reset, and Step Forward visible and working.",
             "Keep the simulation interactive, not a static infographic.",
+            SIMULATION_FRAME_ISOLATION_INSTRUCTIONS,
             "The student description is the source of truth for domain facts.",
             "Use the sketch only for layout, placement, proportions, and visual hierarchy.",
             "Do not add new domain facts, formulas, labels, mechanisms, states, causes, or effects.",
@@ -652,6 +655,7 @@ function simulationHtmlChatSystemPrompt(): string {
     "Create one complete self-contained HTML document for a student-facing interactive simulation.",
     "Write the HTML now. Do not spend many tokens planning.",
     "Use inline CSS and plain DOM JavaScript for shell controls.",
+    SIMULATION_FRAME_ISOLATION_INSTRUCTIONS,
     "Use the app-provided SVG.js v3 global SVG for any JavaScript-created or JavaScript-updated main-stage graphics.",
     "Static inline SVG is allowed for simple fixed shapes.",
     "Do not include the SVG.js library source; the app injects SVG before your scripts run.",
@@ -693,6 +697,7 @@ function simulationHtmlChatSystemPrompt(): string {
 
 function refineSimulationHtmlChatSystemPrompt(): string {
   return [
+    SIMULATION_FRAME_ISOLATION_INSTRUCTIONS,
     "Rewrite the current self-contained HTML simulation so it matches the attached sketch layout more closely.",
     "Write the final HTML now. Do not spend many tokens planning.",
     "Output only one complete self-contained HTML document.",

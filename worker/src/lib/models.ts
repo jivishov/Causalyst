@@ -40,13 +40,16 @@ export interface SimulationCodeModelEntry {
 }
 
 const CONFIRMATION_REQUIRED_MODEL_IDS = new Set<string>();
+// Responses counts reasoning and visible HTML against the same output limit.
+// Leave enough space for Max reasoning to finish and emit a complete document.
+const SIMULATION_HTML_MAX_OUTPUT_TOKENS = 64000;
 
 export const modelCatalog: Record<ModelRole, ModelCatalogEntry> = {
   transcription: { id: "gpt-4o-transcribe" },
   grading: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low" },
   visionGrading: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low" },
   simulationSpec: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 32000, fallbackModelId: "gpt-5.6-sol" },
-  simulationHtml: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 24000 },
+  simulationHtml: { id: "gpt-5.6-sol", reasoningEffort: "max", verbosity: "low", maxOutputTokens: SIMULATION_HTML_MAX_OUTPUT_TOKENS },
   simulationSketchImage: { id: "gpt-image-2.5-flare", fallbackModelId: "gpt-image-2.5-sunburst" },
   simulationReadinessClassifier: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low" },
   fidelityReview: { id: "gpt-5.6-terra", reasoningEffort: "max", verbosity: "low", fallbackModelId: "gpt-5.6-sol" },
@@ -64,7 +67,7 @@ export const simulationCodeModelCatalog: Record<SimulationCodeModelId, Simulatio
     inputModalities: ["text", "image"],
     reasoningEffort: "max",
     verbosity: "low",
-    maxOutputTokens: 24000
+    maxOutputTokens: SIMULATION_HTML_MAX_OUTPUT_TOKENS
   },
   "openai:gpt-5.6-terra": {
     id: "openai:gpt-5.6-terra",
@@ -76,7 +79,7 @@ export const simulationCodeModelCatalog: Record<SimulationCodeModelId, Simulatio
     inputModalities: ["text", "image"],
     reasoningEffort: "max",
     verbosity: "low",
-    maxOutputTokens: 24000
+    maxOutputTokens: SIMULATION_HTML_MAX_OUTPUT_TOKENS
   },
   "openai:gpt-5.6-luna": {
     id: "openai:gpt-5.6-luna",
@@ -88,7 +91,7 @@ export const simulationCodeModelCatalog: Record<SimulationCodeModelId, Simulatio
     inputModalities: ["text", "image"],
     reasoningEffort: "max",
     verbosity: "low",
-    maxOutputTokens: 24000
+    maxOutputTokens: SIMULATION_HTML_MAX_OUTPUT_TOKENS
   },
   "kimi:kimi-k2.6": {
     id: "kimi:kimi-k2.6",

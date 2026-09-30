@@ -45,16 +45,18 @@ test("teacher provider lists, model assignments, and token controls work on desk
   const dimensions = await card.evaluate(element => ({
     cardHeight: element.getBoundingClientRect().height,
     fields: [...element.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input:not([type=checkbox]), select")].map(input => ({ left: input.getBoundingClientRect().left, top: input.getBoundingClientRect().top, width: input.getBoundingClientRect().width, height: input.getBoundingClientRect().height })),
-    checkboxTop: element.querySelector<HTMLInputElement>("input[type=checkbox]")!.getBoundingClientRect().top,
+    checkboxTop: element.querySelector<HTMLElement>(".ai-model-simulation-toggle")!.getBoundingClientRect().top,
     removeTop: element.querySelector<HTMLButtonElement>(".ai-remove-model")!.getBoundingClientRect().top
   }));
-  expect(dimensions.cardHeight).toBeLessThan(170);
+  expect(dimensions.cardHeight).toBeLessThan(110);
   expect(dimensions.fields).toHaveLength(5);
   expect(Math.max(...dimensions.fields.map(field => field.top)) - Math.min(...dimensions.fields.map(field => field.top))).toBeLessThanOrEqual(1);
-  expect(dimensions.checkboxTop).toBeGreaterThan(dimensions.fields[0].top);
-  expect(dimensions.removeTop).toBeGreaterThan(dimensions.fields[0].top);
+  expect(Math.abs(dimensions.checkboxTop - dimensions.fields[0].top)).toBeLessThanOrEqual(1);
+  expect(Math.abs(dimensions.removeTop - dimensions.fields[0].top)).toBeLessThanOrEqual(1);
+  expect(dimensions.fields[0].width).toBeLessThanOrEqual(168);
+  expect(dimensions.fields[1].width).toBeLessThanOrEqual(130);
+  expect(dimensions.fields[4].width).toBeLessThanOrEqual(64);
   for (const field of dimensions.fields) {
-    expect(field.width).toBeLessThanOrEqual(260);
     expect(field.height).toBeLessThanOrEqual(38);
   }
   await card.getByLabel("Display name", { exact: true }).fill("Classroom model");
@@ -74,6 +76,9 @@ test("teacher provider lists, model assignments, and token controls work on desk
   await page.getByRole("button", { name: "Remove New model", exact: true }).click();
   await expect(page.getByText("No models for this provider. Add a model to make it available.")).toBeVisible();
   await page.getByRole("button", { name: "OpenAI (5)", exact: true }).click();
+  const assignmentDimensions = await page.locator(".ai-role-model-row").first().evaluate(element => [...element.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select")].map(control => ({ top: control.getBoundingClientRect().top, height: control.getBoundingClientRect().height })));
+  expect(assignmentDimensions).toHaveLength(3);
+  expect(Math.max(...assignmentDimensions.map(control => control.top)) - Math.min(...assignmentDimensions.map(control => control.top))).toBeLessThanOrEqual(1);
   for (const width of [1366, 1024, 375]) {
     await page.setViewportSize({ width, height: 768 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

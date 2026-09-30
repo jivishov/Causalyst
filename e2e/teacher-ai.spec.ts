@@ -34,12 +34,23 @@ test("teacher provider lists, model assignments, and token controls work on desk
     }
     await route.fulfill({ headers, json });
   });
-  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("./teacher/ai-settings");
   await expect(page.getByRole("heading", { name: "Providers and model lists" })).toBeVisible();
   await expect(page.getByLabel("Voice grading", { exact: true })).toHaveValue("openai:gpt-5.6-sol");
   await page.getByRole("button", { name: "Add model", exact: true }).click();
-  const card = page.locator(".ai-provider-model-card").last();
+  const card = page.locator(".ai-provider-model-card").first();
+  await expect(card.getByLabel("Display name", { exact: true })).toHaveValue("New model");
+  await expect(card.getByLabel("Display name", { exact: true })).toBeFocused();
+  const dimensions = await card.evaluate(element => ({
+    cardHeight: element.getBoundingClientRect().height,
+    fields: [...element.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input:not([type=checkbox]), select")].map(input => ({ width: input.getBoundingClientRect().width, height: input.getBoundingClientRect().height }))
+  }));
+  expect(dimensions.cardHeight).toBeLessThan(170);
+  for (const field of dimensions.fields) {
+    expect(field.width).toBeLessThanOrEqual(260);
+    expect(field.height).toBeLessThanOrEqual(38);
+  }
   await card.getByLabel("Display name", { exact: true }).fill("Classroom model");
   await card.getByLabel("Provider model ID", { exact: true }).fill("synthetic-classroom-model");
   await page.getByLabel("Classroom model reasoning", { exact: true }).selectOption("xhigh");
@@ -51,12 +62,14 @@ test("teacher provider lists, model assignments, and token controls work on desk
   await expect(page.getByText(/Saved\. New attempts/)).toBeVisible();
   await page.getByRole("button", { name: "Reload saved settings", exact: true }).click();
   await expect(page.getByLabel("Voice grading reasoning", { exact: true })).toHaveValue("xhigh");
+  await expect(page.locator(".ai-provider-model-card").first().getByLabel("Display name", { exact: true })).toHaveValue("Classroom model");
   await page.getByRole("button", { name: "Kimi / Moonshot (0)", exact: true }).click();
   await page.getByRole("button", { name: "Add model", exact: true }).click();
   await page.getByRole("button", { name: "Remove New model", exact: true }).click();
   await expect(page.getByText("No models for this provider. Add a model to make it available.")).toBeVisible();
-  for (const width of [1366, 375]) {
-    await page.setViewportSize({ width, height: 900 });
+  await page.getByRole("button", { name: "OpenAI (5)", exact: true }).click();
+  for (const width of [1366, 1024, 375]) {
+    await page.setViewportSize({ width, height: 768 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
 });

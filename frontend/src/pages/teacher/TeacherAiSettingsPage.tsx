@@ -16,6 +16,7 @@ const capabilityNames = { text: "Text / simulation", transcription: "Audio trans
 export function TeacherAiSettingsPage() {
   const [settings, setSettings] = useState<TeacherAiSettings | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<AiProvider>("openai");
+  const [newModelId, setNewModelId] = useState<string | null>(null);
   const [apiKeys, setApiKeys] = useState<Partial<Record<AiProvider, string>>>({});
   const [resetKeys, setResetKeys] = useState<Partial<Record<AiProvider, boolean>>>({});
   const [saving, setSaving] = useState(false);
@@ -25,7 +26,7 @@ export function TeacherAiSettingsPage() {
   const [testResults, setTestResults] = useState<Partial<Record<AiProvider, { ok: boolean; message: string }>>>({});
 
   async function reload() {
-    setError(null);
+    setError(null); setNewModelId(null);
     try { setSettings(await teacherApiFetch<TeacherAiSettings>("/teacher/ai-settings", { cache: "no-store" })); }
     catch (err) { setError(err instanceof Error ? err.message : "Could not load AI settings"); }
   }
@@ -65,13 +66,14 @@ export function TeacherAiSettingsPage() {
   }
 
   function addProviderModel() {
+    const model: TeacherProviderModel = { id: `${selectedProvider}:${crypto.randomUUID()}`, provider: selectedProvider, modelId: "", label: "New model",
+      capability: "text", reasoningEffort: selectedProvider === "openai" ? "max" : "none", enabled: false };
     setSettings(current => {
       if (!current) return current;
-      const model: TeacherProviderModel = { id: `${selectedProvider}:${crypto.randomUUID()}`, provider: selectedProvider, modelId: "", label: "New model",
-        capability: "text", reasoningEffort: selectedProvider === "openai" ? "max" : "none", enabled: false };
-      const models = [...teacherProviderModels(current), model];
+      const models = [model, ...teacherProviderModels(current)];
       return { ...current, providerModels: models, codeModels: models.filter(entry => entry.capability === "text") };
     });
+    setNewModelId(model.id);
   }
 
   function removeProviderModel(id: TeacherProviderModel["id"]) {
@@ -101,7 +103,7 @@ export function TeacherAiSettingsPage() {
     setSaving(true); setError(null); setMessage(null);
     try {
       const next = await teacherApiFetch<TeacherAiSettings>("/teacher/ai-settings", { method: "PUT", body: JSON.stringify(updatePayload()) }, 30000);
-      setSettings(next); setApiKeys({}); setResetKeys({}); setTestResults({});
+      setSettings(next); setNewModelId(null); setApiKeys({}); setResetKeys({}); setTestResults({});
       setMessage("Saved. New attempts will use these settings. Existing attempts keep their original keys and models.");
     } catch (err) { setError(err instanceof Error ? err.message : "Could not save AI settings"); }
     finally { setSaving(false); }
@@ -158,17 +160,20 @@ export function TeacherAiSettingsPage() {
         <p className="panel-description">Choose a provider to add, edit, or remove its models. Allow text models for student simulations, then assign assessment roles below. Choose a replacement before removing an assigned model.</p>
         <p className="field-help">GPT-6.1 Sol uses the ID <code>gpt-6.1-sol</code> and supports Low, Medium, High, XHigh, and Max. OpenAI token limits include reasoning and answer tokens together. A small limit can stop generation before an answer is ready. Leave a limit blank to use the app default.</p>
         <div className="ai-provider-list" aria-label="Model providers">{AI_PROVIDERS.map(provider => <button key={provider} type="button" className={selectedProvider === provider ? "primary-button" : "secondary-button"}
-          aria-pressed={selectedProvider === provider} onClick={() => setSelectedProvider(provider)}>{providerNames[provider]} <span>({models.filter(model => model.provider === provider).length})</span></button>)}</div>
+          aria-pressed={selectedProvider === provider} onClick={() => { setSelectedProvider(provider); setNewModelId(null); }}>{providerNames[provider]} <span>({models.filter(model => model.provider === provider).length})</span></button>)}</div>
         <div className="ai-provider-heading"><h3>{providerNames[selectedProvider]} models</h3><button type="button" className="secondary-button" onClick={addProviderModel}><Plus size={16} />Add model</button></div>
         {models.filter(model => model.provider === selectedProvider).length === 0 && <p className="field-help">No models for this provider. Add a model to make it available.</p>}
-        <div className="ai-model-list">{models.filter(model => model.provider === selectedProvider).map(model => <article className="ai-provider-model-card" key={model.id}>
+        <div className="ai-model-list">{models.filter(model => model.provider === selectedProvider).map(model => <article className={`ai-provider-model-card${model.id === newModelId ? " is-new" : ""}`} key={model.id}>
           <div className="ai-provider-model-fields">
-            <label>Display name<input value={model.label} maxLength={100} onChange={event => editProviderModel(model.id, { label: event.target.value })} /></label>
+            <label>Display name<input autoFocus={model.id === newModelId} value={model.label} maxLength={100} onChange={event => editProviderModel(model.id, { label: event.target.value })} /></label>
             <label>Provider model ID<input value={model.modelId} spellCheck={false} maxLength={128} onChange={event => editProviderModel(model.id, { modelId: event.target.value })} /></label>
             <label>Model capability<select value={model.capability} disabled={isAssigned(model)} onChange={event => editProviderModel(model.id, { capability: event.target.value as TeacherProviderModel["capability"] })}>
               {(model.provider === "openai" ? AI_MODEL_CAPABILITIES : ["text"] as const).map(capability => <option key={capability} value={capability}>{capabilityNames[capability]}</option>)}
             </select></label>
-            <button className="secondary-button ai-remove-model" type="button" aria-label={`Remove ${model.label}`} disabled={isAssigned(model)} onClick={() => removeProviderModel(model.id)}><Trash2 size={16} />Remove</button>
+            <div className="ai-model-actions">
+              {isAssigned(model) && <span className="ai-model-assignment" title="Choose a replacement in the defaults or assessment roles before removing this model."><ShieldCheck size={13} aria-hidden="true" />Assigned</span>}
+              <button className="secondary-button ai-remove-model" type="button" aria-label={`Remove ${model.label}`} disabled={isAssigned(model)} onClick={() => removeProviderModel(model.id)}><Trash2 size={14} />Remove</button>
+            </div>
           </div>
           {model.capability === "text" && <div className="ai-provider-model-controls">
             <label className="checkbox-label"><input type="checkbox" checked={model.enabled} aria-label={`Enable ${model.label}`}
@@ -177,11 +182,10 @@ export function TeacherAiSettingsPage() {
               <label>Reasoning effort<select aria-label={`${model.label} reasoning`} value={model.reasoningEffort} onChange={event => editProviderModel(model.id, { reasoningEffort: event.target.value as AiReasoningEffort })}>
                 {reasoningEffortsForModel(model.modelId).map(effort => <option key={effort} value={effort}>{effort === "none" ? "Provider default" : effort}</option>)}
               </select></label>
-              <label>Reasoning + answer tokens<input aria-label={`${model.label} token limit`} type="number" min={AI_MIN_OUTPUT_TOKENS} max={AI_MAX_OUTPUT_TOKENS} step={1}
+              <label title="Maximum reasoning and answer tokens combined">Token limit<input aria-label={`${model.label} token limit`} type="number" min={AI_MIN_OUTPUT_TOKENS} max={AI_MAX_OUTPUT_TOKENS} step={1}
                 value={model.maxOutputTokens ?? ""} placeholder="App default" onChange={event => editProviderModel(model.id, { maxOutputTokens: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>
             </> : <p className="field-help">Reasoning: Provider default</p>}
           </div>}
-          {isAssigned(model) && <p className="field-help">Assigned model. Choose a replacement in the defaults or assessment roles before removing it.</p>}
         </article>)}</div>
         <div className="ai-student-policy">
           <label>Default student simulation model<select value={settings.defaultSimulationModelId} onChange={event => setSettings(current => current && ({ ...current, defaultSimulationModelId: event.target.value as typeof current.defaultSimulationModelId }))}>
@@ -205,7 +209,7 @@ export function TeacherAiSettingsPage() {
               onChange={event => editRoleModel(role, { reasoningEffort: event.target.value as AiReasoningEffort })}>
               {reasoningEffortsForModel(settings.roleModels[role].id).map(effort => <option key={effort} value={effort}>{effort === "none" ? "Provider default" : effort}</option>)}
             </select></label>
-            <label>Reasoning + answer tokens<input aria-label={`${roleNames[role]} token limit`} type="number" min={AI_MIN_OUTPUT_TOKENS} max={AI_MAX_OUTPUT_TOKENS} step={1}
+            <label title="Maximum reasoning and answer tokens combined">Token limit<input aria-label={`${roleNames[role]} token limit`} type="number" min={AI_MIN_OUTPUT_TOKENS} max={AI_MAX_OUTPUT_TOKENS} step={1}
               value={settings.roleModels[role].maxOutputTokens ?? ""} placeholder="App default" onChange={event => editRoleModel(role, { maxOutputTokens: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>
           </> : <p className="field-help">Provider default</p>}
         </div>)}</div>

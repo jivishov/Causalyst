@@ -278,30 +278,58 @@
 @media (prefers-reduced-motion: reduce) {
   .account-workspace * { transition: none; }
 }
-.ai-settings-fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 18px; min-width: 0; }
+.account-workspace .ai-settings-page { gap: 16px; }
+.account-workspace .ai-settings-page :is(input, select):not([type=checkbox]):not([type=radio]) { min-height: 36px; padding: 6px 9px; font-size: .8125rem; }
+.account-workspace .ai-settings-page :is(.primary-button, .secondary-button) { min-height: 36px; padding: 7px 10px; }
+.account-workspace .ai-settings-page .panel-description { max-width: 100ch; margin: 6px 0 10px; line-height: 1.5; }
+.account-workspace .ai-settings-page .field-help { font-size: .76rem; line-height: 1.5; }
+.account-workspace .ai-settings-page :is(.ai-provider-model-fields, .ai-provider-model-controls, .ai-role-model-row, .ai-student-policy) > label:not(.checkbox-label) { display: grid; gap: 4px; }
+.ai-settings-fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 16px; min-width: 0; }
 .ai-settings-intro { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.ai-settings-intro p { max-width: 720px; margin-bottom: 0; }
+.ai-settings-intro p { max-width: 720px; margin: 6px 0 0; font-size: .83rem; color: var(--muted); }
 .ai-settings-intro h2, .ai-settings-page h2 { display: flex; align-items: center; gap: 9px; }
-.ai-key-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.ai-key-card { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--line, #d5ddd8); border-radius: 12px; padding: 16px; min-width: 0; }
+.ai-key-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ai-key-card { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line, #d5ddd8); border-radius: 9px; padding: 12px; min-width: 0; }
 .ai-key-card h3, .ai-key-card p { margin: 0; }
-.ai-key-card .field-help { display: flex; align-items: center; gap: 6px; min-height: 36px; }
+.ai-key-card h3 { font-size: .88rem; }
+.ai-key-card .field-help { display: flex; align-items: center; gap: 6px; }
 .ai-key-card button { margin-top: auto; }
-.ai-model-list { display: grid; gap: 12px; }
-.ai-provider-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
-.ai-provider-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; }
-.ai-provider-heading h3 { margin: 0; }
-.ai-provider-model-card { border: 1px solid var(--line, #d5ddd8); border-radius: 12px; padding: 16px; }
-.ai-provider-model-card > .field-help { margin-bottom: 0; }
-.ai-provider-model-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 175px auto; gap: 12px; align-items: end; }
-.ai-provider-model-controls { display: grid; grid-template-columns: minmax(0, 1fr) 150px 190px; gap: 18px; align-items: end; margin-top: 14px; }
-.ai-code-model-row { display: grid; grid-template-columns: 105px minmax(0, 1fr) minmax(0, 1fr) 105px 165px; gap: 12px; align-items: end; padding-bottom: 12px; border-bottom: 1px solid var(--line, #d5ddd8); }
-.ai-role-model-row { display: grid; grid-template-columns: 200px minmax(0, 1fr) 130px 165px; gap: 12px; align-items: center; }
+.ai-model-list { display: grid; gap: 10px; }
+.ai-provider-list { display: flex; flex-wrap: wrap; width: fit-content; max-width: 100%; gap: 4px; margin: 14px 0; padding: 4px; border: 1px solid var(--line); border-radius: 9px; background: #f3f7f1; }
+.account-workspace .ai-settings-page .ai-provider-list button { min-height: 32px; padding: 6px 10px; }
+.ai-provider-list button span { font-size: .72rem; opacity: .8; font-variant-numeric: tabular-nums; }
+.ai-provider-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.ai-provider-heading h3 { margin: 0; font-size: .95rem; }
+.ai-provider-model-card { min-width: 0; border: 1px solid var(--line, #d5ddd8); border-radius: 9px; padding: 12px; background: #fcfdfb; scroll-margin-top: 20px; }
+.ai-provider-model-card.is-new { border-color: #8aae95; background: #f5faf4; box-shadow: inset 3px 0 #246b56; }
+.ai-provider-model-fields { display: grid; grid-template-columns: minmax(180px, 240px) minmax(200px, 260px) minmax(155px, 180px) minmax(0, 1fr); gap: 10px; align-items: end; }
+.ai-model-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-height: 36px; }
+.ai-model-assignment { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 5px; color: var(--accent-strong); background: var(--accent-soft); font-size: .7rem; font-weight: 550; white-space: nowrap; }
+.ai-provider-model-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e6ece3; }
+.ai-provider-model-controls > label:not(.checkbox-label) { flex: 0 0 128px; }
+.ai-provider-model-controls > .checkbox-label { flex: 0 1 240px; min-height: 36px; }
+.ai-provider-model-controls > .field-help { margin: 0; align-self: center; }
+.ai-role-model-row { display: grid; grid-template-columns: 180px minmax(220px, 360px) 120px 128px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.ai-role-model-row:last-child { border-bottom: 0; }
+.ai-role-model-row > .field-help { grid-column: span 2; margin: 0; }
 .ai-settings-page input:not([type=checkbox]), .ai-settings-page select { width: 100%; min-width: 0; }
-.ai-settings-page .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.ai-student-policy { display: grid; grid-template-columns: minmax(200px, 1fr) 1fr; align-items: center; gap: 24px; margin-top: 20px; }
+.account-workspace .ai-settings-page .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: .78rem; font-weight: 500; }
+.ai-student-policy { display: grid; grid-template-columns: minmax(200px, 340px) minmax(0, 1fr); align-items: center; gap: 16px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .ai-settings-actions { display: flex; justify-content: flex-end; gap: 12px; }
 .roster-paste-label { display: grid; gap: 8px; margin: 16px 0 8px; }
 .roster-paste-label textarea { min-height: 130px; resize: vertical; font-family: ui-monospace, monospace; font-size: 14px; line-height: 1.5; }
-@media (max-width: 1100px) { .ai-key-grid { grid-template-columns: 1fr; } .ai-code-model-row, .ai-role-model-row, .ai-provider-model-fields { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 720px) { .ai-code-model-row, .ai-role-model-row, .ai-student-policy, .ai-provider-model-fields, .ai-provider-model-controls { grid-template-columns: 1fr; } .ai-settings-intro { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 1100px) {
+  .ai-key-grid { grid-template-columns: 1fr; }
+  .ai-role-model-row, .ai-provider-model-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ai-provider-model-fields > label { max-width: 260px; }
+  .ai-role-model-row > label:has(input), .ai-role-model-row > label:has(select) { max-width: 128px; }
+  .ai-role-model-row > .field-help { grid-column: auto; }
+}
+@media (max-width: 720px) {
+  .ai-role-model-row, .ai-student-policy, .ai-provider-model-fields { grid-template-columns: minmax(0, 1fr); }
+  .ai-provider-model-fields > label { max-width: none; }
+  .ai-provider-model-controls > .checkbox-label { flex-basis: 100%; min-height: 28px; }
+  .ai-model-actions { justify-content: flex-start; }
+  .ai-settings-intro { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .ai-settings-actions { flex-wrap: wrap; }
+}

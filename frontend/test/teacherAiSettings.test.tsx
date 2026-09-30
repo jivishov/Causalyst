@@ -33,6 +33,8 @@ it("adds a provider model, assigns it through role dropdowns, and saves effort a
   expect((screen.getByLabelText("Audio transcription") as HTMLSelectElement).options.length).toBe(1);
   fireEvent.click(screen.getByRole("button", { name: "Add model" }));
   const newCard = screen.getAllByRole("article").find(card => within(card).queryByDisplayValue("New model"))!;
+  expect(newCard).toBe(document.querySelector(".ai-provider-model-card"));
+  expect(document.activeElement).toBe(within(newCard).getByLabelText("Display name"));
   fireEvent.change(within(newCard).getByLabelText("Display name"), { target: { value: "Classroom model" } });
   fireEvent.change(within(newCard).getByLabelText("Provider model ID"), { target: { value: "synthetic-classroom-model" } });
   fireEvent.change(screen.getByLabelText("Classroom model reasoning"), { target: { value: "low" } });

@@ -13,11 +13,12 @@ OpenAI serves text assessment roles, transcription, images, and live voice;
 Kimi and Z.AI serve simulation code through their existing adapters. Assign a
 replacement before removing a model used by an assessment role or the default.
 Removed or disabled assignment choices resolve to the current enabled default
-for new attempts. Existing attempts retain their captured list and configuration.
+for the next HTML generation or refinement, including existing draft attempts.
 
 Teachers can edit reasoning settings and output token limits, enable or
 disable simulation options, select a default, and apply the default to every new
-simulation attempt. Otherwise the assignment's enabled model is used. A disabled
+HTML generation and refinement. Otherwise the assignment's enabled model is used;
+an assignment without a model uses the teacher's default. A disabled
 assignment choice resolves to the teacher's enabled default. Model IDs must be
 available to the selected provider account and support the requested capability.
 The current Sol provider ID is `gpt-6.1-sol`, with `low`, `medium`, `high`, `xhigh`,
@@ -33,8 +34,15 @@ Saving settings freezes the prior configuration of existing attempts in the same
 database transaction. New AI operations also capture their configuration before
 contacting a provider. This preserves account ownership of uploaded provider files,
 background responses, and live voice calls during a teacher key/model change.
-Settings apply to new attempts; revoking an old key externally can still interrupt
-an existing attempt that uses it. Credentials are not validated automatically by
+New HTML generation and refinement use the current teacher model list, default,
+reasoning effort, and token limit even when the draft was started earlier. They
+keep the attempt's captured credentials so existing provider files remain usable.
+Running generation jobs, polling, cancellation, voice calls, and other assessment
+roles retain their original configuration. Already generated previews retain their
+actual model history; a model change does not restart or replace them. New jobs
+record the requested provider model ID rather than an internal model-list ID.
+Revoking an old key externally can still interrupt an existing attempt that uses
+it. Credentials are not validated automatically by
 saving: use **Test key and text model** before a classroom switch.
 
 Provider keys are encrypted with AES-256-GCM, a random IV, and authenticated

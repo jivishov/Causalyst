@@ -128,9 +128,9 @@ export function getModel(role: ModelRole, settings?: StoredAiSettings): ModelCat
     fallbackModelId: override.id === base.id ? base.fallbackModelId : undefined };
 }
 
-export function getSimulationCodeModel(modelId: SimulationCodeModelId = DEFAULT_SIMULATION_CODE_MODEL_ID, settings?: StoredAiSettings): SimulationCodeModelEntry {
-  if (!settings) return simulationCodeModelCatalog[modelId] ?? simulationCodeModelCatalog[DEFAULT_SIMULATION_CODE_MODEL_ID];
-  const requested = settings.codeModels.find(model => model.id === modelId);
+export function getSimulationCodeModel(modelId?: SimulationCodeModelId, settings?: StoredAiSettings): SimulationCodeModelEntry {
+  if (!settings) return simulationCodeModelCatalog[modelId ?? DEFAULT_SIMULATION_CODE_MODEL_ID] ?? simulationCodeModelCatalog[DEFAULT_SIMULATION_CODE_MODEL_ID];
+  const requested = settings.codeModels.find(model => model.id === (modelId ?? settings.defaultSimulationModelId));
   const selected = settings.forceDefaultSimulationModel || !requested?.enabled
     ? settings.codeModels.find(model => model.id === settings.defaultSimulationModelId) : requested;
   if (!selected?.enabled) throw new Error("No enabled student model");

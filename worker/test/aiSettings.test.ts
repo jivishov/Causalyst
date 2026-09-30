@@ -62,11 +62,35 @@ describe("teacher assessment AI settings", () => {
     expect(result.OPENAI_API_KEY).toBe("synthetic-winning-key");
   });
 
+  it("applies the current Terra policy to new HTML with the captured key and preserves other attempt settings", async () => {
+    const frozen = defaultAiSettings(env);
+    frozen.apiKeys.openai = await encryptProviderSecret("synthetic-original-key", "teacher:openai", env);
+    const current = defaultAiSettings(env);
+    current.apiKeys.openai = await encryptProviderSecret("synthetic-replacement-key", "teacher:openai", env);
+    current.defaultSimulationModelId = "openai:gpt-5.6-terra";
+    current.forceDefaultSimulationModel = true;
+    current.codeModels[1] = { ...current.codeModels[1], reasoningEffort: "high", maxOutputTokens: 48000 };
+    current.roleModels.grading = { id: "synthetic-new-grading-model", reasoningEffort: "low" };
+    const rpc = vi.fn().mockResolvedValue({ data: { teacherId: "teacher", runtime: frozen, settings: current }, error: null });
+    const result = await resolveAttemptAiEnv({ rpc } as never, env, "attempt", { currentSimulationModels: true });
+    expect(result.OPENAI_API_KEY).toBe("synthetic-original-key");
+    expect(result.AI_SETTINGS?.apiKeys).toEqual(frozen.apiKeys);
+    expect(result.AI_SETTINGS?.roleModels.grading).toEqual(frozen.roleModels.grading);
+    const model = getSimulationCodeModel("openai:gpt-5.6-sol", result.AI_SETTINGS);
+    expect(buildSimulationHtmlResponsePayload({ description: "Synthetic classroom example", model: toOpenAIModelCatalogEntry(model) }).payload)
+      .toMatchObject({ model: "gpt-5.6-terra", reasoning: { effort: "high" }, max_output_tokens: 48000 });
+    const polling = await resolveAttemptAiEnv({ rpc } as never, env, "attempt");
+    expect(polling.AI_SETTINGS).toEqual(frozen);
+    expect(frozen.defaultSimulationModelId).toBe("openai:gpt-5.6-sol");
+    expect(rpc.mock.calls.every(([name]) => name === "get_attempt_ai_context")).toBe(true);
+  });
+
   it("enforces the allowed/default student model policy on the server", () => {
     const settings = defaultAiSettings(env);
     settings.codeModels[0].enabled = false;
     settings.codeModels[1].modelId = "future-approved-model";
     settings.defaultSimulationModelId = settings.codeModels[1].id;
+    expect(getSimulationCodeModel(undefined, settings).providerModelId).toBe("future-approved-model");
     expect(getSimulationCodeModel(settings.codeModels[0].id, settings).providerModelId).toBe("future-approved-model");
     settings.forceDefaultSimulationModel = true;
     expect(getSimulationCodeModel(settings.codeModels[2].id, settings).providerModelId).toBe("future-approved-model");

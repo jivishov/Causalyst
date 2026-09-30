@@ -1,4 +1,5 @@
 import * as aiSettingsLib from "../src/lib/aiSettings";
+import { encryptProviderSecret } from "../src/lib/providerSecrets";
 import * as jobsLib from "../src/lib/simulationJobs";
 import * as budgetLib from "../src/lib/aiBudget";
 import * as evidenceLib from "../src/lib/evidence";
@@ -42,8 +43,10 @@ describe("simulation artifact flow", () => {
     ["openai:classroom-sol", "openai:classroom-sol"],
     ["openai:gpt-5.5", "openai:gpt-5.6-sol"],
     ["openai:gpt-5.4", "openai:gpt-5.6-sol"],
-    ["openai:gpt-5.4-mini", "openai:gpt-5.6-terra"]
-  ])("starts %s with teacher reasoning without claiming submission", async (savedModel, expectedModel) => {
+    ["openai:gpt-5.4-mini", "openai:gpt-5.6-terra"],
+    ["openai:gpt-5.6-sol", "openai:gpt-5.6-terra", "current-force"],
+    [undefined, "openai:gpt-5.6-terra", "current-default"]
+  ])("starts %s with teacher reasoning without claiming submission (%s, %s)", async (savedModel, expectedModel, policy?: string) => {
     const customModel = savedModel === "openai:classroom-sol";
     const assignedEffort = customModel ? "xhigh" : "max";
     const providerModel = expectedModel === "openai:gpt-5.6-sol" || customModel ? "gpt-6.1-sol" : expectedModel!.slice("openai:".length);
@@ -51,6 +54,15 @@ describe("simulation artifact flow", () => {
     if (aiSettings) {
       aiSettings.codeModels[0] = { ...aiSettings.codeModels[0], id: "openai:classroom-sol", reasoningEffort: "xhigh", maxOutputTokens: 30000 };
       aiSettings.defaultSimulationModelId = "openai:classroom-sol";
+    }
+    const currentPolicy = typeof policy === "string";
+    const frozen = aiSettingsLib.defaultAiSettings({ OPENAI_API_KEY: "key" } as never);
+    const current = aiSettingsLib.defaultAiSettings({ OPENAI_API_KEY: "key" } as never);
+    if (currentPolicy) {
+      vi.mocked(aiSettingsLib.resolveAttemptAiEnv).mockRestore();
+      frozen.apiKeys.openai = await encryptProviderSecret("key", "teacher:openai", { PIN_PEPPER: "pepper" } as never);
+      current.defaultSimulationModelId = "openai:gpt-5.6-terra";
+      current.forceDefaultSimulationModel = policy === "current-force";
     }
     const description = "Water evaporates, condenses, and returns as precipitation in a closed cycle.";
     vi.spyOn(openaiLib, "enforceModelConfirmation").mockImplementation(() => {});
@@ -106,6 +118,7 @@ describe("simulation artifact flow", () => {
     });
 
     const db = {
+      rpc: currentPolicy ? vi.fn().mockResolvedValue({ data: { teacherId: "teacher", runtime: frozen, settings: current }, error: null }) : undefined,
       storage: {
         from: (bucket: string) => {
           if (bucket === "simulation-sketch") return { download: downloadSpy };
@@ -158,7 +171,7 @@ describe("simulation artifact flow", () => {
     expect(result.status).toBe("queued");
     expect(result.operation).toBe("generate");
     expect(result.modelUsed).toBe(providerModel);
-    expect(result.requestedModel).toBe(expectedModel);
+    expect(result.requestedModel).toBe(providerModel);
     expect(result.htmlReasoningEffort).toBe(assignedEffort);
 
     expect(insertedJobs).toHaveLength(1);
@@ -168,7 +181,7 @@ describe("simulation artifact flow", () => {
       operation: "generate",
       status: "queued",
       provider_response_id: "resp-html-1",
-      requested_model: expectedModel,
+      requested_model: providerModel,
       model_used: providerModel,
       reasoning_effort: assignedEffort,
       sketch_artifact_id: "sketch-1",
@@ -296,7 +309,7 @@ describe("simulation artifact flow", () => {
     }));
     expect(result).toMatchObject({
       status: "completed",
-      requestedModel: "kimi:kimi-k2.6",
+      requestedModel: "kimi-k2.6",
       modelUsed: "kimi-k2.6",
       preview: expect.objectContaining({
         previewToken: "preview-token",
@@ -307,7 +320,7 @@ describe("simulation artifact flow", () => {
       status: "completed",
       provider: "kimi",
       provider_response_id: "chatcmpl-secret",
-      requested_model: "kimi:kimi-k2.6",
+      requested_model: "kimi-k2.6",
       model_used: "kimi-k2.6",
       result_artifact_id: expect.any(String)
     });
@@ -671,16 +684,25 @@ describe("simulation artifact flow", () => {
     expect(JSON.stringify(auditPayload)).not.toContain("png-bytes");
   });
 
-  it("refines an existing draft HTML artifact without claiming submission", async () => {
+  it.each([false, true])("refines an existing draft with the current teacher policy (%s) without claiming submission", async (currentPolicy) => {
     const description = "A tank gets hotter and the pressure gauge moves higher.";
     const sourceDescriptionSha256 = await descriptionHash(description);
+    const frozen = aiSettingsLib.defaultAiSettings({ OPENAI_API_KEY: "key" } as never);
+    const current = aiSettingsLib.defaultAiSettings({ OPENAI_API_KEY: "key" } as never);
+    const providerModel = currentPolicy ? "gpt-5.6-terra" : "gpt-6.1-sol";
+    if (currentPolicy) {
+      vi.mocked(aiSettingsLib.resolveAttemptAiEnv).mockRestore();
+      frozen.apiKeys.openai = await encryptProviderSecret("key", "teacher:openai", { PIN_PEPPER: "pepper" } as never);
+      current.defaultSimulationModelId = "openai:gpt-5.6-terra";
+      current.forceDefaultSimulationModel = true;
+    }
     vi.spyOn(openaiLib, "enforceModelConfirmation").mockImplementation(() => {});
     vi.spyOn(openaiLib, "openaiClient").mockReturnValue({} as any);
     vi.spyOn(openaiLib, "startRefineSimulationHtmlBackgroundResponse").mockResolvedValue({
       responseId: "resp-refine-1",
       status: "queued",
-      modelUsed: "gpt-5.6-sol",
-      requestedModel: "openai:gpt-5.6-sol"
+      modelUsed: providerModel,
+      requestedModel: providerModel
     });
     vi.spyOn(dbLib, "logAudit").mockResolvedValue();
     vi.spyOn(dbLib, "requireAttempt").mockResolvedValue({
@@ -707,6 +729,7 @@ describe("simulation artifact flow", () => {
     const updatedArtifactRows: Record<string, unknown>[] = [];
     const updatedAttempts: Record<string, unknown>[] = [];
     const db = {
+      rpc: currentPolicy ? vi.fn().mockResolvedValue({ data: { teacherId: "teacher", runtime: frozen, settings: current }, error: null }) : undefined,
       storage: {
         from: (bucket: string) => {
           if (bucket !== "simulation-derived") throw new Error(`Unexpected bucket ${bucket}`);
@@ -750,14 +773,15 @@ describe("simulation artifact flow", () => {
       jobId: "job-1",
       status: "queued",
       operation: "refine",
-      requestedModel: "openai:gpt-5.6-sol",
-      modelUsed: "gpt-5.6-sol",
+      requestedModel: providerModel,
+      modelUsed: providerModel,
       htmlReasoningEffort: "max"
     });
     expect(openaiLib.startRefineSimulationHtmlBackgroundResponse).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       sketchFileId: "file-sketch-refine",
       currentHtml: expect.stringContaining("distorted"),
-      htmlReasoningEffort: "max"
+      htmlReasoningEffort: "max",
+      model: expect.objectContaining({ id: providerModel })
     }));
     expect(insertedJobs[0]).toMatchObject({
       provider_response_id: "resp-refine-1",

@@ -133,16 +133,28 @@ export async function runtimeAiEnv(settings: StoredAiSettings, teacherId: string
 
 // Call only after checking attempt ownership. Immutable snapshots keep provider
 // files, background responses, and voice calls on the account that created them.
-export async function resolveAttemptAiEnv(db: AppDatabaseClient, env: Env, attemptId: string): Promise<Env> {
+// New HTML operations can use the teacher's current model policy with those keys.
+export async function resolveAttemptAiEnv(db: AppDatabaseClient, env: Env, attemptId: string,
+  options: { currentSimulationModels?: boolean } = {}): Promise<Env> {
   const { data, error } = await db.rpc("get_attempt_ai_context", { p_attempt_id: attemptId });
   if (error) throw new HttpError(503, "Assessment AI settings are unavailable");
   const context = data as unknown as AttemptAiContext | null;
   if (!context?.teacherId) return env;
-  if (context.runtime) return runtimeAiEnv(context.runtime, context.teacherId, env);
-  const runtime = await captureRuntimeKeys(context.settings ?? defaultRuntimeAiSettings(env), context.teacherId, env);
-  const captured = await db.rpc("capture_attempt_ai_settings", { p_attempt_id: attemptId, p_teacher_id: context.teacherId, p_settings: toJson(runtime) });
-  if (captured.error || !captured.data) throw new HttpError(503, "Could not preserve assessment AI settings");
-  return runtimeAiEnv(captured.data as unknown as StoredAiSettings, context.teacherId, env);
+  let runtime = context.runtime;
+  if (!runtime) {
+    const initial = await captureRuntimeKeys(context.settings ?? defaultRuntimeAiSettings(env), context.teacherId, env);
+    const captured = await db.rpc("capture_attempt_ai_settings", { p_attempt_id: attemptId, p_teacher_id: context.teacherId, p_settings: toJson(initial) });
+    if (captured.error || !captured.data) throw new HttpError(503, "Could not preserve assessment AI settings");
+    runtime = captured.data as unknown as StoredAiSettings;
+  }
+  const resolved = await runtimeAiEnv(runtime, context.teacherId, env);
+  if (!options.currentSimulationModels || !context.settings) return resolved;
+  return { ...resolved, AI_SETTINGS: { ...runtime,
+    codeModels: context.settings.codeModels,
+    defaultSimulationModelId: context.settings.defaultSimulationModelId,
+    forceDefaultSimulationModel: context.settings.forceDefaultSimulationModel,
+    roleModels: { ...runtime.roleModels, simulationHtml: context.settings.roleModels.simulationHtml }
+  } };
 }
 
 export function record(value: unknown): Record<string, unknown> {

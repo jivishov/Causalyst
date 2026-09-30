@@ -113,7 +113,7 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
   const confirmed = body.expensiveModelConfirmed === true;
 
   const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
-  env = await resolveAttemptAiEnv(db, env, attempt.id);
+  env = await resolveAttemptAiEnv(db, env, attempt.id, { currentSimulationModels: true });
   if (assessment.type !== "simulation") throw new HttpError(400, "Attempt is not a simulation assessment");
   assertDraftAttemptStatus(attempt.id, attempt.status);
   const simulationCodeModel = readAssessmentSimulationCodeModel(assessment.config, env);
@@ -142,7 +142,7 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
       sourceDescriptionSha256,
       htmlReasoningEffort,
       provider: simulationCodeModel.provider,
-      requestedModel: simulationCodeModel.id
+      requestedModel: simulationCodeModel.providerModelId
     });
     const activeJob = reservation.job;
     if (!reservation.claimed) {
@@ -171,7 +171,7 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
         provider: simulationCodeModel.provider,
         providerResponseId: background.responseId,
         providerStatus: background.status,
-        requestedModel: simulationCodeModel.id,
+        requestedModel: simulationCodeModel.providerModelId,
         modelUsed: background.modelUsed,
         htmlReasoningEffort,
         sketchArtifactId,
@@ -195,7 +195,7 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
       operation: "generate",
       provider: simulationCodeModel.provider,
       providerResponseId: generated.providerResponseId ?? null,
-      requestedModel: simulationCodeModel.id,
+      requestedModel: simulationCodeModel.providerModelId,
       modelUsed: generated.modelUsed,
       htmlReasoningEffort,
       sketchArtifactId,
@@ -221,7 +221,7 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
   const confirmed = body.expensiveModelConfirmed === true;
 
   const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
-  env = await resolveAttemptAiEnv(db, env, attempt.id);
+  env = await resolveAttemptAiEnv(db, env, attempt.id, { currentSimulationModels: true });
   if (assessment.type !== "simulation") throw new HttpError(400, "Attempt is not a simulation assessment");
   assertDraftAttemptStatus(attempt.id, attempt.status);
   const simulationCodeModel = readAssessmentSimulationCodeModel(assessment.config, env);
@@ -259,7 +259,7 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
       sourceDescriptionSha256,
       htmlReasoningEffort,
       provider: simulationCodeModel.provider,
-      requestedModel: simulationCodeModel.id
+      requestedModel: simulationCodeModel.providerModelId
     });
     const activeJob = reservation.job;
     if (!reservation.claimed) {
@@ -291,7 +291,7 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
         provider: simulationCodeModel.provider,
         providerResponseId: background.responseId,
         providerStatus: background.status,
-        requestedModel: simulationCodeModel.id,
+        requestedModel: simulationCodeModel.providerModelId,
         modelUsed: background.modelUsed,
         htmlReasoningEffort,
         sketchArtifactId,
@@ -316,7 +316,7 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
       operation: "refine",
       provider: simulationCodeModel.provider,
       providerResponseId: refined.providerResponseId ?? null,
-      requestedModel: simulationCodeModel.id,
+      requestedModel: simulationCodeModel.providerModelId,
       modelUsed: refined.modelUsed,
       htmlReasoningEffort,
       sketchArtifactId,
@@ -1039,7 +1039,7 @@ function logSimulationRouteStage(route: string, attemptId: string, stage: string
 function readAssessmentSimulationCodeModel(config: Record<string, unknown>, env: Env): SimulationCodeModelEntry {
   const modelId = config.simulationCodeModelId;
   if (modelId === undefined || modelId === null || modelId === "") {
-    return getSimulationCodeModel(DEFAULT_SIMULATION_CODE_MODEL_ID, env.AI_SETTINGS);
+    return getSimulationCodeModel(undefined, env.AI_SETTINGS);
   }
   const resolvedModelId = resolveSimulationCodeModelId(modelId);
   if (!resolvedModelId) {

@@ -133,7 +133,7 @@ export function TeacherAiSettingsPage() {
   return <div className="ai-settings-page page-stack">
     <section className="course-list-panel ai-settings-intro">
       <div><h2><SlidersHorizontal size={19} aria-hidden="true" /> Classroom AI settings</h2>
-        <p>Manage the keys and models used for your students. Changes apply to new attempts; work already started keeps its original configuration.</p></div>
+        <p>Saved HTML model changes apply to the next generation or refinement, including existing drafts. Running requests and other assessment settings keep their original configuration.</p></div>
       <button className="primary-button" type="button" disabled={disabled} onClick={() => void save()}><Save size={16} />{saving ? "Saving…" : "Save settings"}</button>
     </section>
     {error && <p className="field-error" role="alert">{error}</p>}
@@ -192,7 +192,7 @@ export function TeacherAiSettingsPage() {
           <label>Default student simulation model<select value={settings.defaultSimulationModelId} onChange={event => setSettings(current => current && ({ ...current, defaultSimulationModelId: event.target.value as typeof current.defaultSimulationModelId }))}>
             {settings.codeModels.filter(model => model.enabled).map(model => <option key={model.id} value={model.id}>{model.label}</option>)}
           </select></label>
-          <label className="checkbox-label"><input type="checkbox" checked={settings.forceDefaultSimulationModel} onChange={event => setSettings(current => current && ({ ...current, forceDefaultSimulationModel: event.target.checked }))} /> Use this default for every new student simulation attempt</label>
+          <label className="checkbox-label"><input type="checkbox" checked={settings.forceDefaultSimulationModel} onChange={event => setSettings(current => current && ({ ...current, forceDefaultSimulationModel: event.target.checked }))} /> Use this model for new HTML generation and refinement</label>
         </div>
       </section>
       <section className="course-list-panel">

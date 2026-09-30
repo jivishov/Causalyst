@@ -30,7 +30,7 @@ export function AssessmentPage() {
 
   useEffect(() => {
     if (!assignment) return;
-    if (attemptId || assignment.publishedGrade) return;
+    if (attemptId || assignment.publishedGrade || assignment.latestAttempt?.status === "submitted" || assignment.latestAttempt?.status === "graded") return;
 
     let cancelled = false;
     startAttempt(assignment.assignmentId)
@@ -53,6 +53,9 @@ export function AssessmentPage() {
   }, [assignment, assignment?.assignmentId, assignment?.assessment.type, assignment?.latestAttempt?.status, attemptId]);
 
   if (!assignment) return <Navigate to="/" replace />;
+  if (assignment.latestAttempt?.status === "submitted" || assignment.latestAttempt?.status === "graded") {
+    return <Navigate to={`/attempt/${assignment.latestAttempt.attemptId}`} replace />;
+  }
   const activeAssignment = attemptAssignment?.assignmentId === assignment.assignmentId ? attemptAssignment : assignment;
   const activeAssessment = activeAssignment.assessment;
 

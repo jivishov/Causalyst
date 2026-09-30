@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import type { AssessmentSummary, AttemptResult, StudentAssignmentSummary } from "@alt-assessment/shared";
 
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jh1sAAAAASUVORK5CYII=", "base64");
 const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
@@ -13,8 +14,8 @@ async function studentFixture(page: Page, type: "simulation" | "writing") {
     localStorage.setItem("alt-assessment.student-auth", JSON.stringify({ access_token: token, refresh_token: "synthetic", expires_at: Math.floor(Date.now() / 1000) + 3600, expires_in: 3600, token_type: "bearer", user }));
   }, user);
   await page.route("https://auth.test/**", route => route.fulfill({ json: { user } }));
-  const assessment = { id: "assessment", type, title: "Student progress fixture", prompt: "Describe the movement between two containers.", rubric: [{ name: "Description", maxPoints: 10, description: "Explain the movement." }], config: {} };
-  const assignment = { assignmentId: "assignment", assessment, classId: "course", classCode: "TEST", className: "Test course", opensAt: null, dueAt: null, state: "available", lifecycle: "available", dueState: "none", latestAttempt: null, publishedGrade: null, canStart: true };
+  const assessment: AssessmentSummary = { id: "assessment", type, title: "Student progress fixture", prompt: "Describe the movement between two containers.", rubric: [{ name: "Description", maxPoints: 10, description: "Explain the movement." }], config: {} };
+  const assignment: StudentAssignmentSummary = { assignmentId: "assignment", assessment, classId: "course", classCode: "TEST", className: "Test course", opensAt: null, dueAt: null, state: "not_started", dueState: "none", latestAttempt: null, publishedGrade: null };
   await page.route("http://127.0.0.1:8787/api/**", async route => {
     const path = new URL(route.request().url()).pathname;
     if (route.request().method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
@@ -23,17 +24,31 @@ async function studentFixture(page: Page, type: "simulation" | "writing") {
     else if (path === "/api/artifacts/sketch/preview") await route.fulfill({ headers, contentType: "image/png", body: png });
     else await route.fulfill({ headers, json: {} });
   });
+  return { assessment, assignment };
+}
+
+function savedResult(assessment: AssessmentSummary): AttemptResult {
+  return { attemptId: "attempt", assignmentId: "assignment", assessment, status: "submitted", provisionalScore: null, provisionalFeedback: null,
+    transcript: null, ocrText: null, simulationDescription: "Move the contents from container A to container B.", simulationSpec: null,
+    simulationSketchPreview: sketch, simulationPreview: preview, submittedAt: "2026-09-30T19:21:27Z", submittedAfterDue: false };
 }
 
 test("restored simulation work shows progress, renders completed HTML and signals submission", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
-  await studentFixture(page, "simulation");
+  const { assessment, assignment } = await studentFixture(page, "simulation");
+  const result = savedResult(assessment);
+  await page.route("**/api/attempts/attempt", route => route.fulfill({ headers, json: result }));
   let phase = "in_progress";
   await page.route("**/api/simulation/jobs/job", route => route.fulfill({ headers, json: { ...job, status: phase, ...(phase === "completed" ? { preview } : {}) } }));
   await page.route("**/api/artifacts/html/preview?**", route => route.fulfill({ headers, contentType: "text/html", body: '<!doctype html><html><body><h1>Container movement</h1><button id="step">Step forward</button><script>(function () { document.getElementById("step").addEventListener("click", function () { this.textContent = "Advanced"; }); })();</script></body></html>' }));
   let finishSubmission!: () => void;
   const submitted = new Promise<void>(resolve => { finishSubmission = resolve; });
-  await page.route("**/api/simulation/submit", async route => { await submitted; await route.fulfill({ headers, json: { attemptId: "attempt" } }); });
+  await page.route("**/api/simulation/submit", async route => {
+    await submitted;
+    assignment.state = "submitted";
+    assignment.latestAttempt = { attemptId: "attempt", status: "submitted", submittedAt: result.submittedAt, provisionalScore: null };
+    await route.fulfill({ headers, json: { attemptId: "attempt" } });
+  });
   await page.goto("./assignment/assignment");
   await expect(page.getByRole("progressbar", { name: "Generating your interactive preview" })).toBeVisible();
   await page.locator(".safe-preview-primary").scrollIntoViewIfNeeded();
@@ -53,6 +68,56 @@ test("restored simulation work shows progress, renders completed HTML and signal
   finishSubmission();
   await expect(page).toHaveURL(/\/attempt\/attempt$/);
   await expect(page.getByRole("progressbar")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Your Simulation Description" })).toBeVisible();
+  await expect(page.getByText(result.simulationDescription!, { exact: true })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Generated simulation sketch" })).toBeVisible();
+  await expect(page.frameLocator('iframe[title="Recovered simulation preview"]').getByRole("heading", { name: "Container movement" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText(result.simulationDescription!, { exact: true })).toBeVisible();
+  await expect(page.frameLocator('iframe[title="Recovered simulation preview"]').getByRole("heading", { name: "Container movement" })).toBeVisible();
+  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await expect(page.getByRole("link", { name: "View submission" })).toHaveAttribute("href", "/Causalyst/attempt/attempt");
+  let newStarts = 0;
+  page.on("request", request => { if (request.url().endsWith("/api/attempts/start")) newStarts++; });
+  await page.goto("./assignment/assignment");
+  await expect(page).toHaveURL(/\/attempt\/attempt$/);
+  await expect(page.getByText(result.simulationDescription!, { exact: true })).toBeVisible();
+  expect(newStarts).toBe(0);
+});
+
+test("failed submission preserves the editor and result loading can be retried without regeneration", async ({ page }) => {
+  const { assessment } = await studentFixture(page, "simulation");
+  const result = savedResult(assessment);
+  await page.route("**/api/simulation/jobs/job", route => route.fulfill({ headers, json: { ...job, status: "completed", preview } }));
+  await page.route("**/api/artifacts/html/preview?**", route => route.fulfill({ headers, contentType: "text/html", body: '<!doctype html><html><body><h1>Matter in three containers</h1><button onclick="this.textContent=\'Advanced\'">Step forward</button></body></html>' }));
+  let submissions = 0;
+  await page.route("**/api/simulation/submit", async route => {
+    submissions++;
+    await route.fulfill({ headers, status: submissions === 1 ? 502 : 200, json: submissions === 1 ? { error: "Submission temporarily unavailable. Your work is saved." } : { attemptId: "attempt" } });
+  });
+  let resultLoads = 0;
+  await page.route("**/api/attempts/attempt", async route => {
+    resultLoads++;
+    await route.fulfill({ headers, status: resultLoads === 1 ? 503 : 200, json: resultLoads === 1 ? { error: "Result temporarily unavailable" } : result });
+  });
+  await page.goto("./assignment/assignment");
+  const editor = page.frameLocator('iframe[title="Safe simulation preview"]');
+  await editor.getByRole("button", { name: "Step forward" }).click();
+  await page.getByRole("button", { name: "Submit Simulation", exact: true }).click();
+  await expect(page.getByText("Submission temporarily unavailable. Your work is saved.")).toBeVisible();
+  await expect(editor.getByRole("button", { name: "Advanced" })).toBeVisible();
+  await page.getByText("Input and Rubric", { exact: true }).click();
+  await expect(page.getByLabel("Description", { exact: true })).toHaveValue(result.simulationDescription!);
+  await expect(page.getByRole("img", { name: "Generated simulation sketch" })).toBeVisible();
+  await expect(page.getByRole("progressbar")).toHaveCount(0);
+  await page.getByRole("button", { name: "Submit Simulation", exact: true }).click();
+  await page.getByRole("button", { name: "Retry loading submission" }).click();
+  await expect(page.getByText(result.simulationDescription!, { exact: true })).toBeVisible();
+  await expect(page.frameLocator('iframe[title="Recovered simulation preview"]').getByRole("heading", { name: "Matter in three containers" })).toBeVisible();
+  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await expect(page.getByRole("link", { name: "View submission" })).toBeVisible();
+  expect(submissions).toBe(2);
+  expect(resultLoads).toBe(2);
 });
 
 test("a failed preview finalization stops the progress indicator and enables retry", async ({ page }) => {

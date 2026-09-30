@@ -280,9 +280,19 @@ describe("attempt result lifecycle projection", () => {
       completed_at: "2026-04-30T11:06:00.000Z",
       created_at: "2026-04-30T11:04:00.000Z"
     });
+    state.attempt_artifacts.push(
+      { id: "artifact-sketch", attempt_id: "attempt-1", student_id: "student-1", kind: "simulation-sketch", upload_state: "uploaded",
+        frozen_at: "2026-05-01T12:00:00.000Z", created_at: "2026-04-30T11:05:00.000Z" },
+      { id: "unsubmitted-html", attempt_id: "attempt-1", student_id: "student-1", kind: "simulation-derived", upload_state: "uploaded",
+        frozen_at: null, created_at: "2026-04-30T11:09:00.000Z" },
+      { id: "another-students-html", attempt_id: "attempt-1", student_id: "student-2", kind: "simulation-derived", upload_state: "uploaded",
+        frozen_at: "2026-05-01T12:00:00.000Z", created_at: "2026-04-30T11:10:00.000Z" }
+    );
     const db = makeDb(state);
 
     const result = await attemptResult(db as never, { PIN_PEPPER: "pepper" } as never, "student-1", "attempt-1");
+    expect(result.simulationDescription).toBe("Sim output");
+    expect(result.simulationSketchPreview?.artifactId).toBe("artifact-sketch");
 
     expect(result.publishedGrade).toEqual(expect.objectContaining({
       finalScore: 91,

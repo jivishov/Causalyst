@@ -6,9 +6,11 @@ import { RubricFeedback } from "../components/RubricFeedback";
 import { SimulationPreviewFrame } from "../components/SimulationPreviewFrame";
 import { SimulationRenderer } from "../components/SimulationRenderer";
 import { getAttemptResult, getSimulationPreviewUrl } from "../lib/api";
+import { useSession } from "../state/session";
 
 export function AttemptResultPage() {
   const { attemptId } = useParams();
+  const { rememberAttemptResult } = useSession();
   const [result, setResult] = useState<AttemptResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [simulationPreviewUrl, setSimulationPreviewUrl] = useState<string | null>(null);
@@ -21,6 +23,22 @@ export function AttemptResultPage() {
   const sketchPreviewUrlRef = useRef<string | null>(null);
   const previewRequestIdRef = useRef(0);
   const sketchRequestIdRef = useRef(0);
+  const resultRequestIdRef = useRef(0);
+
+  async function reloadResult() {
+    if (!attemptId) return;
+    const requestId = ++resultRequestIdRef.current;
+    setError(null);
+    try {
+      const loaded = await getAttemptResult(attemptId);
+      if (resultRequestIdRef.current !== requestId) return;
+      setResult(loaded);
+      rememberAttemptResult(loaded);
+    } catch (err) {
+      if (resultRequestIdRef.current !== requestId) return;
+      setError(err instanceof Error ? err.message : "Could not load result");
+    }
+  }
 
   useEffect(() => {
     if (!attemptId) return;
@@ -42,10 +60,10 @@ export function AttemptResultPage() {
       sketchPreviewUrlRef.current = null;
       return null;
     });
-    getAttemptResult(attemptId)
-      .then(setResult)
-      .catch((err) => setError(err instanceof Error ? err.message : "Could not load result"));
-  }, [attemptId]);
+    void reloadResult();
+    return () => { resultRequestIdRef.current += 1; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attemptId, rememberAttemptResult]);
 
   useEffect(() => {
     return () => {
@@ -143,7 +161,14 @@ export function AttemptResultPage() {
   }, [result?.simulationSketchPreview?.artifactId, result?.simulationSketchPreview?.previewToken, result?.simulationSketchPreview?.previewPath]);
 
   if (error) {
-    return <p className="field-error">{error}</p>;
+    return (
+      <div className="page-stack">
+        <Link className="text-button" to="/"><ArrowLeft size={17} /> Dashboard</Link>
+        <p className="field-error">{error}</p>
+        <p className="status-line">Your saved submission has not been changed. Retry loading it below.</p>
+        <button className="secondary-button" type="button" onClick={() => { void reloadResult(); }}>Retry loading submission</button>
+      </div>
+    );
   }
   if (!result) {
     return <p className="status-line">Loading result</p>;
@@ -175,6 +200,15 @@ export function AttemptResultPage() {
         <h2>Assessment Prompt</h2>
         <p>{result.assessment.prompt}</p>
       </section>
+      {result.assessment.type === "simulation" && result.status !== "draft" && (
+        <p className="status-line" role="status">Your simulation submission is saved. You can reopen it from the dashboard.</p>
+      )}
+      {result.simulationDescription && (
+        <section className="evidence-panel">
+          <h2>Your Simulation Description</h2>
+          <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{result.simulationDescription}</p>
+        </section>
+      )}
       {!isApprovedAiPublishedWithFeedback(result) && (
         <RubricFeedback
           feedback={result.provisionalFeedback}

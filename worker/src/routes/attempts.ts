@@ -103,11 +103,13 @@ export async function attemptResult(db: AppDatabaseClient, env: Env, userId: str
     provisionalFeedback: toGradeFeedback(attempt.provisional_feedback),
     transcript: attempt.transcript,
     ocrText: attempt.ocr_text,
+    simulationDescription: attempt.simulation_description,
     simulationSpec: attempt.simulation_spec as SimulationSpec | null,
     simulationPreview,
     simulationSketchPreview,
     publishedGrade,
-    submittedAt: attempt.submitted_at
+    submittedAt: attempt.submitted_at,
+    submittedAfterDue: attempt.submitted_after_due === true
   };
 }
 

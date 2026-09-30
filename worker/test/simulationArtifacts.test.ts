@@ -2156,7 +2156,7 @@ describe("simulation artifact flow", () => {
     });
 
     await expect(submitSimulation(request, { OPENAI_API_KEY: "key" } as any, db, "student-1")).resolves.toEqual({
-      attemptId: "attempt-claim"
+      attemptId: "attempt-claim", submittedAt: "2026-05-01T12:00:00.000Z", submittedAfterDue: false
     });
     expect(claimSpy).toHaveBeenCalledWith(db, "student-1", "attempt-claim", expect.any(String), ["sketch-claim", "html-claim"], expect.objectContaining({ description }));
     expect(updatedAttempts).toHaveLength(0); // The claim RPC freezes the description with the manifest.

@@ -3,6 +3,19 @@ import { runInNewContext } from "node:vm";
 import { prepareGeneratedSimulationHtml, validateGeneratedSimulationHtml } from "../src/lib/simulationHtmlPolicy";
 
 describe("simulation HTML policy", () => {
+  it("accepts science text, comments, and strings mentioning matter, three, or library names", () => {
+    const html = '<!doctype html><html><head><title>States of Matter</title></head><body><h1>Transfer matter between three containers.</h1><script>const matter = "Matter.js and THREE are not used"; const three = 3; document.querySelector("h1").dataset.label = matter; // Konva, d3.select(), gsap.to(), and p5() are not used\n</script></body></html>';
+    expect(() => prepareGeneratedSimulationHtml(html)).not.toThrow();
+  });
+
+  it.each([
+    "Matter.Engine.create()", "window['Matter'].Engine.create()", "const engine = globalThis.Matter;",
+    "new Konva.Stage({})", "new THREE.Scene()", "d3.select('body')", "gsap.to({}, {})", "new p5(() => {})",
+    "const Matter = {}; Matter.Engine.create()"
+  ])("still rejects executable framework use: %s", (code) => {
+    expect(() => prepareGeneratedSimulationHtml(`<!doctype html><html><body><script>${code}</script></body></html>`)).toThrow(/forbidden (Matter.js|Konva|Three.js|D3|GSAP|p5.js)/);
+  });
+
   it("accepts anonymous callbacks and function expressions used by interactive previews", () => {
     const html = '<!doctype html><html><body><button id="step">Step</button><output id="count">0</output><script>let count = 0; const step = function () { document.getElementById("count").textContent = String(++count); }; document.getElementById("step").addEventListener("click", function () { step(); }); [1, 2].map(function (value) { return value * 2; }); // Function() is not called here\n</script></body></html>';
     expect(() => validateGeneratedSimulationHtml(html)).not.toThrow();

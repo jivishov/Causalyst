@@ -28,13 +28,11 @@ const FORBIDDEN_GENERATED_HTML_PATTERNS: Array<{ pattern: RegExp; label: string 
   { pattern: /\bdocument\s*\.\s*write\s*\(/i, label: "document.write" },
   { pattern: /\b(?:src|href|xlink:href)\s*=\s*["']\s*(?:https?:)?\/\//i, label: "external URL" },
   { pattern: /\burl\s*\(\s*["']?\s*(?:https?:)?\/\//i, label: "external URL" },
-  { pattern: /\b(?:new\s+)?Konva\b|\bKonva\s*\./i, label: "Konva" },
-  { pattern: /\b(?:new\s+)?Matter\b|\bMatter\s*\./i, label: "Matter.js" },
-  { pattern: /\b(?:new\s+)?THREE\b|\bTHREE\s*\./i, label: "Three.js" },
-  { pattern: /\bd3\s*\./i, label: "D3" },
-  { pattern: /\bgsap\s*\./i, label: "GSAP" },
-  { pattern: /\bnew\s+p5\b|\bp5\s*\(/i, label: "p5.js" }
 ];
+
+const FORBIDDEN_LIBRARIES: Record<string, string> = {
+  Konva: "Konva", Matter: "Matter.js", THREE: "Three.js", d3: "D3", gsap: "GSAP", p5: "p5.js"
+};
 
 export function prepareGeneratedSimulationHtml(html: string): string {
   assertCompleteDocument(html);
@@ -51,7 +49,7 @@ export function validateGeneratedSimulationHtml(html: string): void {
 
   const document = parse(html);
   visitInlineJavaScript(document, (source) => {
-    const { ast, unresolvedWindowReferences } = inspectJavaScript(source);
+    const { ast, unresolvedWindowReferences, unresolvedLibraryReferences } = inspectJavaScript(source);
     if (unresolvedWindowReferences.size > 0) {
       throw new HttpError(502, "Simulation HTML used forbidden parent window access");
     }
@@ -62,6 +60,8 @@ export function validateGeneratedSimulationHtml(html: string): void {
       if (isDynamicCodeConstructor(node)) {
         throw new HttpError(502, "Simulation HTML used forbidden dynamic code execution");
       }
+      const library = forbiddenLibraryUse(node, unresolvedLibraryReferences);
+      if (library) throw new HttpError(502, `Simulation HTML used forbidden ${library}`);
     });
     return source;
   });
@@ -108,14 +108,17 @@ function assertCompleteDocument(html: string): void {
 
 type JavaScriptNode = { type: string; start: number; end: number; [key: string]: unknown };
 
-function inspectJavaScript(source: string): { ast: JavaScriptNode; unresolvedWindowReferences: Set<number> } {
+function inspectJavaScript(source: string): { ast: JavaScriptNode; unresolvedWindowReferences: Set<number>; unresolvedLibraryReferences: Map<number, string> } {
   try {
     const ast = parseJavaScript(source, { ecmaVersion: "latest", sourceType: "script", ranges: true, allowReturnOutsideFunction: true });
     const scopes = analyze(ast as unknown as Parameters<typeof analyze>[0], { ecmaVersion: 2022, sourceType: "script" });
     const unresolvedWindowReferences = new Set((scopes.globalScope?.through ?? [])
       .filter((reference) => ["parent", "opener", "top"].includes(reference.identifier.name))
       .map((reference) => reference.identifier.range![0]));
-    return { ast: ast as unknown as JavaScriptNode, unresolvedWindowReferences };
+    const unresolvedLibraryReferences = new Map((scopes.globalScope?.through ?? [])
+      .filter((reference) => Object.hasOwn(FORBIDDEN_LIBRARIES, reference.identifier.name))
+      .map((reference) => [reference.identifier.range![0], FORBIDDEN_LIBRARIES[reference.identifier.name]!]));
+    return { ast: ast as unknown as JavaScriptNode, unresolvedWindowReferences, unresolvedLibraryReferences };
   } catch {
     throw new HttpError(502, "Simulation HTML used invalid JavaScript");
   }
@@ -155,6 +158,19 @@ function isDynamicCodeConstructor(node: JavaScriptNode): boolean {
   if (memberName(callee) !== "Function") return false;
   const object = callee.object as JavaScriptNode;
   return object.type === "Identifier" && ["window", "self", "globalThis"].includes(object.name as string);
+}
+
+// Check executable library references, not lesson text, strings, or comments.
+function forbiddenLibraryUse(node: JavaScriptNode, unresolved: Map<number, string>): string | undefined {
+  if (node.type === "Identifier") return unresolved.get(node.start);
+  if (node.type !== "MemberExpression") return undefined;
+  const object = node.object as JavaScriptNode;
+  if (object.type !== "Identifier") return undefined;
+  const objectName = object.name as string;
+  if (Object.hasOwn(FORBIDDEN_LIBRARIES, objectName)) return FORBIDDEN_LIBRARIES[objectName];
+  const property = memberName(node);
+  return ["window", "self", "globalThis"].includes(objectName) && property && Object.hasOwn(FORBIDDEN_LIBRARIES, property)
+    ? FORBIDDEN_LIBRARIES[property] : undefined;
 }
 
 // The host owns preview health and sizing. Remove only direct outbound frame

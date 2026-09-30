@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { LoaderCircle, Send } from "lucide-react";
 import { DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
   assessSimulationDescriptionReadiness, type AssessmentSummary,
@@ -15,6 +15,7 @@ import { SIMULATION_STALE_ATTEMPT_RETRY_MESSAGE, canCancelSimulationGenerationJo
   type SimulationGenerationStage } from "../../lib/simulationGenerationUi";
 import { resolveStudentLifecycleError } from "../../lib/studentLifecycle";
 import { resolveSimulationMinDescriptionChars } from "../../lib/uploadPolicy";
+import { useSession } from "../../state/session";
 
 export interface SimulationDraftState {
   attemptId: string;
@@ -41,6 +42,8 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
   onSubmit: (task: (attemptId: string) => Promise<void>) => Promise<void>;
 }) {
   const navigate = useNavigate();
+  const { assignmentId } = useParams();
+  const { rememberAttemptResult } = useSession();
   const minDescriptionChars = resolveSimulationMinDescriptionChars(assessment.config);
   const [description, setDescription] = useState("");
   const [generationStage, setGenerationStage] = useState<SimulationGenerationStage>("idle");
@@ -539,6 +542,10 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
           sketchArtifactId,
           htmlArtifactId
         });
+        rememberAttemptResult({
+          assignmentId: assignmentId ?? null, attemptId: response.attemptId, status: "submitted", provisionalScore: null,
+          submittedAt: response.submittedAt ?? new Date().toISOString(), submittedAfterDue: response.submittedAfterDue
+        }, true);
         navigate(`/attempt/${response.attemptId}`);
       } finally {
         setSubmittingSimulation(false);

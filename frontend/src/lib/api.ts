@@ -803,7 +803,7 @@ export function cancelSimulationGenerationJob(jobId: string) {
 }
 
 export function submitSimulation(input: { attemptId: string; description: string; sketchArtifactId: string; htmlArtifactId: string }) {
-  return apiFetch<{ attemptId: string }>("/simulation/submit", {
+  return apiFetch<{ attemptId: string; submittedAt?: string; submittedAfterDue?: boolean }>("/simulation/submit", {
     method: "POST",
     body: JSON.stringify(input)
   }, SIMULATION_GENERATION_REQUEST_TIMEOUT_MS);

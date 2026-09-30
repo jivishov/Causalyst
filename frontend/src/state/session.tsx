@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { StudentAssignmentSummary, StudentCourseAssignments } from "@alt-assessment/shared";
+import type { AttemptResult, StudentAssignmentSummary, StudentCourseAssignments } from "@alt-assessment/shared";
 import {
   ApiRequestError,
   getStudentAuthEmail,
@@ -43,6 +43,7 @@ interface SessionState {
   courses: StudentCourseAssignments[];
   assignments: StudentAssignmentSummary[];
   refresh: () => Promise<void>;
+  rememberAttemptResult: (result: RememberedAttemptResult, newSubmission?: boolean) => void;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -53,6 +54,7 @@ const CHECKING_WATCHDOG_MS = 22000;
 const CHECKING_WATCHDOG_RECOVERY_MS = 1000;
 const CHECKING_HARD_TIMEOUT_MS = 45000;
 type SessionRefreshMode = "blocking" | "background";
+type RememberedAttemptResult = Pick<AttemptResult, "assignmentId" | "attemptId" | "status" | "submittedAt" | "submittedAfterDue" | "provisionalScore" | "publishedGrade">;
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<StudentSessionStatus>("checking");
@@ -65,6 +67,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const activeOperationRef = useRef(0);
   const mountedRef = useRef(true);
   const statusRef = useRef<StudentSessionStatus>("checking");
+  const sessionDataRef = useRef({ authEmail, profile, courses });
 
   useEffect(() => {
     mountedRef.current = true;
@@ -94,6 +97,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     nextAuthError: string | null = null
   ) => {
     statusRef.current = nextStatus;
+    sessionDataRef.current = { authEmail: nextAuthEmail, profile: nextProfile, courses: nextCourses };
     setStatus(nextStatus);
     setAuthStep("idle");
     setAuthError(nextAuthError);
@@ -224,6 +228,36 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     await runSessionRefresh("blocking");
   }, [runSessionRefresh]);
 
+  const rememberAttemptResult = useCallback((result: RememberedAttemptResult, newSubmission = false) => {
+    const current = sessionDataRef.current;
+    if (statusRef.current !== "authenticated" || !current.authEmail || !current.profile || !result.assignmentId) return;
+    const nextCourses = current.courses.map((course) => ({
+      ...course,
+      assignments: course.assignments.map((assignment): StudentAssignmentSummary => {
+        if (assignment.assignmentId !== result.assignmentId) return assignment;
+        const latest = assignment.latestAttempt;
+        // Viewing a historical result must not replace a newer draft or submission.
+        if (!newSubmission && latest && latest.attemptId !== result.attemptId && (latest.status === "draft"
+          || latest.submittedAt && (!result.submittedAt || Date.parse(latest.submittedAt) > Date.parse(result.submittedAt)))) return assignment;
+        const publishedGrade = result.publishedGrade ?? assignment.publishedGrade;
+        const state = publishedGrade ? "final_published" : result.status === "draft" ? "draft"
+          : result.status === "error" ? "error_retry" : result.status === "submitted" ? "submitted" : "provisional_ready";
+        return {
+          ...assignment, state, publishedGrade,
+          latestAttempt: { attemptId: result.attemptId, status: result.status, submittedAt: result.submittedAt,
+            provisionalScore: result.provisionalScore, submittedAfterDue: result.submittedAfterDue === true },
+          dueState: result.submittedAfterDue ? "late_submitted" : state === "submitted" || state === "provisional_ready" || state === "final_published" ? "none" : assignment.dueState
+        };
+      })
+    }));
+    try {
+      writeCachedStudentSession({ authEmail: current.authEmail, profile: current.profile, courses: nextCourses });
+    } catch {
+      // Unavailable browser storage must not hide a successfully loaded result.
+    }
+    setSessionState("authenticated", current.authEmail, current.profile, nextCourses);
+  }, [setSessionState]);
+
   useEffect(() => {
     refresh().catch(() => undefined);
   }, [refresh]);
@@ -313,10 +347,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       courses,
       assignments,
       refresh,
+      rememberAttemptResult,
       signInWithGoogle,
       logout
     }),
-    [status, authStep, authError, authEmail, profile, courses, assignments, refresh, signInWithGoogle, logout]
+    [status, authStep, authError, authEmail, profile, courses, assignments, refresh, rememberAttemptResult, signInWithGoogle, logout]
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

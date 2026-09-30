@@ -533,7 +533,7 @@ export async function submitSimulation(request: Request, env: Env, db: AppDataba
   await requireSimulationArtifactForDescription(db, userId, attempt.id, sketchArtifactId, "simulation-sketch", sourceDescriptionSha256);
   await requireSimulationArtifactForDescription(db, userId, attempt.id, htmlArtifactId, "simulation-derived", sourceDescriptionSha256);
 
-  await claimAttemptSubmission(db, userId, attempt.id, new Date().toISOString(),
+  const submission = await claimAttemptSubmission(db, userId, attempt.id, new Date().toISOString(),
     [sketchArtifactId, htmlArtifactId], { description, sourceHash: sourceDescriptionSha256 });
   await logAudit(db, {
     attemptId,
@@ -552,7 +552,7 @@ export async function submitSimulation(request: Request, env: Env, db: AppDataba
     }
   });
 
-  return { attemptId: attempt.id };
+  return { attemptId: attempt.id, submittedAt: submission.submittedAt, submittedAfterDue: submission.submittedAfterDue };
 }
 
 

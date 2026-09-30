@@ -180,11 +180,13 @@ export interface AttemptResult {
   provisionalFeedback: GradeFeedback | null;
   transcript: string | null;
   ocrText: string | null;
+  simulationDescription?: string | null;
   simulationSpec: SimulationSpec | null;
   simulationPreview?: StudentSimulationPreview | null;
   simulationSketchPreview?: StudentSimulationPreview | null;
   publishedGrade?: StudentPublishedGrade | null;
   submittedAt: string | null;
+  submittedAfterDue?: boolean;
 }
 
 export interface StudentPublishedFinalResultResponse {

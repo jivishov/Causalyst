@@ -333,7 +333,18 @@ export function TeacherCoursesPage() {
 
       <details className="course-list-panel workspace-disclosure roster-import-panel">
         <summary><span><Upload size={18} aria-hidden="true" />Import & manage roster</span><small>{selectedCourse?.code || "Select a course"}</small></summary>
-        <p className="panel-description">Import a student CSV for {selectedCourse?.name || "your selected course"}. Preview it before saving.</p>
+        <p className="panel-description">Add one or more students to {selectedCourse?.name || "your selected course"}. Paste CSV rows below or select a file.</p>
+
+        <label className="roster-paste-label" htmlFor="roster-csv-text">Student CSV
+          <textarea id="roster-csv-text" rows={6} value={csvText} spellCheck={false} autoComplete="off"
+            placeholder={"display_name,email\nAlex Rivera,alex@example.org\nSam Lee,sam@example.org"}
+            disabled={committingRoster || previewingRoster}
+            onChange={(event) => {
+              setCsvText(event.target.value); setCsvFileName(""); setRosterPreview(null);
+              setRosterActionStatus(null); setShowDeleteRosterPanel(false);
+            }} />
+        </label>
+        <p className="field-help">Start with <code>display_name,email</code>, then one student per line. Optional columns: <code>student_identifier,section</code>. Existing students and their PINs are retained; duplicate emails are flagged.</p>
 
         <div className="roster-import-controls">
           <label className="secondary-button file-input-button">
@@ -357,7 +368,7 @@ export function TeacherCoursesPage() {
             onClick={commitRosterImport}
             disabled={!selectedCourseId || !csvText.trim() || committingRoster || (rosterPreview !== null && rosterPreview.errors.length > 0)}
           >
-            <Save size={16} /> {committingRoster ? "Importing" : "Commit import"}
+            <Save size={16} /> {committingRoster ? "Adding students" : "Add students"}
           </button>
           <button
             className={showDeleteRosterPanel ? "danger-button" : "secondary-button"}

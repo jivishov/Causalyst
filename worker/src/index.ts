@@ -5,6 +5,7 @@ import { corsHeaders, jsonResponse, toErrorResponse } from "./lib/http";
 import { serviceSupabase } from "./lib/supabase";
 import type { Env } from "./lib/env";
 import { validateWorkerSecrets } from "./lib/env";
+import { getTeacherAiSettings, updateTeacherAiSettings, testTeacherAiSettings } from "./routes/teacherAiSettings";
 import { studentLogin, studentSession } from "./routes/student";
 import { attemptResult, publishedFinalResult, startAttempt } from "./routes/attempts";
 import { createUploadToken, previewArtifact, uploadArtifact } from "./routes/artifacts";
@@ -74,6 +75,12 @@ export interface RouteMetadata {
 }
 
 const routes: readonly RouteDefinition[] = [
+  teacherRoute("GET", "/api/teacher/ai-settings", /^\/api\/teacher\/ai-settings$/, async (request, env, _match, auth) =>
+    jsonResponse(request, env, await getTeacherAiSettings(serviceSupabase(env), env, auth.userId), { headers: { "Cache-Control": "no-store" } })),
+  teacherRoute("PUT", "/api/teacher/ai-settings", /^\/api\/teacher\/ai-settings$/, async (request, env, _match, auth) =>
+    jsonResponse(request, env, await updateTeacherAiSettings(request, serviceSupabase(env), env, auth.userId), { headers: { "Cache-Control": "no-store" } })),
+  teacherRoute("POST", "/api/teacher/ai-settings/test", /^\/api\/teacher\/ai-settings\/test$/, async (request, env, _match, auth) =>
+    jsonResponse(request, env, await testTeacherAiSettings(request, serviceSupabase(env), env, auth.userId), { headers: { "Cache-Control": "no-store" } })),
   publicRoute("GET", "/api/health", /^\/api\/health$/, (request, env) => jsonResponse(request, env, { ok: true })),
   publicRoute("GET", "/api/teacher/setup-status", /^\/api\/teacher\/setup-status$/, (request, env) => {
     const db = serviceSupabase(env);

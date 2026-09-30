@@ -1,3 +1,4 @@
+import { resolveAttemptAiEnv } from "../lib/aiSettings";
 import { reserveAiBudget } from "../lib/aiBudget";
 import { realtimeEvidence } from "../lib/realtimeEvidence";
 import type { AppDatabaseClient } from "../lib/database";
@@ -68,6 +69,7 @@ export async function connectRealtimeVoice(request: Request, env: Env, db: AppDa
   enforceModelConfirmation(["realtimeVoice"], confirmed);
 
   const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
+  env = await resolveAttemptAiEnv(db, env, attempt.id);
   if (assessment.type !== "voice_realtime") {
     throw new HttpError(400, "Attempt is not a live voice assessment");
   }
@@ -77,7 +79,7 @@ export async function connectRealtimeVoice(request: Request, env: Env, db: AppDa
 
   if (!env.REALTIME_SESSIONS) throw new HttpError(503, "Live voice evidence service is not configured");
   await reserveAiBudget(db, userId, attempt.id, "live_voice", 10);
-  const model = getModel("realtimeVoice");
+  const model = getModel("realtimeVoice", env.AI_SETTINGS);
   const maxSessionSec = resolveRealtimeMaxSessionSec(assessment.config);
   const now = new Date();
   const expiresAt = new Date(now.getTime() + maxSessionSec * 1000).toISOString();
@@ -105,7 +107,7 @@ export async function connectRealtimeVoice(request: Request, env: Env, db: AppDa
     }),
     audio: {
       input: {
-        transcription: { model: getModel("transcription").id },
+        transcription: { model: getModel("transcription", env.AI_SETTINGS).id },
         turn_detection: {
           type: "server_vad",
           create_response: true,
@@ -147,7 +149,7 @@ export async function connectRealtimeVoice(request: Request, env: Env, db: AppDa
       throw new HttpError(502, "Realtime session did not return an SDP answer");
     }
 
-    await realtimeEvidence(env, sessionId, "start", { callId, deadline: Date.parse(expiresAt) });
+    await realtimeEvidence(env, sessionId, "start", { callId, deadline: Date.parse(expiresAt), attemptId: attempt.id });
 
     const { error: updateError } = await db
       .from("attempt_realtime_sessions")
@@ -173,7 +175,7 @@ export async function connectRealtimeVoice(request: Request, env: Env, db: AppDa
       expiresAt
     };
   } catch (error) {
-    if (/^rtc_[\w-]+$/.test(callId)) await openaiClient(env.OPENAI_API_KEY).realtime.calls.hangup(callId).catch(() => {});
+    if (/^rtc_[\w-]+$/.test(callId)) await openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS).realtime.calls.hangup(callId).catch(() => {});
     await markRealtimeSessionStatusBestEffort(db, userId, sessionId, "error");
     throw error;
   }
@@ -208,6 +210,7 @@ export async function finalizeRealtimeVoice(request: Request, env: Env, db: AppD
   // Validate telemetry before claiming, but never use it as grading evidence.
   const normalizedFinalizeEvents = body.events === undefined ? [] : normalizeRealtimeVoiceEvents(body.events);
   const { attempt, assessment } = await requireAttempt(db, userId, session.attempt_id);
+  env = await resolveAttemptAiEnv(db, env, attempt.id);
   if (assessment.type !== "voice_realtime") throw new HttpError(400, "Attempt is not a live voice assessment");
   const evidence = await realtimeEvidence(env, session.id, "seal");
   const transcript = evidence.transcript;
@@ -225,7 +228,7 @@ export async function finalizeRealtimeVoice(request: Request, env: Env, db: AppD
       "Live voice finalization is already in progress or unavailable", claimError.message);
     claimed = true;
 
-    const client = openaiClient(env.OPENAI_API_KEY);
+    const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
     const feedback = await gradeVoice(client, {
       prompt: assessment.prompt,
       expectedAnswer: assessment.expectedAnswer ?? null,
@@ -242,7 +245,7 @@ export async function finalizeRealtimeVoice(request: Request, env: Env, db: AppD
       attemptId: attempt.id,
       route: "/api/voice/realtime/finalize",
       provider: "openai",
-      model: `${session.model},${getModel("grading").id}`,
+      model: `${session.model},${getModel("grading", env.AI_SETTINGS).id}`,
       requestSummary: { sessionId, transcriptLength: transcript.length, diagnostics },
       rawResponse: { feedback: normalizedFeedback }
     });
@@ -250,7 +253,7 @@ export async function finalizeRealtimeVoice(request: Request, env: Env, db: AppD
     const { error: gradeError } = await db.rpc("save_realtime_grade", {
       p_user_id: userId, p_session_id: session.id, p_transcript: transcript,
       p_feedback: toJson(normalizedFeedback), p_diagnostics: diagnostics,
-      p_metadata: { model: getModel("grading").id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() }
+      p_metadata: { model: getModel("grading", env.AI_SETTINGS).id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() }
     });
     if (gradeError) throw new HttpError(500, "Failed to finalize live voice grade", gradeError.message);
 

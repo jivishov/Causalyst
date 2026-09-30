@@ -5,6 +5,7 @@ import { DEFAULT_SIMULATION_HTML_REASONING_EFFORT, SIMULATION_HTML_VIEWPORT_HEIG
 import { getModel, modelNeedsConfirmation, type ModelCatalogEntry, type ModelRole, type SimulationCodeModelEntry } from "./models";
 import { fidelityReviewSchema, gradeFeedbackSchema, simulationGenerationSchema, simulationReadinessClassifierSchema, writingGradeSchema } from "./schemas";
 import { HttpError } from "./http";
+import type { StoredAiSettings } from "./aiSettings";
 
 const SIMULATION_HTML_VIEWPORT_LABEL = `${SIMULATION_HTML_VIEWPORT_WIDTH}px by ${SIMULATION_HTML_VIEWPORT_HEIGHT}px`;
 const SIMULATION_HTML_VIEWPORT_SIZE = `${SIMULATION_HTML_VIEWPORT_WIDTH} by ${SIMULATION_HTML_VIEWPORT_HEIGHT}`;
@@ -28,9 +29,16 @@ const SIMULATION_FRAME_ISOLATION_INSTRUCTIONS = "The simulation runs in an isola
 
 type ResponsePayload = OpenAI.Responses.ResponseCreateParamsNonStreaming;
 
-export function openaiClient(apiKey: string, baseURL?: string): OpenAI {
-  return new OpenAI({ apiKey, baseURL, maxRetries: 0, timeout: 90_000 });
+const clientSettings = new WeakMap<OpenAI, StoredAiSettings>();
+
+export function openaiClient(apiKey: string, baseURL?: string, settings?: StoredAiSettings): OpenAI {
+  if (!apiKey?.trim()) throw new HttpError(503, "No provider key is configured. Ask your teacher to update AI settings.");
+  const client = new OpenAI({ apiKey, baseURL, maxRetries: 0, timeout: 90_000 });
+  if (settings) clientSettings.set(client, settings);
+  return client;
 }
+
+function clientModel(client: OpenAI, role: ModelRole): ModelCatalogEntry { return getModel(role, clientSettings.get(client)); }
 
 export function enforceModelConfirmation(roles: ModelRole[], confirmed: boolean | undefined): void {
   if (roles.some(modelNeedsConfirmation) && confirmed !== true) {
@@ -39,7 +47,7 @@ export function enforceModelConfirmation(roles: ModelRole[], confirmed: boolean 
 }
 
 export async function transcribeAudio(client: OpenAI, file: File): Promise<string> {
-  const model = getModel("transcription");
+  const model = clientModel(client, "transcription");
   const result = await client.audio.transcriptions.create({
     file,
     model: model.id
@@ -54,7 +62,7 @@ export async function gradeVoice(client: OpenAI, input: {
   scoringPolicy?: unknown;
   transcript: string;
 }): Promise<GradeFeedback> {
-  const model = getModel("grading");
+  const model = clientModel(client, "grading");
   const response = await client.responses.create({
     model: model.id,
     reasoning: model.reasoningEffort ? { effort: model.reasoningEffort } : undefined,
@@ -93,7 +101,7 @@ export async function gradeWriting(client: OpenAI, input: {
   rubric: RubricCriterion[];
   scoringPolicy?: unknown;
 }): Promise<{ transcribedText: string; feedback: GradeFeedback }> {
-  const model = getModel("visionGrading");
+  const model = clientModel(client, "visionGrading");
   const response = await client.responses.create({
     model: model.id,
     reasoning: model.reasoningEffort ? { effort: model.reasoningEffort } : undefined,
@@ -131,7 +139,7 @@ export async function generateSimulationSpec(client: OpenAI, input: {
   description: string;
   retryFeedback?: string[];
 }): Promise<{ spec: SimulationSpec; modelUsed: string; rawResponseText: string }> {
-  const model = getModel("simulationSpec");
+  const model = clientModel(client, "simulationSpec");
   const response = await createSimulationResponseWithFallback(client, model, {
     model: model.id,
     reasoning: model.reasoningEffort ? { effort: model.reasoningEffort } : undefined,
@@ -192,7 +200,7 @@ export function buildSimulationHtmlResponsePayload(input: {
   model?: ModelCatalogEntry;
 }): { model: ModelCatalogEntry; payload: ResponsePayload } {
   const model = input.model ?? getModel("simulationHtml");
-  const reasoningEffort = model.reasoningEffort ?? DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
+  const reasoningEffort = input.model ? model.reasoningEffort : model.reasoningEffort ?? DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
   const userContent: OpenAI.Responses.ResponseInputContent[] = [];
   if (input.sketchFileId) {
     userContent.push({
@@ -299,7 +307,7 @@ export function buildRefineSimulationHtmlResponsePayload(input: {
   model?: ModelCatalogEntry;
 }): { model: ModelCatalogEntry; payload: ResponsePayload } {
   const model = input.model ?? getModel("simulationHtml");
-  const reasoningEffort = model.reasoningEffort ?? DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
+  const reasoningEffort = input.model ? model.reasoningEffort : model.reasoningEffort ?? DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
   return {
     model,
     payload: {
@@ -456,7 +464,7 @@ export async function refineSimulationHtmlChatCompletion(client: OpenAI, model: 
 export async function generateSimulationSketch(client: OpenAI, input: {
   description: string;
 }): Promise<{ bytes: Uint8Array; mimeType: string; modelUsed: string; requestedModel: string }> {
-  const model = getModel("simulationSketchImage");
+  const model = clientModel(client, "simulationSketchImage");
   const prompt = [
     "Create a literal classroom-style diagram of the student's description for an alternative assessment method called knowledge coding.",
     "Depict exactly and only what the student wrote.",
@@ -504,7 +512,7 @@ export async function classifySimulationReadiness(client: OpenAI, input: {
   studentDescription: string;
   deterministicSignals: SimulationReadinessSignals;
 }): Promise<{ result: SimulationReadinessClassifierResult; modelUsed: string; requestedModel: string }> {
-  const model = getModel("simulationReadinessClassifier");
+  const model = clientModel(client, "simulationReadinessClassifier");
   const response = await client.responses.create({
     model: model.id,
     reasoning: model.reasoningEffort ? { effort: model.reasoningEffort } : undefined,
@@ -550,7 +558,7 @@ export async function reviewSimulationFidelity(client: OpenAI, input: {
   rubric: RubricCriterion[];
   scoringPolicy?: unknown;
 }): Promise<{ feedback: GradeFeedback; missingElements: string[]; addedElements: string[]; modelUsed: string }> {
-  const model = getModel("fidelityReview");
+  const model = clientModel(client, "fidelityReview");
   const response = await createSimulationResponseWithFallback(client, model, {
     model: model.id,
     reasoning: model.reasoningEffort ? { effort: model.reasoningEffort } : undefined,

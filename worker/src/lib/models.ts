@@ -4,6 +4,7 @@ import {
   type SimulationCodeModelId,
   type SimulationCodeModelProvider
 } from "@alt-assessment/shared";
+import type { StoredAiSettings } from "./aiSettings";
 
 export type ModelRole =
   | "transcription"
@@ -117,12 +118,22 @@ export const simulationCodeModelCatalog: Record<SimulationCodeModelId, Simulatio
   }
 };
 
-export function getModel(role: ModelRole): ModelCatalogEntry {
-  return modelCatalog[role];
+export function getModel(role: ModelRole, settings?: StoredAiSettings): ModelCatalogEntry {
+  const base = modelCatalog[role];
+  const override = settings?.roleModels[role];
+  if (!override) return base;
+  return { ...base, id: override.id, reasoningEffort: override.reasoningEffort === "none" ? undefined : override.reasoningEffort,
+    fallbackModelId: override.id === base.id ? base.fallbackModelId : undefined };
 }
 
-export function getSimulationCodeModel(modelId: SimulationCodeModelId = DEFAULT_SIMULATION_CODE_MODEL_ID): SimulationCodeModelEntry {
-  return simulationCodeModelCatalog[modelId];
+export function getSimulationCodeModel(modelId: SimulationCodeModelId = DEFAULT_SIMULATION_CODE_MODEL_ID, settings?: StoredAiSettings): SimulationCodeModelEntry {
+  if (!settings) return simulationCodeModelCatalog[modelId];
+  const requested = settings.codeModels.find(model => model.id === modelId);
+  const selected = settings.forceDefaultSimulationModel || !requested?.enabled
+    ? settings.codeModels.find(model => model.id === settings.defaultSimulationModelId) : requested;
+  if (!selected?.enabled) throw new Error("No enabled student model");
+  return { ...simulationCodeModelCatalog[selected.id], label: selected.label, providerModelId: selected.modelId,
+    reasoningEffort: selected.reasoningEffort === "none" ? undefined : selected.reasoningEffort };
 }
 
 export function toOpenAIModelCatalogEntry(model: SimulationCodeModelEntry): ModelCatalogEntry {

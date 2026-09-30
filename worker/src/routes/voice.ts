@@ -1,3 +1,4 @@
+import { resolveAttemptAiEnv } from "../lib/aiSettings";
 import { reserveAiBudget } from "../lib/aiBudget";
 import type { AppDatabaseClient } from "../lib/database";
 import { toJson } from "../lib/database";
@@ -17,6 +18,7 @@ export async function gradeVoiceAttempt(request: Request, env: Env, db: AppDatab
   enforceModelConfirmation(["transcription", "grading"], confirmed);
 
   const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
+  env = await resolveAttemptAiEnv(db, env, attempt.id);
   if (assessment.type !== "voice") throw new HttpError(400, "Attempt is not a voice assessment");
   const artifact = await requireArtifact(db, userId, artifactId, attempt.id);
   if (artifact.kind !== "audio" || artifact.upload_state !== "uploaded") {
@@ -31,7 +33,7 @@ export async function gradeVoiceAttempt(request: Request, env: Env, db: AppDatab
     const { data, error } = await db.storage.from(artifact.bucket).download(artifact.storage_key);
     if (error || !data) throw new HttpError(500, "Failed to download audio artifact", error?.message);
 
-    const client = openaiClient(env.OPENAI_API_KEY);
+    const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
     const audioFile = new File([await data.arrayBuffer()], artifact.original_filename, { type: artifact.mime_type });
     const transcript = await transcribeAudio(client, audioFile);
     const finalTranscript = transcript.trim();
@@ -48,14 +50,14 @@ export async function gradeVoiceAttempt(request: Request, env: Env, db: AppDatab
       attemptId,
       route: "/api/voice/grade",
       provider: "openai",
-      model: `${getModel("transcription").id},${getModel("grading").id}`,
+      model: `${getModel("transcription", env.AI_SETTINGS).id},${getModel("grading", env.AI_SETTINGS).id}`,
       requestSummary: { artifactId, browserTranscriptPresent: Boolean(browserTranscript) },
       rawResponse: { transcriptLength: finalTranscript.length, feedback }
     });
 
     const { error: updateError } = await db.from("attempts").update({
       status: "graded",
-      grading_metadata: { model: getModel("grading").id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() },
+      grading_metadata: { model: getModel("grading", env.AI_SETTINGS).id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() },
       transcript: finalTranscript,
       provisional_score: feedback.score,
       provisional_feedback: toJson(feedback)

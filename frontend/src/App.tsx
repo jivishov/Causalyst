@@ -14,6 +14,7 @@ const TeacherGradebookPage = lazy(() => import("./pages/teacher/TeacherGradebook
 const TeacherPasswordReset = lazy(() => import("./pages/teacher/TeacherPasswordReset").then((module) => ({ default: module.TeacherPasswordReset })));
 const TeacherReviewPage = lazy(() => import("./pages/teacher/TeacherReviewPage").then((module) => ({ default: module.TeacherReviewPage })));
 const TeacherWorkspace = lazy(() => import("./pages/teacher/TeacherWorkspace").then((module) => ({ default: module.TeacherWorkspace })));
+const TeacherAiSettingsPage = lazy(() => import("./pages/teacher/TeacherAiSettingsPage").then((module) => ({ default: module.TeacherAiSettingsPage })));
 import {
   STUDENT_PROTECTED_ROUTES,
   STUDENT_PUBLIC_ROUTES,
@@ -41,7 +42,8 @@ const teacherElements: Record<TeacherChildRouteLabel, ReactElement> = {
   assignments: <TeacherAssignmentsPage />,
   review: <TeacherReviewPage />,
   attemptReview: <TeacherAttemptReviewPage />,
-  gradebook: <TeacherGradebookPage />
+  gradebook: <TeacherGradebookPage />,
+  aiSettings: <TeacherAiSettingsPage />
 };
 
 export default function App() {

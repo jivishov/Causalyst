@@ -1,3 +1,4 @@
+import * as aiSettingsLib from "../src/lib/aiSettings";
 import * as jobsLib from "../src/lib/simulationJobs";
 import * as budgetLib from "../src/lib/aiBudget";
 import * as evidenceLib from "../src/lib/evidence";
@@ -14,6 +15,7 @@ import { fallbackSimulation, generateSimulation, generateSimulationSketch, getSi
 describe("simulation artifact flow", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(aiSettingsLib, "resolveAttemptAiEnv").mockImplementation(async (_db, env) => env);
     vi.spyOn(budgetLib, "reserveAiBudget").mockResolvedValue();
     vi.spyOn(evidenceLib, "completeArtifact").mockImplementation(async (db, userId, artifactId, hash) => {
       await db.from("attempt_artifacts").update({ upload_state: "uploaded", content_sha256: hash }).eq("id", artifactId).eq("student_id", userId);
@@ -272,7 +274,7 @@ describe("simulation artifact flow", () => {
       WORKER_PUBLIC_BASE_URL: "https://worker.test"
     } as any, db, "student-1");
 
-    expect(openaiClientSpy).toHaveBeenCalledWith("moonshot-key", "https://api.moonshot.ai/v1");
+    expect(openaiClientSpy).toHaveBeenCalledWith("moonshot-key", "https://api.moonshot.ai/v1", undefined);
     expect(uploadFileSpy).not.toHaveBeenCalled();
     expect(chatSpy).toHaveBeenCalledWith(client, expect.objectContaining({
       id: "kimi:kimi-k2.6",
@@ -2441,6 +2443,7 @@ async function descriptionHash(description: string): Promise<string> {
 describe("generation failure recovery", () => {
   it("makes invalid completed provider output terminal before the next poll", async () => {
     vi.restoreAllMocks();
+    vi.spyOn(aiSettingsLib, "resolveAttemptAiEnv").mockImplementation(async (_db, env) => env);
     vi.spyOn(openaiLib, "openaiClient").mockReturnValue({} as never);
     const retrieve = vi.spyOn(openaiLib, "retrieveSimulationBackgroundResponse").mockResolvedValue({ status: "completed", model: "synthetic" } as never);
     vi.spyOn(openaiLib, "parseSimulationHtmlResponse").mockReturnValue('<!doctype html><html><body><img src=https://resource.invalid/leak></body></html>');
@@ -2453,6 +2456,7 @@ describe("generation failure recovery", () => {
   });
   it("rejects retained upload capabilities after submission before writing storage", async () => {
     vi.restoreAllMocks();
+    vi.spyOn(aiSettingsLib, "resolveAttemptAiEnv").mockImplementation(async (_db, env) => env);
     vi.spyOn(cryptoLib, "verifyUploadToken").mockResolvedValue(true);
     vi.spyOn(dbLib, "requireArtifact").mockResolvedValue({ attempt_id: "attempt" } as never);
     vi.spyOn(dbLib, "requireAttempt").mockResolvedValue({ attempt: { id: "attempt", status: "graded" } } as never);

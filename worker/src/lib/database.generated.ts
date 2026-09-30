@@ -1108,6 +1108,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      capture_attempt_ai_settings: {
+        Args: { p_attempt_id: string; p_settings: Json; p_teacher_id: string }
+        Returns: Json
+      }
       claim_artifact_cleanup: {
         Args: { p_artifact_id: string }
         Returns: boolean
@@ -1173,6 +1177,8 @@ export type Database = {
         Returns: string
       }
       enroll_student_by_email: { Args: { p_user_id: string }; Returns: Json }
+      get_attempt_ai_context: { Args: { p_attempt_id: string }; Returns: Json }
+      get_teacher_ai_settings: { Args: { p_teacher_id: string }; Returns: Json }
       import_course_roster: {
         Args: { p_course_id: string; p_rows: Json; p_teacher_id: string }
         Returns: number
@@ -1205,6 +1211,15 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      set_teacher_ai_settings: {
+        Args: {
+          p_expected_updated_at: string
+          p_previous_runtime: Json
+          p_settings: Json
+          p_teacher_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {

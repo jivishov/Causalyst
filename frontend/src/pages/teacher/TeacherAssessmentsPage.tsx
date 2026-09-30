@@ -14,10 +14,12 @@ import {
   type RubricCriterion,
   type SimulationCodeModelId,
   type TeacherAssessment,
+  type TeacherAiSettings,
   isSimulationCodeModelId,
   resolveSimulationCodeModelId
 } from "@alt-assessment/shared";
 import { useTeacherWorkspaceData } from "./TeacherWorkspaceData";
+import { teacherApiFetch } from "../../lib/api";
 
 type AssessmentEditorMode = "create" | "edit";
 
@@ -29,6 +31,8 @@ interface RubricDraftRow {
 }
 
 export function TeacherAssessmentsPage() {
+  const [aiSettings, setAiSettings] = useState<TeacherAiSettings | null>(null);
+  useEffect(() => { teacherApiFetch<TeacherAiSettings>("/teacher/ai-settings").then(setAiSettings).catch(() => {}); }, []);
   const defaultWritingAcceptedMime = DEFAULT_WRITING_ACCEPTED_MIME.join(",");
 
   const {
@@ -507,10 +511,11 @@ export function TeacherAssessmentsPage() {
                           }
                         }}
                       >
-                        {SIMULATION_CODE_MODEL_OPTIONS.map((option) => (
-                          <option key={option.id} value={option.id}>{option.label}</option>
+                        {(aiSettings?.codeModels ?? SIMULATION_CODE_MODEL_OPTIONS).map((option) => (
+                          <option key={option.id} value={option.id} disabled={"enabled" in option && !option.enabled}>{option.label}</option>
                         ))}
                       </select>
+                      {aiSettings?.forceDefaultSimulationModel && <span className="field-help">AI settings will use your default model for all new attempts.</span>}
                     </label>
                   </>
                 )}

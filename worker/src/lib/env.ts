@@ -10,6 +10,7 @@ export interface Env {
   TEACHER_SETUP_CODE?: string;
   APP_ENV?: string;
   ALLOWED_ORIGINS?: string;
+  AI_SETTINGS?: import("./aiSettings").StoredAiSettings;
 }
 
 export function requireEnv(env: Env, key: keyof Env): string {

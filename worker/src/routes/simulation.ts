@@ -1,3 +1,4 @@
+import { resolveAttemptAiEnv } from "../lib/aiSettings";
 import { reserveSimulationJob, type SimulationGenerationJobRow } from "../lib/simulationJobs";
 import { reserveAiBudget, boundStudentText } from "../lib/aiBudget";
 import { completeArtifact, contentDigest } from "../lib/evidence";
@@ -43,6 +44,7 @@ export async function generateSimulationSketch(request: Request, env: Env, db: A
   enforceModelConfirmation(["simulationSketchImage", "simulationReadinessClassifier"], confirmed);
 
   const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
+  env = await resolveAttemptAiEnv(db, env, attempt.id);
   if (assessment.type !== "simulation") throw new HttpError(400, "Attempt is not a simulation assessment");
   assertDraftAttemptStatus(attempt.id, attempt.status);
 
@@ -52,10 +54,10 @@ export async function generateSimulationSketch(request: Request, env: Env, db: A
     assessmentPrompt: assessment.prompt,
     description,
     config: assessment.config,
-    getClient: () => client ??= openaiClient(env.OPENAI_API_KEY)
+    getClient: () => client ??= openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS)
   });
-  client ??= openaiClient(env.OPENAI_API_KEY);
-  const sketchRoleModel = getModel("simulationSketchImage").id;
+  client ??= openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+  const sketchRoleModel = getModel("simulationSketchImage", env.AI_SETTINGS).id;
   const sourceDescriptionSha256 = await hashSimulationDescription(description);
   const sketch = await generateSimulationSketchImage(client, { description });
   const artifact = await storeGeneratedArtifact(db, userId, attemptId, {
@@ -111,9 +113,10 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
   const confirmed = body.expensiveModelConfirmed === true;
 
   const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
+  env = await resolveAttemptAiEnv(db, env, attempt.id);
   if (assessment.type !== "simulation") throw new HttpError(400, "Attempt is not a simulation assessment");
   assertDraftAttemptStatus(attempt.id, attempt.status);
-  const simulationCodeModel = readAssessmentSimulationCodeModel(assessment.config);
+  const simulationCodeModel = readAssessmentSimulationCodeModel(assessment.config, env);
   enforceSimulationCodeModelConfirmation(simulationCodeModel, confirmed);
 
   const sourceDescriptionSha256 = await hashSimulationDescription(description);
@@ -149,7 +152,7 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
     reservedId = activeJob.id;
     await saveSimulationDraftDescription(db, userId, attempt.id, description);
     if (simulationCodeModel.generationApi === "responses") {
-      const client = openaiClient(env.OPENAI_API_KEY);
+      const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
       const sketchFileId = await ensureOpenAIFileForArtifact(db, client, userId, sketchArtifact);
       logSimulationRouteStage("/api/simulation/generate", attemptId, "sketch-file-ready-for-openai", routeStartedAt);
       const background = await startSimulationHtmlBackgroundResponse(client, {
@@ -179,7 +182,7 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
     }
 
     const sketchDataUrl = await downloadArtifactDataUrl(db, sketchArtifact, "Failed to download simulation sketch artifact");
-    const client = openaiClient(requireSimulationCodeModelApiKey(env, simulationCodeModel), simulationCodeModel.baseURL);
+    const client = openaiClient(requireSimulationCodeModelApiKey(env, simulationCodeModel), simulationCodeModel.baseURL, env.AI_SETTINGS);
     const generated = await generateSimulationHtmlChatCompletion(client, simulationCodeModel, {
       description,
       sketchDataUrl
@@ -217,9 +220,10 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
   const confirmed = body.expensiveModelConfirmed === true;
 
   const { attempt, assessment } = await requireAttempt(db, userId, attemptId);
+  env = await resolveAttemptAiEnv(db, env, attempt.id);
   if (assessment.type !== "simulation") throw new HttpError(400, "Attempt is not a simulation assessment");
   assertDraftAttemptStatus(attempt.id, attempt.status);
-  const simulationCodeModel = readAssessmentSimulationCodeModel(assessment.config);
+  const simulationCodeModel = readAssessmentSimulationCodeModel(assessment.config, env);
   enforceSimulationCodeModelConfirmation(simulationCodeModel, confirmed);
 
   const sourceDescriptionSha256 = await hashSimulationDescription(description);
@@ -266,7 +270,7 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
     logSimulationRouteStage("/api/simulation/refine", attemptId, "current-html-downloaded", routeStartedAt);
     await saveSimulationDraftDescription(db, userId, attempt.id, description);
     if (simulationCodeModel.generationApi === "responses") {
-      const client = openaiClient(env.OPENAI_API_KEY);
+      const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
       const sketchFileId = await ensureOpenAIFileForArtifact(db, client, userId, sketchArtifact);
       logSimulationRouteStage("/api/simulation/refine", attemptId, "sketch-file-ready-for-openai", routeStartedAt);
       const background = await startRefineSimulationHtmlBackgroundResponse(client, {
@@ -297,7 +301,7 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
     }
 
     const sketchDataUrl = await downloadArtifactDataUrl(db, sketchArtifact, "Failed to download simulation sketch artifact");
-    const client = openaiClient(requireSimulationCodeModelApiKey(env, simulationCodeModel), simulationCodeModel.baseURL);
+    const client = openaiClient(requireSimulationCodeModelApiKey(env, simulationCodeModel), simulationCodeModel.baseURL, env.AI_SETTINGS);
     const refined = await refineSimulationHtmlChatCompletion(client, simulationCodeModel, {
       description,
       sketchDataUrl,
@@ -409,6 +413,7 @@ export async function fallbackSimulation(request: Request, env: Env, db: AppData
 
 export async function getSimulationGenerationJob(_request: Request, env: Env, db: AppDatabaseClient, userId: string, jobId: string) {
   const job = await requireSimulationGenerationJob(db, userId, jobId);
+  env = await resolveAttemptAiEnv(db, env, job.attempt_id);
   if (job.status === "completed") return toStudentSimulationJob(job, await previewForCompletedSimulationJob(db, env, userId, job));
   if (TERMINAL_SIMULATION_JOB_STATUSES.includes(job.status)) return toStudentSimulationJob(job);
   if (job.status === "finalizing") {
@@ -435,7 +440,7 @@ export async function getSimulationGenerationJob(_request: Request, env: Env, db
     return toStudentSimulationJob(failed);
   }
 
-  const client = openaiClient(env.OPENAI_API_KEY);
+  const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
   const now = Date.now();
   const expired = Date.parse(job.expires_at) <= now;
   let response: any;
@@ -493,10 +498,11 @@ export async function getSimulationGenerationJob(_request: Request, env: Env, db
 
 export async function cancelSimulationGenerationJob(_request: Request, env: Env, db: AppDatabaseClient, userId: string, jobId: string) {
   const job = await requireSimulationGenerationJob(db, userId, jobId);
+  env = await resolveAttemptAiEnv(db, env, job.attempt_id);
   if (job.status === "completed") return toStudentSimulationJob(job, await previewForCompletedSimulationJob(db, env, userId, job));
   if (TERMINAL_SIMULATION_JOB_STATUSES.includes(job.status)) return toStudentSimulationJob(job);
   if (job.provider === "openai" && job.provider_response_id) {
-    await cancelSimulationBackgroundResponseBestEffort(openaiClient(env.OPENAI_API_KEY), job.provider_response_id, job.id);
+    await cancelSimulationBackgroundResponseBestEffort(openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS), job.provider_response_id, job.id);
   }
   const cancelledAt = new Date().toISOString();
   const cancelled = await updateSimulationGenerationJob(db, userId, job.id, {
@@ -509,7 +515,7 @@ export async function cancelSimulationGenerationJob(_request: Request, env: Env,
   return toStudentSimulationJob(cancelled);
 }
 
-export async function submitSimulation(request: Request, _env: Env, db: AppDatabaseClient, userId: string) {
+export async function submitSimulation(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
   const attemptId = getRequiredString(body, "attemptId");
   const description = getRequiredString(body, "description");
@@ -1028,16 +1034,16 @@ function logSimulationRouteStage(route: string, attemptId: string, stage: string
   });
 }
 
-function readAssessmentSimulationCodeModel(config: Record<string, unknown>): SimulationCodeModelEntry {
+function readAssessmentSimulationCodeModel(config: Record<string, unknown>, env: Env): SimulationCodeModelEntry {
   const modelId = config.simulationCodeModelId;
   if (modelId === undefined || modelId === null || modelId === "") {
-    return getSimulationCodeModel(DEFAULT_SIMULATION_CODE_MODEL_ID);
+    return getSimulationCodeModel(DEFAULT_SIMULATION_CODE_MODEL_ID, env.AI_SETTINGS);
   }
   const resolvedModelId = resolveSimulationCodeModelId(modelId);
   if (!resolvedModelId) {
     throw new HttpError(400, "Simulation code model is not available");
   }
-  return getSimulationCodeModel(resolvedModelId);
+  return getSimulationCodeModel(resolvedModelId, env.AI_SETTINGS);
 }
 
 function enforceSimulationCodeModelConfirmation(model: SimulationCodeModelEntry, confirmed: boolean | undefined): void {

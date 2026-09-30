@@ -13,6 +13,7 @@ import {
   Mail,
   MessageSquareText,
   Table2,
+  SlidersHorizontal,
   UserPlus
 } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -235,6 +236,7 @@ function TeacherWorkspaceShell({ profile, onSignOut }: { profile: TeacherProfile
   const navItems = useMemo(
     () => [
       { to: "/teacher", label: "Courses & roster", description: "Your classes, students, and enrollment in one place.", end: true, Icon: BookOpen },
+      { to: "/teacher/ai-settings", label: "AI settings", description: "Provider keys, assessment models, and student model choices.", Icon: SlidersHorizontal },
       { to: "/teacher/assessments", label: "Assessments", description: "Create thoughtful prompts and clear criteria for success.", end: false, Icon: ClipboardList },
       { to: "/teacher/assignments", label: "Assignments", description: "Choose what your students work on and when it is due.", end: false, Icon: ClipboardCheck },
       { to: "/teacher/review", label: "Response review", description: "Review student thinking, evidence, and provisional scores.", end: false, Icon: MessageSquareText },
@@ -296,7 +298,8 @@ function teacherIdentitySummary(profile: TeacherProfile): string {
   return email ? `${name} · ${email}` : name;
 }
 
-export function resolvePostAuthTeacherPath(pathname: string): "/teacher" | "/teacher/assessments" | "/teacher/assignments" | "/teacher/review" | "/teacher/gradebook" {
+export function resolvePostAuthTeacherPath(pathname: string): "/teacher" | "/teacher/assessments" | "/teacher/assignments" | "/teacher/review" | "/teacher/gradebook" | "/teacher/ai-settings" {
+  if (pathname === "/teacher/ai-settings") return "/teacher/ai-settings";
   if (pathname === "/teacher/assessments" || pathname.startsWith("/teacher/assessments/")) {
     return "/teacher/assessments";
   }

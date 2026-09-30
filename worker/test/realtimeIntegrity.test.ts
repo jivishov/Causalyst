@@ -1,3 +1,4 @@
+import * as aiSettingsLib from "../src/lib/aiSettings";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as dbLib from "../src/lib/db";
 import * as openaiLib from "../src/lib/openai";
@@ -21,6 +22,7 @@ const request = (events: unknown) => new Request("https://worker.test", { method
 describe("live voice grading boundary", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(aiSettingsLib, "resolveAttemptAiEnv").mockImplementation(async (_db, env) => env);
     vi.spyOn(openaiLib, "enforceModelConfirmation").mockImplementation(() => {});
     vi.spyOn(openaiLib, "openaiClient").mockReturnValue({} as never);
     vi.spyOn(dbLib, "requireAttempt").mockResolvedValue({ attempt: { id: "attempt", status: "draft" }, assessment: { type: "voice_realtime", prompt: "Explain", rubric: [], config: {} } } as never);

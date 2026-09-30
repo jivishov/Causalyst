@@ -1,5 +1,7 @@
 import type { Env } from "./env";
 import { HttpError } from "./http";
+import { resolveAttemptAiEnv } from "./aiSettings";
+import { serviceSupabase } from "./supabase";
 
 interface AudioTurn { id: string; sequence: number; text: string | null }
 export const MAX_EVIDENCE_TEXT_BYTES = 64 * 1024;
@@ -88,12 +90,14 @@ export class RealtimeEvidence {
   private socket: WebSocket | null = null;
   private evidence: EvidenceState | null = null;
   private callId: string | null = null;
+  private attemptId: string | null = null;
   private sealing: Promise<Response> | null = null;
   private writes: Promise<void> = Promise.resolve();
   constructor(private ctx: DurableObjectState, private env: Env) {
     ctx.blockConcurrencyWhile(async () => {
       this.evidence = await ctx.storage.get<EvidenceState>("evidence") ?? null;
       this.callId = await ctx.storage.get<string>("callId") ?? null;
+      this.attemptId = await ctx.storage.get<string>("attemptId") ?? null;
       // An interrupted transport cannot be reconstructed from browser telemetry.
       if (this.evidence && !this.evidence.sealed) this.evidence.failed = true;
     });
@@ -101,7 +105,7 @@ export class RealtimeEvidence {
   async fetch(request: Request): Promise<Response> {
     try {
       const action = new URL(request.url).pathname;
-      if (action === "/start") return await this.start(await request.json() as { callId: string; deadline: number });
+      if (action === "/start") return await this.start(await request.json() as { callId: string; deadline: number; attemptId?: string });
       if (action === "/seal") {
         if (!this.sealing) this.sealing = this.seal().finally(() => { this.sealing = null; });
         return (await this.sealing).clone();
@@ -111,18 +115,19 @@ export class RealtimeEvidence {
       return Response.json({ error: error instanceof HttpError ? error.message : "Live evidence collection failed" }, { status: error instanceof HttpError ? error.status : 502 });
     }
   }
-  private async start(input: { callId: string; deadline: number }): Promise<Response> {
+  private async start(input: { callId: string; deadline: number; attemptId?: string }): Promise<Response> {
     if (this.evidence) throw new HttpError(409, "Evidence session already exists");
     if (!/^rtc_[\w-]+$/.test(input.callId) || !Number.isFinite(input.deadline) || input.deadline <= Date.now() || input.deadline > Date.now() + 1800_000) {
       throw new HttpError(400, "Invalid evidence session");
     }
     this.callId = input.callId;
+    this.attemptId = input.attemptId ?? null;
     this.evidence = { deadline: input.deadline, turns: [], failed: false, sealed: false };
-    await this.ctx.storage.put({ evidence: this.evidence, callId: this.callId });
+    await this.ctx.storage.put({ evidence: this.evidence, callId: this.callId, attemptId: this.attemptId });
     // Even an unsuccessful sideband attachment must leave a cleanup alarm.
     await this.ctx.storage.setAlarm(input.deadline);
     const response = await fetch(`https://api.openai.com/v1/realtime?call_id=${encodeURIComponent(input.callId)}`, {
-      headers: { Upgrade: "websocket", Authorization: `Bearer ${this.env.OPENAI_API_KEY}` },
+      headers: { Upgrade: "websocket", Authorization: `Bearer ${await this.providerKey()}` },
       signal: AbortSignal.timeout(10_000)
     });
     if (!response.webSocket) throw new HttpError(502, "Could not attach authoritative voice evidence");
@@ -174,7 +179,7 @@ export class RealtimeEvidence {
   private async hangup(): Promise<void> {
     if (this.callId) {
       const response = await fetch(`https://api.openai.com/v1/realtime/calls/${encodeURIComponent(this.callId)}/hangup`, {
-        method: "POST", headers: { Authorization: `Bearer ${this.env.OPENAI_API_KEY}` }, signal: AbortSignal.timeout(10_000)
+        method: "POST", headers: { Authorization: `Bearer ${await this.providerKey()}` }, signal: AbortSignal.timeout(10_000)
       });
       if (!response.ok && response.status !== 404) throw new HttpError(502, "Could not close provider call");
       await this.ctx.storage.delete("callId");
@@ -182,6 +187,10 @@ export class RealtimeEvidence {
     }
     this.socket?.close();
     this.socket = null;
+  }
+  private async providerKey(): Promise<string> {
+    if (!this.attemptId) return this.env.OPENAI_API_KEY;
+    return (await resolveAttemptAiEnv(serviceSupabase(this.env), this.env, this.attemptId)).OPENAI_API_KEY;
   }
   async alarm(): Promise<void> {
     if (!this.evidence && !this.callId) return;

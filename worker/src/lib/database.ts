@@ -5,7 +5,8 @@ import type { Database as GeneratedDatabase, Json } from "./database.generated";
 // the immutable snapshot. Callers must let that trigger choose the version.
 type Attempts = GeneratedDatabase["public"]["Tables"]["attempts"];
 export type Database = Omit<GeneratedDatabase, "public"> & {
-  public: Omit<GeneratedDatabase["public"], "Tables"> & {
+  public: Omit<GeneratedDatabase["public"], "Tables" | "Functions"> & {
+    Functions: Omit<GeneratedDatabase["public"]["Functions"], keyof import("./aiSettings").AiSettingsFunctions> & import("./aiSettings").AiSettingsFunctions;
     Tables: Omit<GeneratedDatabase["public"]["Tables"], "attempts"> & {
       attempts: Omit<Attempts, "Insert"> & {
         Insert: Omit<Attempts["Insert"], "assessment_version_id"> & { assessment_version_id?: never };

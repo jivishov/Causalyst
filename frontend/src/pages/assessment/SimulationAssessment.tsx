@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Send } from "lucide-react";
 import { DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
-  assessSimulationDescriptionReadiness, getSimulationCodeModelLabel, getSimulationCodeModelProvider, type AssessmentSummary,
+  assessSimulationDescriptionReadiness, type AssessmentSummary,
   type SimulationHtmlReasoningEffort, type StudentSimulationGenerationJob, type StudentSimulationPreview } from "@alt-assessment/shared";
 import { RubricFeedback } from "../../components/RubricFeedback";
 import { SimulationPreviewFrame, type SimulationPreviewHealthReport } from "../../components/SimulationPreviewFrame";
@@ -601,12 +601,8 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
             </section>
             <RubricFeedback feedback={null} rubric={assessment.rubric} />
             <div className="simulation-html-options">
-              <div>
-                <p id="html-reasoning-effort" className="overall-comment">
-                  HTML reasoning: {getSimulationCodeModelProvider(assessment.config.simulationCodeModelId) === "openai" ? "Max" : "Provider default"}
-                </p>
-              </div>
-              <p className="overall-comment">Model: {getSimulationCodeModelLabel(assessment.config.simulationCodeModelId)}</p>
+              <p id="html-reasoning-effort" className="overall-comment">OpenAI reasoning: Max. Other providers use their defaults.</p>
+              <p className="overall-comment">Model: {htmlModelUsed || "Assigned by your teacher"}</p>
             </div>
             <button
               className="primary-button simulation-submit"

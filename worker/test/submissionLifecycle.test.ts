@@ -1,3 +1,4 @@
+import * as aiSettingsLib from "../src/lib/aiSettings";
 import * as budgetLib from "../src/lib/aiBudget";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as attemptLifecycleLib from "../src/lib/attemptLifecycle";
@@ -11,6 +12,7 @@ import { gradeWritingAttempt } from "../src/routes/writing";
 describe("submission lifecycle routing", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(aiSettingsLib, "resolveAttemptAiEnv").mockImplementation(async (_db, env) => env);
     vi.spyOn(budgetLib, "reserveAiBudget").mockResolvedValue();
   });
 

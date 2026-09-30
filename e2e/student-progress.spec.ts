@@ -37,7 +37,7 @@ test("restored simulation work shows progress, renders completed HTML and signal
   await page.setViewportSize({ width: 1366, height: 768 });
   const { assessment, assignment } = await studentFixture(page, "simulation");
   const result = savedResult(assessment);
-  await page.route("**/api/attempts/attempt", route => route.fulfill({ headers, json: result }));
+  await page.route("**/api/attempts/attempt/result", route => route.fulfill({ headers, json: result }));
   let phase = "in_progress";
   await page.route("**/api/simulation/jobs/job", route => route.fulfill({ headers, json: { ...job, status: phase, ...(phase === "completed" ? { preview } : {}) } }));
   await page.route("**/api/artifacts/html/preview?**", route => route.fulfill({ headers, contentType: "text/html", body: '<!doctype html><html><body><h1>Container movement</h1><button id="step">Step forward</button><script>(function () { document.getElementById("step").addEventListener("click", function () { this.textContent = "Advanced"; }); })();</script></body></html>' }));
@@ -96,7 +96,7 @@ test("failed submission preserves the editor and result loading can be retried w
     await route.fulfill({ headers, status: submissions === 1 ? 502 : 200, json: submissions === 1 ? { error: "Submission temporarily unavailable. Your work is saved." } : { attemptId: "attempt" } });
   });
   let resultLoads = 0;
-  await page.route("**/api/attempts/attempt", async route => {
+  await page.route("**/api/attempts/attempt/result", async route => {
     resultLoads++;
     await route.fulfill({ headers, status: resultLoads === 1 ? 503 : 200, json: resultLoads === 1 ? { error: "Result temporarily unavailable" } : result });
   });

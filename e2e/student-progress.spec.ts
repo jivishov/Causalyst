@@ -75,7 +75,7 @@ test("restored simulation work shows progress, renders completed HTML and signal
   await page.reload();
   await expect(page.getByText(result.simulationDescription!, { exact: true })).toBeVisible();
   await expect(page.frameLocator('iframe[title="Recovered simulation preview"]').getByRole("heading", { name: "Container movement" })).toBeVisible();
-  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await page.locator("#student-content").getByRole("link", { name: "Dashboard", exact: true }).click();
   await expect(page.getByRole("link", { name: "View submission" })).toHaveAttribute("href", "/Causalyst/attempt/attempt");
   let newStarts = 0;
   page.on("request", request => { if (request.url().endsWith("/api/attempts/start")) newStarts++; });
@@ -96,9 +96,10 @@ test("failed submission preserves the editor and result loading can be retried w
     await route.fulfill({ headers, status: submissions === 1 ? 502 : 200, json: submissions === 1 ? { error: "Submission temporarily unavailable. Your work is saved." } : { attemptId: "attempt" } });
   });
   let resultLoads = 0;
+  let resultUnavailable = true;
   await page.route("**/api/attempts/attempt/result", async route => {
     resultLoads++;
-    await route.fulfill({ headers, status: resultLoads === 1 ? 503 : 200, json: resultLoads === 1 ? { error: "Result temporarily unavailable" } : result });
+    await route.fulfill({ headers, status: resultUnavailable ? 503 : 200, json: resultUnavailable ? { error: "Result temporarily unavailable" } : result });
   });
   await page.goto("./assignment/assignment");
   const editor = page.frameLocator('iframe[title="Safe simulation preview"]');
@@ -111,13 +112,16 @@ test("failed submission preserves the editor and result loading can be retried w
   await expect(page.getByRole("img", { name: "Generated simulation sketch" })).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await page.getByRole("button", { name: "Submit Simulation", exact: true }).click();
+  await expect(page.getByText("Result temporarily unavailable", { exact: true })).toBeVisible();
+  const failedResultLoads = resultLoads;
+  resultUnavailable = false;
   await page.getByRole("button", { name: "Retry loading submission" }).click();
   await expect(page.getByText(result.simulationDescription!, { exact: true })).toBeVisible();
   await expect(page.frameLocator('iframe[title="Recovered simulation preview"]').getByRole("heading", { name: "Matter in three containers" })).toBeVisible();
-  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await page.locator("#student-content").getByRole("link", { name: "Dashboard", exact: true }).click();
   await expect(page.getByRole("link", { name: "View submission" })).toBeVisible();
   expect(submissions).toBe(2);
-  expect(resultLoads).toBe(2);
+  expect(resultLoads).toBe(failedResultLoads + 1);
 });
 
 test("a failed preview finalization stops the progress indicator and enables retry", async ({ page }) => {

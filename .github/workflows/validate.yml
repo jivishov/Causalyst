@@ -46,6 +46,9 @@ jobs:
   supabase:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # Avoid shared-runner download quotas on Supabase's public ECR mirror.
+      SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

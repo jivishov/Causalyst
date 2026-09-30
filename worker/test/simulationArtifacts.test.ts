@@ -494,7 +494,7 @@ describe("simulation artifact flow", () => {
       id: "resp-secret",
       status: "completed",
       model: "gpt-5.5-2026-03-17",
-      output_text: "<!doctype html><html><body>done</body></html>"
+      output_text: '<!doctype html><html><body><button id="step">Step</button><script>document.getElementById("step").addEventListener("click", function () { this.textContent = "Advanced"; });</script></body></html>'
     });
     vi.spyOn(cryptoLib, "signPreviewToken").mockResolvedValue("preview-token");
     vi.spyOn(dbLib, "logAudit").mockResolvedValue();
@@ -2485,6 +2485,7 @@ describe("generation failure recovery", () => {
     const db = { from() { return simulationJobStateTable(row); } };
     await expect(getSimulationGenerationJob(new Request("https://worker.test"), {} as never, db as never, "student", "job-invalid")).rejects.toMatchObject({ status: 502 });
     expect(row.status).toBe("failed");
+    expect(row).toMatchObject({ error_message: "Simulation HTML used forbidden external URL" });
     expect((await getSimulationGenerationJob(new Request("https://worker.test"), {} as never, db as never, "student", "job-invalid")).status).toBe("failed");
     expect(retrieve).toHaveBeenCalledTimes(1);
   });

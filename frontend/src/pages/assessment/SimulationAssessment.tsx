@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send } from "lucide-react";
+import { LoaderCircle, Send } from "lucide-react";
 import { DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
   assessSimulationDescriptionReadiness, type AssessmentSummary,
   type SimulationHtmlReasoningEffort, type StudentSimulationGenerationJob, type StudentSimulationPreview } from "@alt-assessment/shared";
 import { RubricFeedback } from "../../components/RubricFeedback";
+import { StudentActionProgress } from "../../components/StudentActionProgress";
 import { SimulationPreviewFrame, type SimulationPreviewHealthReport } from "../../components/SimulationPreviewFrame";
 import { ApiRequestError, cancelSimulationGenerationJob, fallbackSimulationPreview, generateSimulation,
   generateSimulationSketch, getSimulationGenerationJob, getSimulationPreviewUrl, refineSimulation, submitSimulation } from "../../lib/api";
@@ -275,7 +276,23 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
 
       await waitForSimulationJobPoll(resolveSimulationJobPollDelayMs(startedAt));
       if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
-      currentJob = await getSimulationGenerationJob(currentJob.jobId);
+      try {
+        currentJob = await getSimulationGenerationJob(currentJob.jobId);
+      } catch {
+        if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
+        // A failed finalization is persisted before its HTTP error is returned.
+        // Read that terminal state once; this never starts another generation.
+        setHtmlGenerationMessage("Checking the preview response...");
+        try {
+          currentJob = await getSimulationGenerationJob(currentJob.jobId);
+        } catch (error) {
+          if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
+          setHtmlGenerationJob(null);
+          setGenerationStage("done");
+          throw error;
+        }
+      }
+      if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
       setHtmlGenerationJob(currentJob);
       setHtmlGenerationMessage(currentJob.message);
       setCurrentHtmlReasoningEffort(currentJob.htmlReasoningEffort ?? null);
@@ -327,6 +344,13 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
       }).then((job) => {
         if (!job || generationRunTokenRef.current !== runToken) return;
         setGenerationStage(job.status === "completed" ? "done" : initialDraft.simulationPreview || initialDraft.simulationSketchPreview ? "done" : "idle");
+      }).catch((error) => {
+        if (generationRunTokenRef.current !== runToken) return;
+        const message = resolveStudentLifecycleError(error);
+        setHtmlPreviewError(message);
+        setHtmlGenerationMessage(message);
+        setRunError(message);
+        setGenerationStage("done");
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -576,9 +600,20 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
     generationActive
   });
   const canSubmitSimulation = Boolean(sketchArtifactId && htmlArtifactId && htmlPreviewUrl);
+  const progressTitle = cancellingGeneration ? "Cancelling generation"
+    : submittingSimulation ? "Submitting your simulation"
+    : fallbackPreviewRunning ? "Building an alternate preview"
+    : refiningPreview || isActiveSimulationGenerationJob(htmlGenerationJob) && htmlGenerationJob?.operation === "refine" ? "Refining your simulation"
+    : generationStage === "sketch" ? "Generating your sketch"
+    : htmlGenerationJob?.status === "finalizing" ? "Finishing your interactive preview"
+    : generationStage === "html" || isActiveSimulationGenerationJob(htmlGenerationJob) ? "Generating your interactive preview"
+    : htmlPreviewLoading ? "Loading your interactive preview"
+    : sketchPreviewLoading ? "Loading your sketch"
+    : "Preparing your request";
 
   return (
     <div className="simulation-layout">
+      <StudentActionProgress active={actionBusy} title={progressTitle} />
       <details
         className="simulation-input-accordion"
         open={inputPanelOpen}
@@ -609,6 +644,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
             <button
               className="primary-button simulation-submit"
               disabled={readiness.decision === "block" || actionBusy}
+              aria-busy={generationActive}
               type="button"
               onClick={() => onSubmit(async (attemptId) => {
                 const submittedDescription = description;
@@ -683,7 +719,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
                 }
               })}
             >
-              <Send size={18} /> {generateButtonLabel}
+              {generationActive ? <LoaderCircle size={18} className="student-action-spinner" aria-hidden="true" /> : <Send size={18} />} {generateButtonLabel}
             </button>
             {runMessage && (
               <p className={runMessage.kind === "error" ? "field-error" : "status-line"} aria-live="polite">
@@ -705,8 +741,8 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
           <div className="safe-preview-header">
             <h2>Sketch Preview</h2>
             <div className="preview-actions">
-              <button type="button" className="secondary-button" onClick={() => { void requestSketchPreview(); }} disabled={!sketchArtifactId || actionBusy}>
-                Reload Sketch
+              <button type="button" className="secondary-button" onClick={() => { void requestSketchPreview(); }} disabled={!sketchArtifactId || actionBusy} aria-busy={sketchPreviewLoading}>
+                {sketchPreviewLoading && <LoaderCircle size={16} className="student-action-spinner" aria-hidden="true" />} Reload Sketch
               </button>
             </div>
           </div>
@@ -733,8 +769,8 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
           <div className="safe-preview-header">
             <h2>Interactive Preview</h2>
             <div className="preview-actions">
-              <button type="button" className="secondary-button" onClick={() => { void requestHtmlPreview(); }} disabled={!htmlArtifactId || actionBusy}>
-                Reload Safe Preview
+              <button type="button" className="secondary-button" onClick={() => { void requestHtmlPreview(); }} disabled={!htmlArtifactId || actionBusy} aria-busy={htmlPreviewLoading}>
+                {htmlPreviewLoading && <LoaderCircle size={16} className="student-action-spinner" aria-hidden="true" />} Reload Safe Preview
               </button>
               <button
                 type="button"
@@ -744,10 +780,10 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
                 aria-busy={cancellingGeneration}
                 aria-label={cancellingGeneration ? "Cancelling..." : "Cancel generation"}
               >
-                Cancel generation
+                {cancellingGeneration && <LoaderCircle size={16} className="student-action-spinner" aria-hidden="true" />} {cancellingGeneration ? "Cancelling..." : "Cancel generation"}
               </button>
-              <button type="button" className="secondary-button" onClick={() => { void regenerateHtmlPreview(); }} disabled={!canRegenerateHtmlPreview || actionBusy}>
-                Regenerate HTML Preview
+              <button type="button" className="secondary-button" onClick={() => { void regenerateHtmlPreview(); }} disabled={!canRegenerateHtmlPreview || actionBusy} aria-busy={generationStage === "html" && !refiningPreview}>
+                {generationStage === "html" && !refiningPreview && <LoaderCircle size={16} className="student-action-spinner" aria-hidden="true" />} Regenerate HTML Preview
               </button>
               <button
                 type="button"
@@ -757,7 +793,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
                 aria-busy={refiningPreview}
                 aria-label={refiningPreview ? "Refining preview..." : "Refine to Match Sketch"}
               >
-                Refine to Match Sketch
+                {refiningPreview && <LoaderCircle size={16} className="student-action-spinner" aria-hidden="true" />} {refiningPreview ? "Refining preview..." : "Refine to Match Sketch"}
               </button>
               <button
                 type="button"
@@ -767,7 +803,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
                 aria-busy={fallbackPreviewRunning}
                 aria-label={fallbackPreviewRunning ? "Building fallback..." : "Use Structured Fallback"}
               >
-                Use Structured Fallback
+                {fallbackPreviewRunning && <LoaderCircle size={16} className="student-action-spinner" aria-hidden="true" />} {fallbackPreviewRunning ? "Building fallback..." : "Use Structured Fallback"}
               </button>
             </div>
           </div>
@@ -808,8 +844,9 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, onRec
               type="button"
               onClick={() => { void submitFinalSimulation(); }}
               disabled={actionBusy}
+              aria-busy={submittingSimulation}
             >
-              <Send size={18} /> {submittingSimulation ? "Submitting simulation..." : "Submit Simulation"}
+              {submittingSimulation ? <LoaderCircle size={18} className="student-action-spinner" aria-hidden="true" /> : <Send size={18} />} {submittingSimulation ? "Submitting simulation..." : "Submit Simulation"}
             </button>
           </div>
         )}

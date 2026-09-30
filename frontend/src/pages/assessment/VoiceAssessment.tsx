@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send } from "lucide-react";
+import { LoaderCircle, Send } from "lucide-react";
 import type { AssessmentSummary } from "@alt-assessment/shared";
 import { AudioRecorder, type RecordingResult } from "../../components/AudioRecorder";
 import { RubricFeedback } from "../../components/RubricFeedback";
@@ -24,6 +24,7 @@ export function VoiceAssessment({ assessment, disabled, onSubmit }: {
         <button
           className="primary-button submit-button"
           disabled={!recording || disabled}
+          aria-busy={disabled}
           type="button"
           onClick={() => onSubmit(async (attemptId) => {
             if (!recording) return;
@@ -42,7 +43,7 @@ export function VoiceAssessment({ assessment, disabled, onSubmit }: {
             navigate(`/attempt/${attemptId}`);
           })}
         >
-          <Send size={18} /> Submit voice response
+          {disabled ? <LoaderCircle size={18} className="student-action-spinner" aria-hidden="true" /> : <Send size={18} />} {disabled ? "Submitting voice response..." : "Submit voice response"}
         </button>
       </div>
       <RubricFeedback feedback={null} rubric={assessment.rubric} />

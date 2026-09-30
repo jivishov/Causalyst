@@ -1,0 +1,50 @@
+.student-action-progress {
+  position: sticky;
+  top: 12px;
+  z-index: 6;
+  grid-column: 1 / -1;
+  align-self: start;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px 12px;
+  padding: 13px 16px;
+  border: 1px solid #b9cfc5;
+  border-radius: 12px;
+  background: linear-gradient(110deg, #f7fcf8, #edf5ef);
+  color: #244f40;
+  box-shadow: 0 8px 24px #213f2f12;
+}
+
+.student-action-progress-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #dcece1;
+  color: #2e6b51;
+}
+
+.student-action-spinner { flex-shrink: 0; animation: student-action-spin 1.1s linear infinite; }
+.student-action-progress-copy { min-width: 0; }
+.student-action-progress-copy strong { display: block; font-size: .92rem; font-weight: 650; line-height: 1.4; }
+.student-action-progress-copy p { margin: 3px 0 0; color: #526c60; font-size: .8rem; line-height: 1.45; }
+.student-action-progress-badge { padding: 4px 8px; border: 1px solid #c5dacc; border-radius: 999px; font-size: .7rem; font-weight: 600; background: #ffffff9c; }
+.student-action-progress-track { grid-column: 2 / -1; height: 3px; overflow: hidden; border-radius: 999px; background: #d8e6dc; }
+.student-action-progress-track > span { display: block; width: 38%; height: 100%; border-radius: inherit; background: #397c5e; animation: student-action-travel 1.8s ease-in-out infinite; }
+
+@keyframes student-action-spin { to { transform: rotate(360deg); } }
+@keyframes student-action-travel { from { transform: translateX(-110%); } to { transform: translateX(365%); } }
+
+@media (max-width: 560px) {
+  .student-action-progress { top: 8px; gap: 8px 10px; padding: 12px; grid-template-columns: 32px minmax(0, 1fr); }
+  .student-action-progress-icon { width: 32px; height: 32px; }
+  .student-action-progress-badge { display: none; }
+  .student-action-progress-copy strong { font-size: .86rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-action-spinner,
+  .student-action-progress-track > span { animation: none; }
+}

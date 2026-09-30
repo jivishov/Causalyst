@@ -9,6 +9,7 @@ import { VoiceAssessment } from "./assessment/VoiceAssessment";
 import { RealtimeVoiceAssessment } from "./assessment/RealtimeVoiceAssessment";
 import { WritingAssessment } from "./assessment/WritingAssessment";
 import { SimulationAssessment, type SimulationDraftState } from "./assessment/SimulationAssessment";
+import { StudentActionProgress } from "../components/StudentActionProgress";
 
 export function AssessmentPage() {
   const { assignmentId } = useParams();
@@ -107,7 +108,10 @@ export function AssessmentPage() {
         </div>
       </header>
       {error && <p className="field-error">{error}</p>}
-      {activeAssessment.type !== "simulation" && working && <p className="status-line">Processing your submission</p>}
+      <StudentActionProgress
+        active={working && (activeAssessment.type === "writing" || activeAssessment.type === "voice")}
+        title={activeAssessment.type === "writing" ? "Submitting your written work" : "Submitting your voice response"}
+      />
       {activeAssessment.type === "voice" && (
           <VoiceAssessment assessment={activeAssessment} disabled={working} onSubmit={(task) => runSubmission(task)} />
       )}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send } from "lucide-react";
+import { LoaderCircle, Send } from "lucide-react";
 import type { AssessmentSummary } from "@alt-assessment/shared";
 import { PdfImageUploader } from "../../components/PdfImageUploader";
 import { RubricFeedback } from "../../components/RubricFeedback";
@@ -24,6 +24,7 @@ export function WritingAssessment({ assessment, disabled, onSubmit }: {
         <button
           className="primary-button submit-button"
           disabled={!file || disabled}
+          aria-busy={disabled}
           type="button"
           onClick={() => onSubmit(async (attemptId) => {
             if (!file) return;
@@ -39,7 +40,7 @@ export function WritingAssessment({ assessment, disabled, onSubmit }: {
             navigate(`/attempt/${attemptId}`);
           })}
         >
-          <Send size={18} /> Submit written work
+          {disabled ? <LoaderCircle size={18} className="student-action-spinner" aria-hidden="true" /> : <Send size={18} />} {disabled ? "Submitting written work..." : "Submit written work"}
         </button>
       </div>
       <RubricFeedback feedback={null} rubric={assessment.rubric} />

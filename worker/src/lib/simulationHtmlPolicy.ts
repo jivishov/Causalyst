@@ -25,8 +25,6 @@ const FORBIDDEN_GENERATED_HTML_PATTERNS: Array<{ pattern: RegExp; label: string 
   { pattern: /\bcaches\b/i, label: "Cache API" },
   { pattern: /\bdocument\s*\.\s*cookie\b/i, label: "cookies" },
   { pattern: /\beval\s*\(/i, label: "eval" },
-  { pattern: /\bnew\s+Function\b/i, label: "Function constructor" },
-  { pattern: /(^|[^\w.])Function\s*\(/i, label: "Function constructor" },
   { pattern: /\bdocument\s*\.\s*write\s*\(/i, label: "document.write" },
   { pattern: /\b(?:src|href|xlink:href)\s*=\s*["']\s*(?:https?:)?\/\//i, label: "external URL" },
   { pattern: /\burl\s*\(\s*["']?\s*(?:https?:)?\/\//i, label: "external URL" },
@@ -60,6 +58,9 @@ export function validateGeneratedSimulationHtml(html: string): void {
     walkJavaScript(ast, (node) => {
       if (isCrossWindowReference(node, unresolvedWindowReferences)) {
         throw new HttpError(502, "Simulation HTML used forbidden parent window access");
+      }
+      if (isDynamicCodeConstructor(node)) {
+        throw new HttpError(502, "Simulation HTML used forbidden dynamic code execution");
       }
     });
     return source;
@@ -142,6 +143,17 @@ function isCrossWindowReference(node: JavaScriptNode, unresolved: Set<number>): 
   if (node.type === "Identifier") return unresolved.has(node.start);
   if (node.type !== "MemberExpression" || !["parent", "opener", "top"].includes(memberName(node) ?? "")) return false;
   const object = node.object as JavaScriptNode;
+  return object.type === "Identifier" && ["window", "self", "globalThis"].includes(object.name as string);
+}
+
+// JavaScript is case-sensitive: an ordinary function () callback is not the
+// Function constructor. Inspect executable calls instead of matching HTML text.
+function isDynamicCodeConstructor(node: JavaScriptNode): boolean {
+  if (node.type !== "CallExpression" && node.type !== "NewExpression") return false;
+  const callee = node.callee as JavaScriptNode;
+  if (callee.type === "Identifier") return callee.name === "Function";
+  if (memberName(callee) !== "Function") return false;
+  const object = callee.object as JavaScriptNode;
   return object.type === "Identifier" && ["window", "self", "globalThis"].includes(object.name as string);
 }
 

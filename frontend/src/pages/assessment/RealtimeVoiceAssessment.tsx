@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PhoneOff, Radio } from "lucide-react";
+import { LoaderCircle, PhoneOff, Radio } from "lucide-react";
 import type { AssessmentSummary } from "@alt-assessment/shared";
 import { RubricFeedback } from "../../components/RubricFeedback";
+import { StudentActionProgress } from "../../components/StudentActionProgress";
 import { connectRealtimeVoice, finalizeRealtimeVoice, logRealtimeVoiceEvents, type RealtimeVoiceEventPayload } from "../../lib/api";
 import { resolveRealtimeVoiceMaxSessionSec } from "../../lib/uploadPolicy";
 
@@ -204,6 +205,10 @@ export function RealtimeVoiceAssessment({ assessment, disabled, onSubmit }: {
 
   return (
     <div className="workspace-grid">
+      <StudentActionProgress
+        active={disabled || status === "connecting" || status === "finalizing"}
+        title={status === "finalizing" || status === "live" ? "Submitting your live assessment" : "Connecting your live assessment"}
+      />
       <section className="recorder-panel realtime-panel" aria-label="Live voice assessment">
         <div className="recording-meter">
           <span className={status === "live" ? "record-dot active" : "record-dot"} />
@@ -213,13 +218,13 @@ export function RealtimeVoiceAssessment({ assessment, disabled, onSubmit }: {
         <audio ref={audioRef} autoPlay aria-label="Live model audio" />
         <div className="realtime-session-actions">
           {canStart && (
-            <button className="primary-button" type="button" onClick={() => { void beginRealtimeSession(); }} disabled={disabled}>
-              <Radio size={18} /> Start live assessment
+            <button className="primary-button" type="button" onClick={() => { void beginRealtimeSession(); }} disabled={disabled} aria-busy={disabled}>
+              {disabled ? <LoaderCircle size={18} className="student-action-spinner" aria-hidden="true" /> : <Radio size={18} />} {disabled ? "Connecting..." : "Start live assessment"}
             </button>
           )}
           {canEnd && (
-            <button className="danger-button" type="button" onClick={() => { void onSubmit(async () => endRealtimeSession("student_end")); }} disabled={disabled}>
-              <PhoneOff size={18} /> End and submit
+            <button className="danger-button" type="button" onClick={() => { void onSubmit(async () => endRealtimeSession("student_end")); }} disabled={disabled} aria-busy={disabled}>
+              {disabled ? <LoaderCircle size={18} className="student-action-spinner" aria-hidden="true" /> : <PhoneOff size={18} />} {disabled ? "Submitting..." : "End and submit"}
             </button>
           )}
         </div>

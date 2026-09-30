@@ -556,9 +556,10 @@ export async function submitSimulation(request: Request, env: Env, db: AppDataba
 }
 
 
-async function failReservedJob(db: AppDatabaseClient, userId: string, jobId: string): Promise<void> {
+async function failReservedJob(db: AppDatabaseClient, userId: string, jobId: string,
+  message = "Generation did not finish safely. Provider outcome may be unknown; this operation will not be automatically repeated."): Promise<void> {
   const { error } = await db.from("simulation_generation_jobs").update({ status: "failed", completed_at: new Date().toISOString(),
-    error_message: "Generation did not finish safely. Provider outcome may be unknown; this operation will not be automatically repeated." })
+    error_message: message })
     .eq("id", jobId).eq("student_id", userId).in("status", ACTIVE_SIMULATION_JOB_STATUSES);
   if (error) console.error("Could not persist generation failure", { jobId, code: error.code });
 }
@@ -740,7 +741,12 @@ async function completeSimulationGenerationJob(
   logSimulationRouteStage("/api/simulation/jobs/:jobId", finalizing.attempt_id, "html-artifact-stored", Date.now());
   return toStudentSimulationJob(completed, await previewForCompletedSimulationJob(db, env, userId, completed));
   } catch (error) {
-    await failReservedJob(db, userId, job.id);
+    // Validation reasons contain only app-owned labels. Persist that safe reason
+    // so the next poll can display it instead of an unknown-provider failure.
+    const message = error instanceof HttpError && error.message.startsWith("Simulation HTML ")
+      ? error.message
+      : "The model finished, but the preview could not be saved. Your sketch is saved. Please try again.";
+    await failReservedJob(db, userId, job.id, message);
     throw toPublicSimulationGenerationError(error);
   }
 }

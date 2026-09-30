@@ -23,6 +23,8 @@ test("automatic voice completion uses the server deadline and keeps the connecti
   const assignment = { assignmentId: "assignment", assessment, classId: "course", classCode: "TEST", className: "Test course", opensAt: null, dueAt: null, state: "available", lifecycle: "available", dueState: "none", latestAttempt: null, publishedGrade: null, canStart: true };
   let finalizations = 0;
   let connectedAtFinalize = false;
+  let finishFinalization!: () => void;
+  const finalized = new Promise<void>(resolve => { finishFinalization = resolve; });
   await page.route("http://127.0.0.1:8787/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
@@ -33,12 +35,16 @@ test("automatic voice completion uses the server deadline and keeps the connecti
     else if (path === "/api/voice/realtime/finalize") {
       finalizations++;
       connectedAtFinalize = await page.evaluate(() => !(window as any).__peerClosed);
+      await finalized;
       await route.fulfill({ headers, json: { attemptId: "attempt", transcript: "Student: synthetic audio", score: 80, feedback: null } });
     } else await route.fulfill({ headers, json: {} });
   });
   await page.goto("./assignment/assignment");
   await page.getByRole("button", { name: "Start live assessment" }).click();
+  await expect(page.getByRole("progressbar", { name: "Connecting your live assessment" })).toBeVisible();
   await expect.poll(() => finalizations, { timeout: 6500 }).toBe(1);
+  await expect(page.getByRole("progressbar", { name: "Submitting your live assessment" })).toBeVisible();
+  finishFinalization();
   await expect(page).toHaveURL(/\/attempt\/attempt$/);
   expect(connectedAtFinalize).toBe(true);
   expect(finalizations).toBe(1);

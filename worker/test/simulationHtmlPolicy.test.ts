@@ -3,6 +3,22 @@ import { runInNewContext } from "node:vm";
 import { prepareGeneratedSimulationHtml, validateGeneratedSimulationHtml } from "../src/lib/simulationHtmlPolicy";
 
 describe("simulation HTML policy", () => {
+  it("accepts anonymous callbacks and function expressions used by interactive previews", () => {
+    const html = '<!doctype html><html><body><button id="step">Step</button><output id="count">0</output><script>let count = 0; const step = function () { document.getElementById("count").textContent = String(++count); }; document.getElementById("step").addEventListener("click", function () { step(); }); [1, 2].map(function (value) { return value * 2; }); // Function() is not called here\n</script></body></html>';
+    expect(() => validateGeneratedSimulationHtml(html)).not.toThrow();
+    expect(prepareGeneratedSimulationHtml(html)).toContain('addEventListener("click", function ()');
+  });
+
+  it.each([
+    'Function("return 1")()',
+    'new Function("return 1")()',
+    'window.Function("return 1")()',
+    'new globalThis["Function"]("return 1")()',
+    'self.Function?.("return 1")'
+  ])("still rejects dynamic code execution: %s", (code) => {
+    expect(() => prepareGeneratedSimulationHtml(`<!doctype html><html><body><script>${code}</script></body></html>`)).toThrow(/forbidden dynamic code execution/);
+  });
+
   it("keeps DOM helper variables and comments named parent without confusing them with a browser window", () => {
     const html = '<!doctype html><html><body><main id="stage"></main><script>function draw(parent) { parent.appendChild(document.createElement("span")); } draw(document.getElementById("stage")); // window.parent is not used\n</script></body></html>';
     expect(() => validateGeneratedSimulationHtml(html)).not.toThrow();

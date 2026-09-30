@@ -1,0 +1,44 @@
+name: Diagnose Simulation Policy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Inspect completed responses without logging student content or identifiers
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          node --input-type=module - <<'NODE'
+          const db = await fetch(process.env.SUPABASE_URL + '/rest/v1/simulation_generation_jobs?select=provider_response_id&status=eq.failed&provider=eq.openai&provider_status=eq.completed&order=created_at.desc&limit=1', {
+            headers: {apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY}
+          });
+          if (!db.ok) throw new Error('Database diagnostic read failed');
+          const jobs = await db.json();
+          if (!jobs.length || !jobs[0].provider_response_id) throw new Error('No completed failed response to inspect');
+          const result = await fetch('https://api.openai.com/v1/responses/' + encodeURIComponent(jobs[0].provider_response_id), {
+            headers: {Authorization: 'Bearer ' + process.env.OPENAI_API_KEY}
+          });
+          if (!result.ok) throw new Error('Provider diagnostic read failed');
+          const response = await result.json();
+          const html = response.output_text ?? (response.output ?? []).flatMap(x => x.content ?? []).filter(x => x.type === 'output_text').map(x => x.text).join('');
+          console.log(JSON.stringify({
+            providerCompleted: response.status === 'completed',
+            htmlLength: html.length,
+            explicitWindowParent: /\bwindow\s*\.\s*parent\b/i.test(html),
+            bareParentMember: /(^|[^\w.])parent\s*\./i.test(html),
+            localParentDeclaration: /\b(?:const|let|var)\s+parent\b/.test(html),
+            parentIsFunctionParameter: /(?:function\s*[\w$]*\s*\([^)]*\bparent\b|\([^)]*\bparent\b[^)]*\)\s*=>)/.test(html),
+            parentOperations: [...new Set([...html.matchAll(/(?:^|[^\w.])(?:window\s*\.\s*)?parent\s*\.\s*(appendChild|removeChild|insertBefore|querySelector|postMessage|document|location|innerWidth|innerHeight|addEventListener|getBoundingClientRect)\b/g)].map(x => x[1]))],
+            parentMentionInHtmlComment: /<!--[\s\S]*?\bparent\s*\.[\s\S]*?-->/.test(html),
+            parentMentionInJsComment: /(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/)\s*window\s*\.\s*parent/.test(html)
+          }, null, 2));
+          NODE

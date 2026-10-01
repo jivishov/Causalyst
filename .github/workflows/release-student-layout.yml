@@ -1,0 +1,50 @@
+name: Release compact student layout
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-student-layout.yml]
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: student-layout-release
+  cancel-in-progress: false
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify the reviewed frontend and deployed backend
+        env:
+          REVIEWED_SHA: ef5bf16dfa3579937f935b2602f84091f4d1d928
+          BACKEND_SHA: e78fdb745d24242a291ad3f33317a836e37afdbb
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = ".github/workflows/release-student-layout.yml"
+          git diff --quiet "$BACKEND_SHA" "$REVIEWED_SHA" -- worker shared supabase package.json package-lock.json scripts .github/workflows/deploy-frontend.yml
+      - name: Verify successful validation and production backend release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36802795398 });
+            const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36794623155 });
+            for (const [run, sha] of [
+              [checked.data, "ef5bf16dfa3579937f935b2602f84091f4d1d928"],
+              [deployed.data, "e78fdb745d24242a291ad3f33317a836e37afdbb"]
+            ]) {
+              if (run.head_sha !== sha || run.status !== "completed" || run.conclusion !== "success") {
+                throw new Error("The reviewed checks or deployed backend do not match this release.");
+              }
+            }
+
+  deploy-frontend:
+    needs: release-gate
+    uses: ./.github/workflows/deploy-frontend.yml

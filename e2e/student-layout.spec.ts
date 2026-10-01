@@ -59,6 +59,20 @@ test("compact student pages preserve assignment information and instructions", a
       await page.goto(`./assignment/${id}`);
       const instructions = page.getByLabel("Assignment instructions", { exact: true });
       await expect(instructions.locator("li")).toHaveCount(3);
+      // Instructions must use the available width instead of a character cap
+      // or narrow columns that wrap sentences while leaving room on the right.
+      const textLayout = await instructions.evaluate(element => {
+        const width = element.getBoundingClientRect().width;
+        return { width, paragraphs: [...element.querySelectorAll("p")].map(p => ({
+          width: p.getBoundingClientRect().width,
+          whiteSpace: getComputedStyle(p).whiteSpace
+        })), items: [...element.querySelectorAll("li")].map(li => li.getBoundingClientRect().width) };
+      });
+      for (const p of textLayout.paragraphs) {
+        expect(p.width).toBeGreaterThanOrEqual(textLayout.width - 1);
+        expect(p.whiteSpace).toBe("normal");
+      }
+      for (const itemWidth of textLayout.items) expect(itemWidth).toBeGreaterThanOrEqual(textLayout.width - 24);
       await expect(page.locator(".assessment-course-context")).toHaveText("APCHEM-2627 · AP CHEMISTRY");
       if (id === "simulation") {
         await expect(instructions).toContainText("1s, 2s, 2p");

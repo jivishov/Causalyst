@@ -39,21 +39,22 @@
 .app-shell.account-workspace .student-assessment-page { gap: 10px; }
 .app-shell.account-workspace .student-assessment-page > .text-button { justify-self: start; min-height: 28px; font-size: .85rem; font-weight: 600; }
 .app-shell.account-workspace .student-assessment-page .assessment-header { padding-bottom: 12px; }
+.app-shell.account-workspace .student-assessment-page .assessment-header > div { width: 100%; max-width: none; }
+.app-shell.account-workspace .student-assessment-page .assessment-header p { max-width: none; }
 .app-shell.account-workspace .student-assessment-page .assessment-title-row { align-items: baseline; gap: 6px 10px; }
 .app-shell.account-workspace .student-assessment-page h1 { font-size: 1.4rem; line-height: 1.25; }
 .app-shell.account-workspace .student-assessment-page .mode-label { min-height: 24px; padding: 3px 7px; font-size: .66rem; }
 .app-shell.account-workspace .student-assessment-page .assessment-course-context { margin: 4px 0 0; font-size: .78rem; line-height: 1.4; }
-.app-shell.account-workspace .assignment-prompt { display: grid; gap: 7px; margin-top: 10px; color: #455e53; font-size: .875rem; line-height: 1.5; overflow-wrap: anywhere; }
-.app-shell.account-workspace .assignment-prompt p { max-width: 100ch; margin: 0; color: inherit; font-size: inherit; line-height: inherit; white-space: pre-line; }
+.app-shell.account-workspace .assignment-prompt { display: grid; width: 100%; max-width: none; gap: 7px; margin-top: 10px; color: #455e53; font-size: .875rem; line-height: 1.5; word-break: normal; overflow-wrap: break-word; }
+.app-shell.account-workspace .assignment-prompt p { width: 100%; max-width: none; margin: 0; color: inherit; font-size: inherit; line-height: inherit; white-space: normal; }
 .app-shell.account-workspace .assignment-prompt strong { color: var(--ink); font-weight: 650; }
-.app-shell.account-workspace .assignment-prompt-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 26px; margin: 0; padding: 0 0 0 21px; }
-.app-shell.account-workspace .assignment-prompt-list li { min-width: 0; padding-left: 2px; white-space: pre-line; }
+.app-shell.account-workspace .assignment-prompt-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; margin: 0; padding: 0 0 0 21px; }
+.app-shell.account-workspace .assignment-prompt-list li { min-width: 0; padding-left: 2px; white-space: normal; }
 .app-shell.account-workspace .assignment-prompt-list li::marker { color: var(--accent); font-weight: 650; }
 .app-shell.account-workspace .assignment-prompt .assignment-prompt-note { max-width: none; padding: 8px 11px; border-left: 3px solid #83a691; border-radius: 0 6px 6px 0; background: #eaf3ed; }
 @media (max-width: 1100px) {
   .app-shell.account-workspace .student-dashboard-title-row { display: block; }
   .app-shell.account-workspace .student-dashboard-header .workspace-eyebrow { margin-top: 2px; }
-  .app-shell.account-workspace .assignment-prompt-list { grid-template-columns: minmax(0, 1fr); gap: 5px; }
 }
 @media (max-width: 760px) {
   .app-shell.account-workspace .content-shell { padding-top: 14px; }

@@ -1,0 +1,70 @@
+/* Compact student surfaces. Scope both shell classes to leave teacher pages alone. */
+.app-shell.account-workspace .content-shell { padding-top: 13px; }
+.app-shell.account-workspace .student-dashboard { gap: 12px; }
+.app-shell.account-workspace .student-dashboard-header { gap: 12px; padding-bottom: 6px; }
+.app-shell.account-workspace .student-dashboard-title-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 14px; }
+.app-shell.account-workspace .student-dashboard-header h1 { font-size: 1.45rem; line-height: 1.2; }
+.app-shell.account-workspace .student-dashboard-header .workspace-eyebrow { margin: 0; font-size: .71rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.app-shell.account-workspace .student-dashboard-header p { margin-top: 2px; font-size: .83rem; line-height: 1.35; }
+.app-shell.account-workspace .student-dashboard-header .secondary-button { min-height: 34px; padding: 7px 11px; white-space: nowrap; }
+.app-shell.account-workspace .assignment-toolbar { gap: 8px 12px; }
+.app-shell.account-workspace .assignment-filters { gap: 3px; padding: 3px; border: 1px solid #d5dfd5; border-radius: 10px; background: #eaf0e8; }
+.app-shell.account-workspace .assignment-filters button { min-height: 32px; gap: 7px; padding: 5px 11px; border-radius: 7px; font-size: .78rem; line-height: 1.25; }
+.app-shell.account-workspace .assignment-filters button[aria-pressed=true] { color: #fff; border-color: var(--accent-strong); background: var(--accent-strong); box-shadow: 0 1px 3px #193d3314; }
+.app-shell.account-workspace .assignment-filters button:hover:not([aria-pressed=true]) { color: var(--accent-strong); background: #fff9; }
+.app-shell.account-workspace .assignment-filters button span { min-width: 20px; padding: 2px 5px; color: #54695c; background: #fff9; border-radius: 4px; text-align: center; }
+.app-shell.account-workspace .assignment-filters button[aria-pressed=true] span { color: #fff; background: #ffffff26; }
+.app-shell.account-workspace .workspace-search { width: 220px; border-radius: 8px; }
+.app-shell.account-workspace .workspace-search input { min-height: 34px; padding: 6px 0; }
+.app-shell.account-workspace .workspace-search:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+.app-shell.account-workspace .workspace-search input:focus-visible { outline: none; }
+.app-shell.account-workspace .student-course-header { gap: 8px; padding-bottom: 8px; }
+.app-shell.account-workspace .student-course-header .course-assignment-count { display: inline; }
+.app-shell.account-workspace .student-assignment-grid { align-items: start; gap: 10px 12px; }
+.app-shell.account-workspace .student-assignment-card { min-height: 0; height: 100%; grid-template-rows: auto 1fr auto; gap: 9px; padding: 13px 15px; border-radius: 9px; box-shadow: none; }
+.app-shell.account-workspace .student-assignment-card:hover { border-color: #abc2ac; box-shadow: none; }
+.app-shell.account-workspace .student-assignment-card-header { grid-template-columns: 32px minmax(0, 1fr); gap: 9px; }
+.app-shell.account-workspace .student-assignment-card-header h3 { margin-top: 2px; font-size: .94rem; line-height: 1.3; }
+.app-shell.account-workspace .student-assignment-card .type-icon { width: 32px; height: 32px; border-radius: 8px; }
+.app-shell.account-workspace .student-assignment-card .type-icon svg { width: 18px; height: 18px; }
+.app-shell.account-workspace .student-assignment-prompt-block { align-content: start; gap: 2px; }
+.app-shell.account-workspace .student-assignment-prompt { font-size: .83rem; line-height: 1.5; }
+.app-shell.account-workspace .student-assignment-prompt.is-collapsed { max-height: 3em; }
+.app-shell.account-workspace .assignment-details-toggle { min-height: 24px; font-weight: 600; }
+.app-shell.account-workspace .student-assignment-card-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 10px; padding-top: 9px; }
+.app-shell.account-workspace .student-assignment-meta { flex: 1 1 175px; gap: 4px 8px; }
+.app-shell.account-workspace .student-assignment-card .status-row { flex-basis: auto; }
+.app-shell.account-workspace .student-assignment-card .card-action { margin-left: auto; min-height: 32px; padding: 6px 9px; }
+.app-shell.account-workspace .student-assignment-card .card-action-disabled { margin-left: auto; font-size: .76rem; }
+.app-shell.account-workspace .student-assessment-page { gap: 10px; }
+.app-shell.account-workspace .student-assessment-page > .text-button { justify-self: start; min-height: 28px; font-size: .85rem; font-weight: 600; }
+.app-shell.account-workspace .student-assessment-page .assessment-header { padding-bottom: 12px; }
+.app-shell.account-workspace .student-assessment-page .assessment-title-row { align-items: baseline; gap: 6px 10px; }
+.app-shell.account-workspace .student-assessment-page h1 { font-size: 1.4rem; line-height: 1.25; }
+.app-shell.account-workspace .student-assessment-page .mode-label { min-height: 24px; padding: 3px 7px; font-size: .66rem; }
+.app-shell.account-workspace .student-assessment-page .assessment-course-context { margin: 4px 0 0; font-size: .78rem; line-height: 1.4; }
+.app-shell.account-workspace .assignment-prompt { display: grid; gap: 7px; margin-top: 10px; color: #455e53; font-size: .875rem; line-height: 1.5; overflow-wrap: anywhere; }
+.app-shell.account-workspace .assignment-prompt p { max-width: 100ch; margin: 0; color: inherit; font-size: inherit; line-height: inherit; white-space: pre-line; }
+.app-shell.account-workspace .assignment-prompt strong { color: var(--ink); font-weight: 650; }
+.app-shell.account-workspace .assignment-prompt-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 26px; margin: 0; padding: 0 0 0 21px; }
+.app-shell.account-workspace .assignment-prompt-list li { min-width: 0; padding-left: 2px; white-space: pre-line; }
+.app-shell.account-workspace .assignment-prompt-list li::marker { color: var(--accent); font-weight: 650; }
+.app-shell.account-workspace .assignment-prompt .assignment-prompt-note { max-width: none; padding: 8px 11px; border-left: 3px solid #83a691; border-radius: 0 6px 6px 0; background: #eaf3ed; }
+@media (max-width: 1100px) {
+  .app-shell.account-workspace .student-dashboard-title-row { display: block; }
+  .app-shell.account-workspace .student-dashboard-header .workspace-eyebrow { margin-top: 2px; }
+  .app-shell.account-workspace .assignment-prompt-list { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+}
+@media (max-width: 760px) {
+  .app-shell.account-workspace .content-shell { padding-top: 14px; }
+  .app-shell.account-workspace .student-dashboard-header { flex-direction: row; align-items: center; gap: 8px; }
+  .app-shell.account-workspace .student-dashboard-header h1 { font-size: 1.3rem; }
+  .app-shell.account-workspace .student-dashboard-header .secondary-button { font-size: .74rem; }
+  .app-shell.account-workspace .assignment-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .app-shell.account-workspace .assignment-filters { width: fit-content; max-width: 100%; flex-wrap: wrap; }
+  .app-shell.account-workspace .assignment-filters button { padding: 5px 7px; gap: 5px; font-size: .73rem; }
+  .app-shell.account-workspace .workspace-search { width: 100%; }
+  .app-shell.account-workspace .student-assignment-card { padding: 12px; }
+  .app-shell.account-workspace .student-assessment-page h1 { font-size: 1.25rem; }
+  .app-shell.account-workspace .assignment-prompt { font-size: .875rem; }
+}

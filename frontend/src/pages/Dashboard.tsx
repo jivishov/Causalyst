@@ -55,9 +55,11 @@ export function Dashboard() {
   return (
     <div className="page-stack student-dashboard">
       <header className="student-dashboard-header">
-        <div>
-          <span className="workspace-eyebrow">Your learning workspace</span>
-          <h1>Assigned assessments</h1>
+        <div className="student-dashboard-heading">
+          <div className="student-dashboard-title-row">
+            <h1>Assigned assessments</h1>
+            <span className="workspace-eyebrow">Your learning workspace</span>
+          </div>
           <p>Pick up where you left off, or start something new.</p>
         </div>
         <Link className="secondary-button" to="/login">Join another course</Link>

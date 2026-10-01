@@ -10,6 +10,7 @@ import { RealtimeVoiceAssessment } from "./assessment/RealtimeVoiceAssessment";
 import { WritingAssessment } from "./assessment/WritingAssessment";
 import { SimulationAssessment, type SimulationDraftState } from "./assessment/SimulationAssessment";
 import { StudentActionProgress } from "../components/StudentActionProgress";
+import { AssignmentPrompt } from "../components/AssignmentPrompt";
 
 export function AssessmentPage() {
   const { assignmentId } = useParams();
@@ -96,7 +97,7 @@ export function AssessmentPage() {
   }
 
   return (
-    <div className="page-stack">
+    <div className="page-stack student-assessment-page">
       <button className="text-button" type="button" onClick={() => navigate("/")}>
         <ArrowLeft size={17} /> Dashboard
       </button>
@@ -106,8 +107,8 @@ export function AssessmentPage() {
             <span className={`mode-label ${activeAssessment.type}`}>{formatAssessmentTypeLabel(activeAssessment.type)}</span>
             <h1>{activeAssessment.title}</h1>
           </div>
-          <p>{activeAssignment.classCode} · {activeAssignment.className}</p>
-          <p>{activeAssessment.prompt}</p>
+          <p className="assessment-course-context">{activeAssignment.classCode} · {activeAssignment.className}</p>
+          <AssignmentPrompt text={activeAssessment.prompt} />
         </div>
       </header>
       {error && <p className="field-error">{error}</p>}

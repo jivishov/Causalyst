@@ -14,6 +14,17 @@ export function reasoningEffortsForModel(modelId: string): readonly AiReasoningE
 }
 export const AI_MODEL_CAPABILITIES = ["text", "transcription", "image", "realtime"] as const;
 export type AiModelCapability = typeof AI_MODEL_CAPABILITIES[number];
+// Task APIs implemented by this app, rather than all tools a model can call.
+// Custom OpenAI IDs remain configurable; their provider compatibility must be checked.
+export function modelCapabilitiesForModel(provider: AiProvider, modelId: string): readonly AiModelCapability[] {
+  if (provider !== "openai") return ["text"];
+  const id = modelId.trim();
+  if (/^(?:gpt-image(?:-|$)|dall-e(?:-|$))/.test(id)) return ["image"];
+  if (/^(?:whisper-1(?:-|$)|gpt-.*-transcribe(?:-|$))/.test(id)) return ["transcription"];
+  if (/^(?:gpt-realtime(?:-|$)|gpt-4o(?:-mini)?-realtime(?:-|$))/.test(id)) return ["realtime"];
+  if (/^(?:gpt-[3-6](?:[.-]|o(?:-|$)|$)|o[134](?:-|$))/.test(id)) return ["text"];
+  return AI_MODEL_CAPABILITIES;
+}
 export function modelCapabilityForRole(role: AiModelRole): AiModelCapability {
   return role === "transcription" ? "transcription" : role === "simulationSketchImage" ? "image" : role === "realtimeVoice" ? "realtime" : "text";
 }

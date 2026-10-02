@@ -8,6 +8,15 @@ The test does not establish image, file, transcription, or Realtime permissions.
 
 Teachers can add, edit, and remove models in the OpenAI, Kimi/Moonshot, and Z.AI
 provider lists. Each model has an exact provider ID, display name, and capability.
+The capability dropdown stays active for assigned models. It selects the app's
+task API, not a feature toggle at the provider. Known model families offer only
+compatible task APIs; custom OpenAI IDs can be classified using provider docs.
+Changing an unused model's ID updates its capability for known model families.
+Replace a model's student default and role assignments before changing its
+capability. GPT-6.1 Sol supports text/simulation and image input. Its Responses
+image-generation tool is separate from this app's direct Image API integration,
+which uses GPT Image models; Sol cannot be sent to the direct Image API or to
+transcription and live-voice endpoints.
 Assessment roles use dropdowns containing compatible models from these lists.
 OpenAI serves text assessment roles, transcription, images, and live voice;
 Kimi and Z.AI serve simulation code through their existing adapters. Assign a

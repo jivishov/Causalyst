@@ -118,6 +118,19 @@ describe("teacher assessment AI settings", () => {
     expect(() => validateAiModelSettings({ ...settings, providerModels: [{ ...settings.providerModels![0], provider: "https://untrusted.invalid" }] }, settings)).toThrow("supported provider");
   });
 
+  it.each([
+    ["gpt-6.1-sol", "image"],
+    ["gpt-6.1-sol", "transcription"],
+    ["gpt-6.1-sol", "realtime"],
+    ["gpt-image-2.5-flare", "text"],
+    ["gpt-4o-transcribe", "image"],
+    ["gpt-realtime", "text"]
+  ])("rejects the unsupported %s task API %s even when submitted directly", (modelId, capability) => {
+    const settings = defaultAiSettings(env);
+    const model = { ...settings.providerModels![0], id: "openai:unsupported-classification", modelId, capability, reasoningEffort: "none", enabled: false, maxOutputTokens: undefined };
+    expect(() => validateAiModelSettings({ ...settings, providerModels: [...settings.providerModels!, model] }, settings)).toThrow("supported task capability");
+  });
+
   it.each([15, 128001, 25.5, "25000", null])("rejects an invalid token limit %s", maxOutputTokens => {
     const settings = defaultAiSettings(env);
     expect(() => validateAiModelSettings({ ...settings, roleModels: { ...settings.roleModels, grading: { ...settings.roleModels.grading, maxOutputTokens } } }, settings)).toThrow("whole numbers");

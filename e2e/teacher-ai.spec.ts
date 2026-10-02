@@ -37,6 +37,9 @@ test("teacher provider lists, model assignments, and token controls work on desk
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("./teacher/ai-settings");
   await expect(page.getByRole("heading", { name: "Providers and model lists" })).toBeVisible();
+  const solCapability = page.locator(".ai-provider-model-card").filter({ has: page.locator('input[value="gpt-6.1-sol"]') }).locator(".ai-model-capability select");
+  await expect(solCapability).toBeEnabled();
+  expect(await solCapability.evaluate(element => [...(element as HTMLSelectElement).options].filter(option => !option.disabled).map(option => option.value))).toEqual(["text"]);
   await expect(page.getByLabel("Voice grading", { exact: true })).toHaveValue("openai:gpt-5.6-sol");
   await page.getByRole("button", { name: "Add model", exact: true }).click();
   const card = page.locator(".ai-provider-model-card").first();
@@ -61,6 +64,10 @@ test("teacher provider lists, model assignments, and token controls work on desk
   }
   await card.getByLabel("Display name", { exact: true }).fill("Classroom model");
   await card.getByLabel("Provider model ID", { exact: true }).fill("synthetic-classroom-model");
+  await card.locator(".ai-model-capability select").selectOption("image");
+  await expect(page.getByLabel("Classroom model reasoning", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Simulation sketch image", { exact: true }).getByRole("option", { name: "Classroom model (synthetic-classroom-model)", exact: true })).toHaveCount(1);
+  await card.locator(".ai-model-capability select").selectOption("text");
   await page.getByLabel("Classroom model reasoning", { exact: true }).selectOption("xhigh");
   await page.getByLabel("Classroom model token limit", { exact: true }).fill("28000");
   await page.getByLabel("Voice grading", { exact: true }).selectOption({ label: "Classroom model (synthetic-classroom-model)" });

@@ -64,3 +64,63 @@ it("keeps provider model lists separate and removes a newly added unused model",
   expect(screen.queryByDisplayValue("New model")).toBeNull();
   expect(screen.getByText("No models for this provider. Add a model to make it available.")).toBeTruthy();
 });
+
+it("keeps an assigned Sol capability control active and excludes incompatible task APIs", async () => {
+  vi.mocked(teacherApiFetch).mockResolvedValue(fixture());
+  render(<TeacherAiSettingsPage />);
+  await screen.findByText("Providers and model lists");
+  const card = screen.getAllByRole("article").find(card => within(card).queryByDisplayValue("gpt-6.1-sol"))!;
+  const select = within(card).getByLabelText("Model capability") as HTMLSelectElement;
+  expect(select.disabled).toBe(false);
+  expect([...select.options].filter(option => !option.disabled).map(option => option.value)).toEqual(["text"]);
+  expect(select.value).toBe("text");
+  expect(select.getAttribute("aria-describedby")).toBe("ai-model-capability-help");
+});
+
+it("changes an unused custom model capability and saves its compatible assignment", async () => {
+  vi.mocked(teacherApiFetch).mockResolvedValue(fixture());
+  render(<TeacherAiSettingsPage />);
+  await screen.findByText("Providers and model lists");
+  fireEvent.click(screen.getByRole("button", { name: "Add model" }));
+  const card = screen.getAllByRole("article").find(card => within(card).queryByDisplayValue("New model"))!;
+  fireEvent.change(within(card).getByLabelText("Display name"), { target: { value: "Classroom image" } });
+  fireEvent.change(within(card).getByLabelText("Provider model ID"), { target: { value: "synthetic-approved-image-model" } });
+  fireEvent.change(within(card).getByLabelText("Model capability"), { target: { value: "image" } });
+  expect(screen.queryByLabelText("Classroom image reasoning")).toBeNull();
+  const imageSelect = screen.getByLabelText("Simulation sketch image") as HTMLSelectElement;
+  const modelId = [...imageSelect.options].find(option => option.textContent?.startsWith("Classroom image"))!.value;
+  fireEvent.change(imageSelect, { target: { value: modelId } });
+  fireEvent.click(screen.getAllByRole("button", { name: "Save settings" })[0]);
+  await screen.findByText(/Saved\. New previews/);
+  const [, options] = vi.mocked(teacherApiFetch).mock.calls.find(([path, options]) => path === "/teacher/ai-settings" && options?.method === "PUT")!;
+  const saved = JSON.parse(options!.body as string);
+  expect(saved.providerModels.find((model: { id: string }) => model.id === modelId)).toMatchObject({ capability: "image", reasoningEffort: "none", enabled: false });
+  expect(saved.roleModels.simulationSketchImage).toMatchObject({ id: "synthetic-approved-image-model", catalogModelId: modelId, reasoningEffort: "none" });
+  expect(saved.defaultSimulationModelId).toBe(fixture().defaultSimulationModelId);
+});
+
+it("preserves assignments when a custom model's capability would become incompatible", async () => {
+  const settings = fixture();
+  settings.providerModels![0].modelId = "synthetic-multipurpose-model";
+  for (const role of AI_MODEL_ROLES) if (modelCapabilityForRole(role) === "text") settings.roleModels[role].id = "synthetic-multipurpose-model";
+  vi.mocked(teacherApiFetch).mockResolvedValue(settings);
+  render(<TeacherAiSettingsPage />);
+  await screen.findByText("Providers and model lists");
+  const card = screen.getAllByRole("article").find(card => within(card).queryByDisplayValue("synthetic-multipurpose-model"))!;
+  fireEvent.change(within(card).getByLabelText("Model capability"), { target: { value: "image" } });
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("Choose a replacement"));
+  expect((within(card).getByLabelText("Model capability") as HTMLSelectElement).value).toBe("text");
+  expect((screen.getByLabelText("Default student simulation model") as HTMLSelectElement).value).toBe(settings.defaultSimulationModelId);
+});
+
+it("updates an unused model's capability when its provider ID changes to an image model", async () => {
+  vi.mocked(teacherApiFetch).mockResolvedValue(fixture());
+  render(<TeacherAiSettingsPage />);
+  await screen.findByText("Providers and model lists");
+  fireEvent.click(screen.getByRole("button", { name: "Add model" }));
+  const card = screen.getAllByRole("article").find(card => within(card).queryByDisplayValue("New model"))!;
+  fireEvent.change(within(card).getByLabelText("Provider model ID"), { target: { value: "gpt-image-2.5-sunburst" } });
+  const select = within(card).getByLabelText("Model capability") as HTMLSelectElement;
+  expect(select.value).toBe("image");
+  expect([...select.options].filter(option => !option.disabled).map(option => option.value)).toEqual(["image"]);
+});

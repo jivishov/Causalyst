@@ -1,5 +1,5 @@
 import { AI_MODEL_ROLES, AI_PROVIDERS, AI_TEXT_MODEL_ROLES, AI_MODEL_CAPABILITIES, AI_MIN_OUTPUT_TOKENS, AI_MAX_OUTPUT_TOKENS, reasoningEffortsForModel, DEFAULT_SIMULATION_CODE_MODEL_ID, SIMULATION_CODE_MODEL_OPTIONS,
-  isSimulationCodeModelId, modelCapabilityForRole, teacherProviderModels,
+  isSimulationCodeModelId, modelCapabilitiesForModel, modelCapabilityForRole, teacherProviderModels,
   type AiProvider, type TeacherAiSettings, type TeacherCodeModel, type TeacherProviderModel, type TeacherRoleModel } from "@alt-assessment/shared";
 import type { AppDatabaseClient, Json } from "./database";
 import { toJson } from "./database";
@@ -88,6 +88,9 @@ function validateProviderModels(value: unknown): TeacherProviderModel[] {
     const entry = record(item);
     if (!AI_PROVIDERS.includes(entry.provider as AiProvider) || !isSimulationCodeModelId(entry.id) || !entry.id.startsWith(`${entry.provider}:`)) throw new HttpError(400, "Select a supported provider for each model");
     if (!AI_MODEL_CAPABILITIES.includes(entry.capability as TeacherProviderModel["capability"])) throw new HttpError(400, "Select a model capability");
+    if (typeof entry.modelId === "string" && !modelCapabilitiesForModel(entry.provider as AiProvider, entry.modelId).includes(entry.capability as TeacherProviderModel["capability"])) {
+      throw new HttpError(400, "Choose a supported task capability for this provider model");
+    }
     const model = validateRoleModel({ id: entry.modelId, reasoningEffort: entry.reasoningEffort, maxOutputTokens: entry.maxOutputTokens });
     const providerId = `${entry.provider}:${model.id}`;
     if (ids.has(entry.id) || providerIds.has(providerId)) throw new HttpError(400, "Models must be unique within each provider");

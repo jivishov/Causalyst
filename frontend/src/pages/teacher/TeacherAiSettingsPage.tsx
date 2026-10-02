@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { KeyRound, Plus, Save, ShieldCheck, SlidersHorizontal, Trash2 } from "lucide-react";
-import { AI_MODEL_ROLES, AI_PROVIDERS, AI_MODEL_CAPABILITIES, AI_TEXT_MODEL_ROLES, AI_MIN_OUTPUT_TOKENS, AI_MAX_OUTPUT_TOKENS, reasoningEffortsForModel, modelCapabilityForRole, teacherProviderModels,
+import { AI_MODEL_ROLES, AI_PROVIDERS, AI_MODEL_CAPABILITIES, AI_TEXT_MODEL_ROLES, AI_MIN_OUTPUT_TOKENS, AI_MAX_OUTPUT_TOKENS, reasoningEffortsForModel, modelCapabilitiesForModel, modelCapabilityForRole, teacherProviderModels,
   type AiModelRole, type AiProvider, type AiReasoningEffort, type TeacherProviderModel, type TeacherRoleModel, type TeacherAiSettings, type TeacherAiSettingsUpdate } from "@alt-assessment/shared";
 import { teacherApiFetch } from "../../lib/api";
 
@@ -45,11 +45,25 @@ export function TeacherAiSettingsPage() {
   }
 
   function editProviderModel(id: TeacherProviderModel["id"], patch: Partial<TeacherProviderModel>) {
+    if (!settings) return;
+    const previousModel = teacherProviderModels(settings).find(model => model.id === id)!;
+    const candidate = { ...previousModel, ...patch };
+    const supported = modelCapabilitiesForModel(candidate.provider, candidate.modelId);
+    if (patch.capability && !supported.includes(patch.capability)) {
+      setError(`This model supports ${supported.map(capability => capabilityNames[capability]).join(", ")} in this app.`);
+      return;
+    }
+    const capability = supported.includes(candidate.capability) ? candidate.capability : supported[0];
+    if (capability !== previousModel.capability && isAssigned(previousModel)) {
+      setError(`Choose a replacement for ${previousModel.label} in the student default and assessment assignments before changing its capability.`);
+      return;
+    }
+    setError(null);
     setSettings(current => {
       if (!current) return current;
       const catalog = teacherProviderModels(current);
       const previous = catalog.find(model => model.id === id)!;
-      const next = { ...previous, ...patch };
+      const next = { ...previous, ...patch, capability };
       if (next.capability !== "text") { next.reasoningEffort = "none"; next.maxOutputTokens = undefined; next.enabled = false; }
       else if (!reasoningEffortsForModel(next.modelId).includes(next.reasoningEffort)) next.reasoningEffort = "low";
       const models = catalog.map(model => model.id === id ? next : model);
@@ -159,6 +173,7 @@ export function TeacherAiSettingsPage() {
       <section className="course-list-panel">
         <h2>Providers and model lists</h2>
         <p className="panel-description">Choose a provider to add, edit, or remove its models. Allow text models for student simulations, then assign assessment roles below. Choose a replacement before removing an assigned model.</p>
+        <p className="field-help" id="ai-model-capability-help">Capability selects the task used by this app. GPT-6.1 Sol supports text / simulation with image input; image generation, transcription, and live voice use their dedicated models. Custom model capabilities must match the provider's documentation. Replace assignments below before changing an assigned model's capability.</p>
         <p className="field-help">GPT-6.1 Sol uses the ID <code>gpt-6.1-sol</code> and supports Low, Medium, High, XHigh, and Max. OpenAI token limits include reasoning and answer tokens together. A small limit can stop generation before an answer is ready. Leave a limit blank to use the app default.</p>
         <div className="ai-provider-list" aria-label="Model providers">{AI_PROVIDERS.map(provider => <button key={provider} type="button" className={selectedProvider === provider ? "primary-button" : "secondary-button"}
           aria-pressed={selectedProvider === provider} onClick={() => { setSelectedProvider(provider); setNewModelId(null); }}>{providerNames[provider]} <span>({models.filter(model => model.provider === provider).length})</span></button>)}</div>
@@ -168,8 +183,8 @@ export function TeacherAiSettingsPage() {
           <div className="ai-provider-model-fields">
             <label className="ai-model-display-name">Display name<input autoFocus={model.id === newModelId} value={model.label} maxLength={100} onChange={event => editProviderModel(model.id, { label: event.target.value })} /></label>
             <label className="ai-model-provider-id">Provider model ID<input value={model.modelId} spellCheck={false} maxLength={128} onChange={event => editProviderModel(model.id, { modelId: event.target.value })} /></label>
-            <label className="ai-model-capability">Model capability<select value={model.capability} disabled={isAssigned(model)} onChange={event => editProviderModel(model.id, { capability: event.target.value as TeacherProviderModel["capability"] })}>
-              {(model.provider === "openai" ? AI_MODEL_CAPABILITIES : ["text"] as const).map(capability => <option key={capability} value={capability}>{capabilityNames[capability]}</option>)}
+            <label className="ai-model-capability">Model capability<select value={model.capability} aria-describedby="ai-model-capability-help" title={`Available in this app: ${modelCapabilitiesForModel(model.provider, model.modelId).map(capability => capabilityNames[capability]).join(", ")}.${isAssigned(model) ? " Replace assignments below before changing capability." : ""}`} onChange={event => editProviderModel(model.id, { capability: event.target.value as TeacherProviderModel["capability"] })}>
+              {AI_MODEL_CAPABILITIES.map(capability => <option key={capability} value={capability} disabled={!modelCapabilitiesForModel(model.provider, model.modelId).includes(capability)}>{capabilityNames[capability]}</option>)}
             </select></label>
             {model.capability === "text" && model.provider === "openai" && <>
               <label className="ai-model-reasoning">Reasoning effort<select aria-label={`${model.label} reasoning`} value={model.reasoningEffort} onChange={event => editProviderModel(model.id, { reasoningEffort: event.target.value as AiReasoningEffort })}>

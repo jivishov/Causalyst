@@ -237,7 +237,8 @@ export class SimulationGeneration {
       if (this.state.phase === "saving") {
         // Keep the completed HTML for a storage retry; no model request is needed.
         await this.ctx.storage.setAlarm(Date.now() + 15_000);
-      } else if (!this.state.responseId && [429, 503].includes(status) && code !== "insufficient_quota" && this.state.retries < 3 && !this.state.stop) {
+      } else if (!this.state.responseId && (status === 429 && code !== "insufficient_quota"
+        || status === 503 && ["overloaded", "capacity_exceeded"].includes(code)) && this.state.retries < 3 && !this.state.stop) {
         this.state.retries++;
         this.state.phase = "queued";
         const headers = error && typeof error === "object" && "headers" in error ? error.headers as Headers : undefined;

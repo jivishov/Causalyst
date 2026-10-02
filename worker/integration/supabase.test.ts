@@ -168,8 +168,12 @@ describe('real Supabase service boundaries', () => {
         output: [{ type: "message", content: [{ type: "output_text", text: html }] }] } }
     ].map(event => `data: ${JSON.stringify(event)}\n\n`).join("");
     const config = localCredentials();
-    const runtime = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: fileURLToPath(new URL("../../.worker-build/index.js", import.meta.url)),
-      modulesRules: [{ type: "Text", include: ["**/*.txt"] }], compatibilityDate: "2026-04-28",
+    const bundleDirectory = new URL("../../.worker-build/", import.meta.url);
+    const bundleFiles = (await readdir(bundleDirectory)).filter(name => name.endsWith(".js") || name.endsWith(".txt"))
+      .sort((a, b) => a === "index.js" ? -1 : b === "index.js" ? 1 : a.localeCompare(b));
+    const modules = await Promise.all(bundleFiles.map(async name => ({ type: name.endsWith(".txt") ? "Text" as const : "ESModule" as const,
+      path: fileURLToPath(new URL(name, bundleDirectory)), contents: await readFile(new URL(name, bundleDirectory), "utf8") })));
+    const runtime = new Miniflare(convertV4MiniflareOptions({ modules, modulesRoot: fileURLToPath(bundleDirectory), compatibilityDate: "2026-04-28",
       outboundService: async (request: RuntimeRequest) => {
         const target = new URL(request.url);
         if (target.origin === "https://api.openai.com" && target.pathname === "/v1/responses" && request.method === "POST") {
@@ -191,7 +195,7 @@ describe('real Supabase service boundaries', () => {
       const namespace = await runtime.getDurableObjectNamespace("SIMULATION_GENERATIONS") as unknown as DurableObjectNamespace;
       const owner = namespace.get(namespace.idFromName(reservation.job.id));
       const initialized = await owner.fetch("https://internal/init", { method: "POST", body: JSON.stringify({
-        job: reservation.job, description, model: { id: "gpt-6.1-sol", maxOutputTokens: 64000, fastMode: true }
+        job: reservation.job, description, model: { id: "gpt-6.1-sol", reasoningEffort: "medium", verbosity: "low", maxOutputTokens: 64000, fastMode: true }
       }) });
       expect(initialized.ok).toBe(true);
       const deadline = Date.now() + 20_000;

@@ -6,7 +6,7 @@ import { getSimulationCodeModel, toOpenAIModelCatalogEntry } from "../src/lib/mo
 // Exercise the installed SDK's serialization and response handling, not a mock of its methods.
 describe("OpenAI SDK request compatibility", () => {
   it("keeps the foreground stream through completion and preserves teacher settings and image input", async () => {
-    const model = { id: "gpt-6.1-sol", reasoningEffort: "medium" as const, maxOutputTokens: 64000, fastMode: true };
+    const model = { id: "gpt-6.1-sol", reasoningEffort: "medium" as const, verbosity: "low" as const, maxOutputTokens: 64000, fastMode: true };
     let finish!: () => void;
     let cancelled = false;
     const wait = new Promise<void>(resolve => { finish = resolve; });

@@ -189,6 +189,36 @@ test("failed submission preserves the editor and result loading can be retried w
   expect(resultLoads).toBe(failedResultLoads + 1);
 });
 
+test("preview status reconnects after repeated failures without discarding or regenerating the job", async ({ page }) => {
+  await studentFixture(page, "simulation");
+  let polls = 0;
+  let generationRequests = 0;
+  await page.route("**/api/simulation/generate", async route => {
+    generationRequests++;
+    await route.fulfill({ headers, json: job });
+  });
+  await page.route(/\/api\/simulation\/jobs\/job\/stream(?:\?.*)?$/, route => route.fulfill({ headers, contentType: "text/event-stream", body: 'data: {"type":"unavailable"}\n\n' }));
+  await page.route("**/api/simulation/jobs/job", async route => {
+    polls++;
+    if (polls === 1) await route.abort("failed");
+    else if (polls === 2) await route.fulfill({ headers, status: 503, json: { error: "Temporarily unavailable" } });
+    else await route.fulfill({ headers, json: { ...job, status: "completed", preview } });
+  });
+  await page.route("**/api/artifacts/html/preview?**", route => route.fulfill({ headers, contentType: "text/html", body: '<!doctype html><html><body><h1>Recovered simulation</h1></body></html>' }));
+  await page.goto("./assignment/assignment");
+  await expect.poll(() => polls, { timeout: 12_000 }).toBe(2);
+  await expect(page.getByText("Connection interrupted. Your preview request is saved. Reconnecting...", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("progressbar")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cancel generation" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Regenerate HTML Preview" })).toBeDisabled();
+  await expect(page.getByLabel("Description", { exact: true })).toHaveValue("Move the contents from container A to container B.");
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.frameLocator('iframe[title="Safe simulation preview"]').getByRole("heading", { name: "Recovered simulation" })).toBeVisible();
+  await expect(page.getByRole("progressbar")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Submit Simulation", exact: true })).toBeEnabled();
+  expect(generationRequests).toBe(0);
+});
+
 test("a failed preview finalization stops the progress indicator and enables retry", async ({ page }) => {
   await studentFixture(page, "simulation");
   let polls = 0;
@@ -199,7 +229,7 @@ test("a failed preview finalization stops the progress indicator and enables ret
   });
   await page.goto("./assignment/assignment");
   await expect(page.getByRole("progressbar")).toBeVisible();
-  await expect(page.getByText("The preview could not be prepared. Your sketch is saved.", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("The preview could not be prepared. Your sketch is saved.", { exact: true }).first()).toBeVisible({ timeout: 10_000 });
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Regenerate HTML Preview" })).toBeEnabled();
 });

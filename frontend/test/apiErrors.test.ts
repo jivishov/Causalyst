@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiRequestError, publicApiFetch } from "../src/lib/api";
+import { ApiConnectionError, ApiRequestError, isRetryableApiError, publicApiFetch } from "../src/lib/api";
 
 describe("api error parsing", () => {
   afterEach(() => {
@@ -45,5 +45,20 @@ describe("api error parsing", () => {
       code: undefined,
       details: undefined
     });
+  });
+
+  it("makes browser connection failures recoverable without displaying Failed to fetch", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("Failed to fetch"));
+    const error = await publicApiFetch("/mock").catch(error => error);
+    expect(error).toBeInstanceOf(ApiConnectionError);
+    if (!(error instanceof ApiConnectionError)) throw new Error("Expected a recoverable connection error");
+    expect(error.message).toBe("Could not connect to the server. Check your connection and try again.");
+    expect(isRetryableApiError(error)).toBe(true);
+  });
+
+  it("retries temporary server failures but stops for auth, access and lifecycle errors", () => {
+    for (const status of [408, 429, 500, 502, 503, 504]) expect(isRetryableApiError(new ApiRequestError("Temporary", status))).toBe(true);
+    for (const status of [400, 401, 403, 404, 409]) expect(isRetryableApiError(new ApiRequestError("Denied", status))).toBe(false);
+    expect(isRetryableApiError(new Error("Sign in with Google to continue."))).toBe(false);
   });
 });

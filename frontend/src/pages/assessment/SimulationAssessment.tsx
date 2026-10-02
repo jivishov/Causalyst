@@ -9,7 +9,7 @@ import { StudentActionProgress } from "../../components/StudentActionProgress";
 import { SimulationHtmlStream } from "../../components/SimulationHtmlStream";
 import { SimulationPreviewFrame, type SimulationPreviewHealthReport } from "../../components/SimulationPreviewFrame";
 import { ApiRequestError, cancelSimulationGenerationJob, fallbackSimulationPreview, generateSimulation,
-  generateSimulationSketch, getSimulationGenerationJob, streamSimulationGenerationJob, getSimulationPreviewUrl, refineSimulation, submitSimulation } from "../../lib/api";
+  generateSimulationSketch, getSimulationGenerationJob, isRetryableApiError, streamSimulationGenerationJob, getSimulationPreviewUrl, refineSimulation, submitSimulation } from "../../lib/api";
 import { SIMULATION_STALE_ATTEMPT_RETRY_MESSAGE, canCancelSimulationGenerationJob, canRetrySimulationHtmlPreview,
   isActiveSimulationGenerationJob, isRetryableSimulationAttemptError, isTerminalSimulationJobStatus,
   resolveSimulationGenerateButtonLabel, resolveSimulationReadinessMessage, resolveSimulationRunMessage,
@@ -292,8 +292,13 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
     let cursor: number | undefined;
     let streamAvailable = true;
     let streamFailures = 0;
+    let pollFailures = 0;
     let wakePoll: (() => void) | null = null;
     const isCurrent = () => isActive() && !streamAbort.signal.aborted && generationRunTokenRef.current === input.runToken && htmlJobPollTokenRef.current === pollToken;
+    const reconnect = () => { if (isCurrent()) wakePoll?.(); };
+    const resume = () => { if (document.visibilityState === "visible") reconnect(); };
+    window.addEventListener("online", reconnect);
+    document.addEventListener("visibilitychange", resume);
     window.requestAnimationFrame(() => {
       if (isCurrent()) htmlPanelRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
     });
@@ -340,7 +345,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
     })();
 
     try {
-      while (generationRunTokenRef.current === input.runToken && htmlJobPollTokenRef.current === pollToken) {
+      while (isCurrent()) {
         if (currentJob.status === "completed" && currentJob.preview) {
           setHtmlArtifactId(currentJob.preview.artifactId);
           setHtmlPreviewPath(currentJob.preview.previewPath);
@@ -352,6 +357,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
           setCurrentHtmlReasoningEffort(currentJob.preview.htmlReasoningEffort ?? currentJob.htmlReasoningEffort ?? null);
           setHtmlGenerationMessage(currentJob.message);
           await requestHtmlPreview(currentJob.preview);
+          if (!isCurrent()) return null;
           setGenerationStage("done");
           return currentJob;
         }
@@ -371,33 +377,34 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
             wakePoll = null;
             resolve();
           };
-          const timer = window.setTimeout(finish, resolveSimulationJobPollDelayMs(startedAt));
+          const delay = pollFailures ? Math.min(30000, 1000 * 2 ** Math.min(pollFailures, 5)) : resolveSimulationJobPollDelayMs(startedAt);
+          const timer = window.setTimeout(finish, delay);
           wakePoll = finish;
           streamAbort.signal.addEventListener("abort", finish, { once: true });
         });
-        if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
+        if (!isCurrent()) return null;
         if (isTerminalSimulationJobStatus(currentJob.status)) continue;
         try {
           const nextJob = await getSimulationGenerationJob(currentJob.jobId);
+          if (!isCurrent()) return null;
           if (!isTerminalSimulationJobStatus(currentJob.status)) currentJob = nextJob;
-        } catch {
-          if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
+          pollFailures = 0;
+        } catch (error) {
+          if (!isCurrent()) return null;
           if (isTerminalSimulationJobStatus(currentJob.status)) continue;
-          // A failed finalization is persisted before its HTTP error is returned.
-          // Read that terminal state once; this never starts another generation.
-          setHtmlGenerationMessage("Checking the preview response...");
-          try {
-            const nextJob = await getSimulationGenerationJob(currentJob.jobId);
-            if (!isTerminalSimulationJobStatus(currentJob.status)) currentJob = nextJob;
-          } catch (error) {
-            if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
-            if (isTerminalSimulationJobStatus(currentJob.status)) continue;
+          if (!isRetryableApiError(error)) {
             setHtmlGenerationJob(null);
             setGenerationStage("done");
             throw error;
           }
+          // A connection failure says nothing about the provider job. Keep its
+          // identity and retry only the status read, including after finalization
+          // errors, whose terminal state is persisted by the Worker.
+          pollFailures += 1;
+          setHtmlGenerationMessage("Connection interrupted. Your preview request is saved. Reconnecting...");
+          continue;
         }
-        if (generationRunTokenRef.current !== input.runToken || htmlJobPollTokenRef.current !== pollToken) return null;
+        if (!isCurrent()) return null;
         setHtmlGenerationJob(currentJob);
         setHtmlGenerationMessage(currentJob.message);
         setCurrentHtmlReasoningEffort(currentJob.htmlReasoningEffort ?? null);
@@ -405,6 +412,8 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
       }
       return null;
     } finally {
+      window.removeEventListener("online", reconnect);
+      document.removeEventListener("visibilitychange", resume);
       streamAbort.abort();
       if (htmlStreamAbortRef.current === streamAbort) htmlStreamAbortRef.current = null;
     }

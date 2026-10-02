@@ -88,6 +88,14 @@ export class ApiRequestError extends Error {
   }
 }
 
+export class ApiConnectionError extends Error {}
+
+export function isRetryableApiError(error: unknown): boolean {
+  return error instanceof ApiConnectionError
+    || error instanceof ApiRequestError && (error.status === 408 || error.status === 429 || error.status >= 500)
+    || error instanceof Error && error.message === "Session bootstrap timed out.";
+}
+
 export async function getStudentAuthEmail(): Promise<string | null> {
   if (!isSupabaseConfigured) {
     return null;
@@ -1000,8 +1008,9 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, tim
     return await fetch(input, { ...init, signal: controller.signal });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s. Check Worker and Supabase status.`);
+      throw new ApiConnectionError(`Request timed out after ${Math.round(timeoutMs / 1000)}s. Check your connection and try again.`);
     }
+    if (error instanceof TypeError) throw new ApiConnectionError("Could not connect to the server. Check your connection and try again.");
     throw error;
   } finally {
     clearTimeout(timer);

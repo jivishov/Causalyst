@@ -106,7 +106,7 @@ async function expectLongRunningTimeout(startRequest: () => Promise<unknown>) {
   await vi.advanceTimersByTimeAsync(107_500);
   await request;
   expect(rejection).toBeInstanceOf(Error);
-  expect((rejection as Error).message).toBe("Request timed out after 120s. Check Worker and Supabase status.");
+  expect((rejection as Error).message).toBe("Request timed out after 120s. Check your connection and try again.");
 }
 
 function createStorage(entries: Record<string, string> = {}): Storage {

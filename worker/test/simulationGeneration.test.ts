@@ -189,4 +189,27 @@ describe("durable foreground simulation jobs", () => {
     expect(retryDelay(new Headers({ "retry-after": "12" }), 1)).toBe(12000);
     expect(retryDelay(new Headers({ "retry-after": "999999" }), 1)).toBe(300000);
   });
+
+  it("cancels a queued request without creating a model response", async () => {
+    const h = harness(); await h.init("cancelled");
+    const create = vi.spyOn(ai, "streamSimulationForegroundResponse");
+    await h.post("cancelled", "/cancel");
+    await h.owner("cancelled").alarm();
+    expect(create).not.toHaveBeenCalled();
+    expect(hooks.update).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: "cancelled" }), "cancelled", undefined, undefined, "Generation was cancelled.");
+    expect(h.schedulerStorage.values.get("state")).toMatchObject({ queue: [], active: [] });
+  });
+
+  it("saves a response completed before the deadline when expiry delivery is delayed", async () => {
+    const h = harness(); await h.init("late");
+    const store = h.stores.get("late")!;
+    await store.put("state", { phase: "running", responseId: "resp-known", retries: 0, cursor: 0, outputChunks: 0 });
+    h.owners.delete("late");
+    await vi.advanceTimersByTimeAsync(21 * 60_000);
+    await h.post("late", "/expire");
+    vi.spyOn(ai, "retrieveSimulationBackgroundResponse").mockResolvedValue({ status: "completed", model: "gpt-6.1-sol", output_text: "<!doctype html><html></html>" });
+    await h.owner("late").alarm();
+    expect(hooks.complete).toHaveBeenCalledTimes(1);
+    expect(hooks.update).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), "expired", expect.anything(), expect.anything(), expect.anything());
+  });
 });

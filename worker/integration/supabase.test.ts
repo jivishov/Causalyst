@@ -18,7 +18,7 @@ import { studentSession } from "../src/routes/student";
 import { reserveSimulationJob } from "../src/lib/simulationJobs";
 import { runRetention } from "../src/lib/retention";
 import * as openai from "../src/lib/openai";
-import { Miniflare, createFetchMock } from "miniflare";
+import { Miniflare, Response as RuntimeResponse } from "miniflare";
 
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
 const syntheticEnv = { PIN_PEPPER: "disposable-integration-pepper" } as never;
@@ -157,26 +157,38 @@ describe('real Supabase service boundaries', () => {
     const reservation = await reserveSimulationJob(service, { userId: studentId, attemptId: attempt, operation: 'generate',
       sketchArtifactId: sketch, sourceDescriptionSha256: sourceHash, htmlReasoningEffort: 'medium', provider: 'openai', requestedModel: 'gpt-6.1-sol', htmlServiceTierRequested: 'fast' });
     await service.from('simulation_generation_jobs').update({ provider_status: 'managed_queued' }).eq('id', reservation.job.id);
+    await sql.query("update simulation_generation_jobs set updated_at=now()-interval '10 minutes' where id=$1", [reservation.job.id]);
+    await runRetention(service, {} as never);
+    expect((await service.from('simulation_generation_jobs').select('status').eq('id', reservation.job.id).single()).data?.status).toBe('queued');
     const html = '<!doctype html><html><head><style>body{margin:0}</style></head><body><button>Play</button><button>Pause</button><button>Reset</button><button>Step Forward</button><svg viewBox="0 0 800 500"><circle cx="200" cy="200" r="40"/><circle cx="500" cy="200" r="40"/></svg></body></html>';
-    const provider = createFetchMock();
-    provider.disableNetConnect();
-    provider.enableNetConnect(/127\.0\.0\.1|localhost/);
+    let providerCalls = 0;
     const sse = [ { type: "response.created", response: { id: "resp-synthetic-runtime", status: "in_progress", service_tier: "fast" } },
       { type: "response.output_text.delta", delta: html },
       { type: "response.completed", response: { id: "resp-synthetic-runtime", status: "completed", model: "gpt-6.1-sol", service_tier: "fast",
         output: [{ type: "message", content: [{ type: "output_text", text: html }] }] } }
     ].map(event => `data: ${JSON.stringify(event)}\n\n`).join("");
-    provider.get("https://api.openai.com").intercept({ method: "POST", path: "/v1/responses" }).reply(200, sse,
-      { headers: { "content-type": "text/event-stream" } });
     const config = localCredentials();
     const runtime = new Miniflare({ modules: true, scriptPath: fileURLToPath(new URL("../../.worker-build/index.js", import.meta.url)),
-      modulesRules: [{ type: "Text", include: ["**/*.txt"] }], compatibilityDate: "2026-04-28", fetchMock: provider,
+      modulesRules: [{ type: "Text", include: ["**/*.txt"] }], compatibilityDate: "2026-04-28",
+      outboundService: async request => {
+        const target = new URL(request.url);
+        if (target.origin === "https://api.openai.com" && target.pathname === "/v1/responses" && request.method === "POST") {
+          providerCalls++;
+          expect(await request.json()).toMatchObject({ background: false, stream: true, store: true, model: "gpt-6.1-sol",
+            service_tier: "fast", reasoning: { effort: "medium" }, max_output_tokens: 64000 });
+          return new RuntimeResponse(sse, { headers: { "content-type": "text/event-stream" } });
+        }
+        if (target.origin !== new URL(config.API_URL).origin) throw new Error("Unexpected runtime subrequest");
+        const forwarded = await fetch(request.url, { method: request.method, headers: Object.fromEntries(request.headers),
+          ...(["GET", "HEAD"].includes(request.method) ? {} : { body: new Uint8Array(await request.arrayBuffer()) }) });
+        return new RuntimeResponse(await forwarded.arrayBuffer(), { status: forwarded.status, headers: Object.fromEntries(forwarded.headers) });
+      },
       bindings: { SUPABASE_URL: config.API_URL, SUPABASE_SERVICE_ROLE_KEY: config.SERVICE_ROLE_KEY, OPENAI_API_KEY: "synthetic", PIN_PEPPER: "disposable-integration-pepper", APP_ENV: "test" },
       durableObjects: { SIMULATION_GENERATIONS: { className: "SimulationGeneration", useSQLite: true },
         SIMULATION_SCHEDULER: { className: "SimulationScheduler", useSQLite: true }, REALTIME_SESSIONS: { className: "RealtimeEvidence", useSQLite: true } }
     });
     try {
-      const namespace = await runtime.getDurableObjectNamespace("SIMULATION_GENERATIONS");
+      const namespace = await runtime.getDurableObjectNamespace("SIMULATION_GENERATIONS") as unknown as DurableObjectNamespace;
       const owner = namespace.get(namespace.idFromName(reservation.job.id));
       const initialized = await owner.fetch("https://internal/init", { method: "POST", body: JSON.stringify({
         job: reservation.job, description, model: { id: "gpt-6.1-sol", maxOutputTokens: 64000, fastMode: true }
@@ -193,7 +205,7 @@ describe('real Supabase service boundaries', () => {
           expect(artifact.data?.upload_state).toBe("uploaded");
           const document = await service.storage.from(artifact.data!.bucket).download(artifact.data!.storage_key);
           expect(document.error).toBeNull(); expect(await document.data!.text()).toContain("<circle");
-          provider.assertNoPendingInterceptors();
+          expect(providerCalls).toBe(1);
           return;
         }
         if (result.data?.status === "failed") throw new Error("Durable runtime generation failed");

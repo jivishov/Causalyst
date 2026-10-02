@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
       - name: Verify the reviewed frontend and deployed backend
         env:
-          REVIEWED_SHA: 2ad0638dae01f27ec019590b8955e41d73473595
+          REVIEWED_SHA: 75f21aa4d4cfebc17e0571a3bcd823504d88bd83
           BACKEND_SHA: e78fdb745d24242a291ad3f33317a836e37afdbb
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
@@ -34,10 +34,10 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36804321752 });
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36965244293 });
             const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36794623155 });
             for (const [run, sha] of [
-              [checked.data, "2ad0638dae01f27ec019590b8955e41d73473595"],
+              [checked.data, "75f21aa4d4cfebc17e0571a3bcd823504d88bd83"],
               [deployed.data, "e78fdb745d24242a291ad3f33317a836e37afdbb"]
             ]) {
               if (run.head_sha !== sha || run.status !== "completed" || run.conclusion !== "success") {

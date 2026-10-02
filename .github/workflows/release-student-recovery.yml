@@ -1,0 +1,131 @@
+name: Release student HTML session recovery
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-student-recovery.yml]
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: worker-production
+  cancel-in-progress: false
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify reviewed code and unchanged database preparation
+        env:
+          REVIEWED_SHA: 0f5dbb163e7d00a4c3ba722734a9f55d432ae311
+          BACKEND_SHA: f3490e1f858a981d85a3672c01f8fc226e90ee5b
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = ".github/workflows/release-student-recovery.yml"
+          git diff --quiet "$BACKEND_SHA" "$REVIEWED_SHA" -- supabase package.json package-lock.json scripts .github/workflows/deploy-frontend.yml
+          python - <<'PYCODE'
+          import os, subprocess
+          changed = set(subprocess.check_output(["git", "diff", "--name-only", os.environ["BACKEND_SHA"], os.environ["REVIEWED_SHA"], "--", "worker", "shared"], text=True).splitlines())
+          allowed = {"worker/src/routes/simulation.ts", "worker/test/simulationArtifacts.test.ts"}
+          if not changed.issubset(allowed):
+              raise SystemExit("Unexpected backend changes in this session-recovery release")
+          PYCODE
+      - name: Verify completed checks and the production backend baseline
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37019789147 });
+            if (checked.data.head_sha !== "0f5dbb163e7d00a4c3ba722734a9f55d432ae311") {
+              throw new Error("The validation commit does not match the reviewed code.");
+            }
+            const jobs = await github.rest.actions.listJobsForWorkflowRun({ ...context.repo, run_id: 37019789147 });
+            const checks = jobs.data.jobs.find(job => job.name === "checks");
+            for (const name of ["Run npm run typecheck", "Run npm test", "Run npm run build", "Run npm run security"]) {
+              if (!checks?.steps?.some(step => step.name === name && step.conclusion === "success")) {
+                throw new Error("A required check has not passed: " + name);
+              }
+            }
+            const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36971326449 });
+            if (deployed.data.head_sha !== "f3490e1f858a981d85a3672c01f8fc226e90ee5b" || deployed.data.status !== "completed" || deployed.data.conclusion !== "success") {
+              throw new Error("The production backend baseline is not verified.");
+            }
+
+  test-and-deploy:
+    needs: release-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate deployment configuration
+        run: node scripts/validate-deploy-env.mjs worker
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_JWKS_URL: ${{ vars.SUPABASE_JWKS_URL }}
+          APP_ENV: ${{ vars.APP_ENV }}
+          ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PIN_PEPPER: ${{ secrets.PIN_PEPPER }}
+          TEACHER_SETUP_CODE: ${{ secrets.TEACHER_SETUP_CODE }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - id: deploy
+        name: Deploy Cloudflare Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          wranglerVersion: "4.145.0"
+          command: >-
+            deploy
+            --var SUPABASE_URL:${{ vars.SUPABASE_URL }}
+            --var SUPABASE_JWKS_URL:${{ vars.SUPABASE_JWKS_URL }}
+            --var APP_ENV:${{ vars.APP_ENV }}
+            --var ALLOWED_ORIGINS:${{ vars.ALLOWED_ORIGINS }}
+          secrets: |
+            SUPABASE_SERVICE_ROLE_KEY
+            OPENAI_API_KEY
+            PIN_PEPPER
+            TEACHER_SETUP_CODE
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PIN_PEPPER: ${{ secrets.PIN_PEPPER }}
+          TEACHER_SETUP_CODE: ${{ secrets.TEACHER_SETUP_CODE }}
+      - name: Verify deployed Worker
+        env:
+          WORKER_URL: ${{ steps.deploy.outputs.deployment-url }}
+          FRONTEND_WORKER_URL: ${{ vars.VITE_WORKER_URL }}
+        run: |
+          node scripts/validate-worker-url.mjs "$WORKER_URL"
+          node scripts/validate-worker-url.mjs "$FRONTEND_WORKER_URL"
+          if [ "$WORKER_URL" != "$FRONTEND_WORKER_URL" ]; then
+            echo "VITE_WORKER_URL does not match the deployed Worker URL."
+            exit 1
+          fi
+          node - <<'NODE'
+          const response = await fetch(`${process.env.WORKER_URL}/api/health`);
+          const payload = await response.json();
+          if (!response.ok || payload?.ok !== true) {
+            throw new Error(`Worker health check failed with HTTP ${response.status}`);
+          }
+          console.log("Worker health check passed.");
+          NODE
+
+  deploy-frontend:
+    needs: test-and-deploy
+    uses: ./.github/workflows/deploy-frontend.yml
+    secrets: inherit
+

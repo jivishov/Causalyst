@@ -568,6 +568,12 @@ export async function getSimulationGenerationJob(_request: Request, env: Env, db
   if (job.status === "completed") return toStudentSimulationJob(job, await previewForCompletedSimulationJob(db, env, userId, job));
   if (TERMINAL_SIMULATION_JOB_STATUSES.includes(job.status)) return toStudentSimulationJob(job);
   if (isManagedSimulationJob(job)) {
+    const state = await simulationOwner(env, job.id).fetch("https://simulation.internal/state");
+    if (state.status === 404 && Date.now() - Date.parse(job.created_at) > 120_000) {
+      await failReservedJob(db, userId, job.id, "Generation could not start. Your sketch is saved. This request was not repeated automatically.");
+      return toStudentSimulationJob(await requireSimulationGenerationJob(db, userId, job.id));
+    }
+    if (!state.ok && state.status !== 404) throw new HttpError(503, "Could not check generation status. Try again.");
     if (job.status !== "queued") return toStudentSimulationJob(job);
     const response = await managedRequest(simulationScheduler(env), `/position?id=${encodeURIComponent(job.id)}`);
     const { position } = await response.json() as { position: number };
@@ -866,6 +872,7 @@ async function completeSimulationGenerationJob(
     sourceDescriptionSha256: finalizing.source_description_sha256,
     artifactId: finalizing.operation === "refine" ? finalizing.input_html_artifact_id ?? undefined : undefined,
     requireExisting: finalizing.operation === "refine",
+    stableArtifactId: preserveCompletedOutput ? finalizing.id : undefined,
     htmlViewport: CURRENT_SIMULATION_HTML_VIEWPORT
   });
   const completedAt = new Date().toISOString();
@@ -962,7 +969,16 @@ export async function completeManagedSimulation(db: AppDatabaseClient, env: Env,
 }
 
 export async function recoverExpiredSimulationJob(db: AppDatabaseClient, env: Env, userId: string, jobId: string) {
-  return getSimulationGenerationJob(new Request("https://simulation.internal/status"), env, db, userId, jobId);
+  const job = await requireSimulationGenerationJob(db, userId, jobId);
+  if (!job.provider_response_id || job.provider !== "openai") return null;
+  try {
+    const runtime = await resolveAttemptAiEnv(db, env, job.attempt_id);
+    const response = await retrieveSimulationBackgroundResponse(openaiClient(runtime.OPENAI_API_KEY), job.provider_response_id);
+    if (response.status === "completed") return completeSimulationGenerationJob(db, runtime, userId, job, response);
+  } catch (error) {
+    console.error("Expired simulation recovery unavailable", { jobId, status: error && typeof error === "object" && "status" in error ? error.status : undefined });
+  }
+  return null;
 }
 
 async function completeImmediateSimulationGenerationJob(
@@ -1377,6 +1393,7 @@ async function storeGeneratedArtifact(db: AppDatabaseClient, userId: string, att
   sourceDescriptionSha256?: string;
   client?: ReturnType<typeof openaiClient>;
   artifactId?: string;
+  stableArtifactId?: string;
   requireExisting?: boolean;
   htmlViewport?: SimulationHtmlViewport;
 }): Promise<{ id: string; byteSize: number }> {
@@ -1397,11 +1414,26 @@ async function storeGeneratedArtifact(db: AppDatabaseClient, userId: string, att
     throw new HttpError(404, "Simulation artifact not found");
   }
 
-  const artifactId = crypto.randomUUID();
+  const artifactId = input.stableArtifactId ?? crypto.randomUUID();
   const storageKey = `${input.bucket}/${userId}/${attemptId}/${artifactId}-${input.filename}`;
-
-
-  {
+  let resumable = false;
+  if (input.stableArtifactId) {
+    const { data: previous, error } = await db.from("attempt_artifacts")
+      .select("id,attempt_id,student_id,kind,upload_state,content_sha256,byte_size,frozen_at")
+      .eq("id", artifactId).maybeSingle();
+    if (error) throw new HttpError(500, "Failed to recover simulation artifact", error.message);
+    if (previous) {
+      if (previous.attempt_id !== attemptId || previous.student_id !== userId || previous.kind !== input.kind) {
+        throw new HttpError(409, "Simulation artifact ownership changed");
+      }
+      if (previous.upload_state === "uploaded" && previous.content_sha256 === await contentDigest(input.bytes)) {
+        return { id: artifactId, byteSize: previous.byte_size };
+      }
+      if (previous.upload_state !== "pending" || previous.frozen_at) throw new HttpError(409, "Simulation artifact cannot be resumed");
+      resumable = true;
+    }
+  }
+  if (!resumable) {
     const { error: insertError } = await db.from("attempt_artifacts").insert({
       id: artifactId,
       attempt_id: attemptId,
@@ -1422,7 +1454,7 @@ async function storeGeneratedArtifact(db: AppDatabaseClient, userId: string, att
 
   const { error: uploadError } = await db.storage.from(input.bucket).upload(storageKey, input.bytes, {
     contentType: input.mimeType,
-    upsert: false
+    upsert: Boolean(input.stableArtifactId)
   });
   if (uploadError) throw new HttpError(500, "Failed to upload simulation artifact", uploadError.message);
 

@@ -4,7 +4,7 @@ import type { Json } from "./database";
 import type { Env } from "./env";
 import { HttpError } from "./http";
 import { openaiClient } from "./openai";
-import { isManagedSimulationJob, managedRequest, simulationOwner } from "./simulationManaged";
+import { isManagedSimulationJob, simulationOwner } from "./simulationManaged";
 import { recoverExpiredSimulationJob } from "../routes/simulation";
 
 export async function runRetention(db: AppDatabaseClient, env: Env): Promise<void> {
@@ -65,13 +65,18 @@ export async function runRetention(db: AppDatabaseClient, env: Env): Promise<voi
   if (expiredError) throw new HttpError(500, "Could not load expired jobs", expiredError.message);
   for (const job of expired ?? []) {
     if (isManagedSimulationJob(job)) {
-      await managedRequest(simulationOwner(env, job.id), "/expire");
+      const response = await simulationOwner(env, job.id).fetch("https://simulation.internal/expire");
+      if (response.status === 404) {
+        const { error } = await db.from("simulation_generation_jobs").update({ status: "expired", completed_at: now,
+          error_message: "Generation could not start. Your sketch is saved." }).eq("id", job.id).in("status", ["queued", "in_progress"]);
+        if (error) throw new HttpError(500, "Could not expire interrupted generation", error.message);
+      } else if (!response.ok) throw new HttpError(503, "Could not check expired generation");
       continue;
     }
     if (job.status !== "expired" && job.provider === "openai" && job.provider_response_id) {
       // Status recovery retrieves and saves completed output before applying expiry.
       const recovered = await recoverExpiredSimulationJob(db, env, job.student_id, job.id);
-      if (["completed", "failed", "incomplete", "cancelled", "expired"].includes(recovered.status)) continue;
+      if (recovered && ["completed", "failed", "incomplete", "cancelled", "expired"].includes(recovered.status)) continue;
     }
     let cancellationPending = false;
     if (job.provider === "openai" && job.provider_response_id) {

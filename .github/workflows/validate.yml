@@ -63,6 +63,7 @@ jobs:
           name: database-types
           path: worker/src/lib/database.generated.ts
           retention-days: 7
+      - run: npm run build:worker
       - run: npm run test:supabase
       - name: Check committed database types
         run: |

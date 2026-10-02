@@ -1,10 +1,39 @@
 import OpenAI from "openai";
 import { describe, expect, it } from "vitest";
-import { generateSimulationHtml, generateSimulationSketch, startSimulationHtmlBackgroundResponse, streamSimulationBackgroundResponse } from "../src/lib/openai";
+import { generateSimulationHtml, generateSimulationSketch, parseSimulationHtmlResponse, startSimulationHtmlBackgroundResponse, streamSimulationBackgroundResponse, streamSimulationForegroundResponse } from "../src/lib/openai";
 import { getSimulationCodeModel, toOpenAIModelCatalogEntry } from "../src/lib/models";
 
 // Exercise the installed SDK's serialization and response handling, not a mock of its methods.
 describe("OpenAI SDK request compatibility", () => {
+  it("keeps the foreground stream through completion and preserves teacher settings and image input", async () => {
+    const model = { id: "gpt-6.1-sol", reasoningEffort: "medium" as const, maxOutputTokens: 64000, fastMode: true };
+    let finish!: () => void;
+    let cancelled = false;
+    const wait = new Promise<void>(resolve => { finish = resolve; });
+    const client = new OpenAI({ apiKey: "synthetic", maxRetries: 0, fetch: async (_url, options) => {
+      expect(JSON.parse(String(options?.body))).toMatchObject({ background: false, stream: true, store: true,
+        model: model.id, service_tier: "fast", reasoning: { effort: "medium" }, text: { verbosity: "low" }, max_output_tokens: 64000,
+        input: [expect.anything(), expect.objectContaining({ content: expect.arrayContaining([
+          expect.objectContaining({ type: "input_image", file_id: "file-sketch" })]) })] });
+      return new Response(new ReadableStream({ async start(controller) {
+        const send = (event: unknown) => controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`));
+        send({ type: "response.created", response: { id: "resp-foreground", status: "in_progress" } });
+        await wait;
+        send({ type: "response.completed", response: { status: "completed", model: model.id,
+          output: [{ type: "reasoning", summary: [{ text: "private" }] }, { type: "message", content: [{ type: "output_text", text: "<html>complete</html>" }] }] } });
+        controller.close();
+      }, cancel() { cancelled = true; } }), { headers: { "Content-Type": "text/event-stream", "x-ratelimit-remaining-tokens": "300000" } });
+    } });
+    const result = await streamSimulationForegroundResponse(client, { description: "Two circles", sketchFileId: "file-sketch", htmlReasoningEffort: "medium", model }, new AbortController().signal);
+    expect(result.response.headers.get("x-ratelimit-remaining-tokens")).toBe("300000");
+    const iterator = result.data[Symbol.asyncIterator]();
+    expect((await iterator.next()).value.type).toBe("response.created");
+    expect(cancelled).toBe(false);
+    finish();
+    const event = (await iterator.next()).value;
+    expect(parseSimulationHtmlResponse(event.response)).toBe("<html>complete</html>");
+    expect((await iterator.next()).done).toBe(true);
+  });
   it("acknowledges a streaming background job before HTML finishes and resumes it without another generation", async () => {
     const requests: { method: string; url: string }[] = [];
     const model = toOpenAIModelCatalogEntry(getSimulationCodeModel("openai:gpt-5.6-terra"));

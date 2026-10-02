@@ -16,6 +16,7 @@ type GenerationState = {
   phase: "queued" | "dispatched" | "starting" | "running" | "saving" | "done";
   responseId?: string; retries: number; cursor: number; outputChunks: number;
   stop?: "cancelled" | "expired"; cleanupAt?: number;
+  saveStartedAt?: number;
 };
 
 // The scheduler is one durable instance for every Worker instance and classroom.
@@ -108,13 +109,15 @@ export class SimulationGeneration {
     await this.ready;
     const path = new URL(request.url).pathname;
     if (path === "/init") {
-      if (!this.state) {
-        this.input = await request.json() as ManagedSimulationInput;
-        await writeChunks(this.ctx.storage, "input", JSON.stringify(this.input));
-        this.state = { phase: "queued", retries: 0, cursor: 0, outputChunks: 0 };
-        await this.persist();
-      }
-      if (this.state.phase === "queued") await this.ctx.storage.setAlarm(Date.now() + 1);
+      await this.ctx.blockConcurrencyWhile(async () => {
+        if (!this.state) {
+          this.input = await request.json() as ManagedSimulationInput;
+          await writeChunks(this.ctx.storage, "input", JSON.stringify(this.input));
+          this.state = { phase: "queued", retries: 0, cursor: 0, outputChunks: 0 };
+          await this.persist();
+        }
+        if (this.state.phase === "queued") await this.ctx.storage.setAlarm(Date.now() + 1);
+      });
       return Response.json({ ok: true });
     }
     if (!this.state || !this.input) return new Response("Unknown generation", { status: 404 });
@@ -156,11 +159,15 @@ export class SimulationGeneration {
     }
 
     const db = serviceSupabase(this.env);
-    const runtime = await resolveAttemptAiEnv(db, this.env, this.input.job.attempt_id);
-    const client = openaiClient(runtime.OPENAI_API_KEY, undefined, runtime.AI_SETTINGS);
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
+      const runtime = await resolveAttemptAiEnv(db, this.env, this.input.job.attempt_id);
+      const client = openaiClient(runtime.OPENAI_API_KEY, undefined, runtime.AI_SETTINGS);
       if (this.state.phase === "saving") {
+        if (Date.now() - (this.state.saveStartedAt ?? Date.now()) > 60 * 60_000) {
+          await this.finish("failed", "The model finished, but saving remained unavailable. Your sketch is saved.");
+          return;
+        }
         await this.saveCompleted(runtime);
         return;
       }
@@ -182,6 +189,7 @@ export class SimulationGeneration {
         await this.finish(this.state.stop ?? "failed", this.state.stop ? undefined : "Connection interrupted before completion. The model request will not be repeated automatically.");
         return;
       }
+      if (Date.now() >= Date.parse(this.input.job.expires_at)) { await this.finish("expired"); return; }
       const prepared = await prepareManagedSimulation(db, runtime, this.input);
       if (this.state.stop) { await this.finish(this.state.stop); return; }
       this.abort = new AbortController();
@@ -237,10 +245,10 @@ export class SimulationGeneration {
         await managedRequest(simulationScheduler(this.env), "/pause", { until: Date.now() + delay });
         await this.release();
         await this.ctx.storage.setAlarm(Date.now() + delay);
-      } else if (this.state.responseId) {
+      } else if (this.state.responseId && Date.now() < Date.parse(this.input.job.expires_at)) {
         await this.ctx.storage.setAlarm(Date.now() + 15_000);
       } else {
-        await this.finish(this.state.stop ?? "failed", "Generation did not finish safely. Your sketch is saved. This request will not be repeated automatically.");
+        await this.finish(this.state.stop ?? (Date.now() >= Date.parse(this.input.job.expires_at) ? "expired" : "failed"), "Generation did not finish safely. Your sketch is saved. This request will not be repeated automatically.");
       }
     } finally {
       clearTimeout(timeout);
@@ -254,7 +262,10 @@ export class SimulationGeneration {
     await this.checkpoint();
     await this.ctx.storage.put("completed", { model: response.model, service_tier: response.service_tier ?? null });
     this.state!.phase = "saving";
+    this.state!.saveStartedAt = Date.now();
     await this.persist();
+    // Saving can retry independently without occupying a model execution slot.
+    await this.release();
   }
 
   private async saveCompleted(runtime: Env): Promise<void> {

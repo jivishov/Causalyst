@@ -3,6 +3,14 @@ import type { SimulationHtmlStreamEvent } from "@alt-assessment/shared";
 import { consumeSimulationHtmlStream } from "../src/lib/simulationStream";
 
 describe("student HTML stream", () => {
+  it("accepts a complete reconnect snapshot without duplicating prior HTML", async () => {
+    const source = '<html><script>const label="plant";</script></html>';
+    const event = { type: "html_snapshot", source, cursor: 8 };
+    const response = new Response(`data: ${JSON.stringify(event)}\n\n`, { headers: { "Content-Type": "text/event-stream" } });
+    const received: SimulationHtmlStreamEvent[] = [];
+    await consumeSimulationHtmlStream(response, value => received.push(value));
+    expect(received).toEqual([event]);
+  });
   it("decodes split UTF-8, CRLF, multiline SSE and complete events before the response ends", async () => {
     const html: SimulationHtmlStreamEvent = { type: "html_delta", delta: '<p>Energy → plants</p>\n<script>unfinished', cursor: 3 };
     const bytes = new TextEncoder().encode(`: keepalive\r\n\r\ndata: ${JSON.stringify(html)}\r\n\r\ndata: {"type":\r\ndata: "checkpoint", "cursor": 4}\r\n\r\ndata: {"type":"html_delta","delta":"cut off`);

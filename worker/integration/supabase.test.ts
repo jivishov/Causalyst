@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { isJsonObject, type AppDatabaseClient, type Database } from "../src/lib/database";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import pg from "pg";
 // The CLI owns these local-only credentials; never substitute hosted project keys.
 // @ts-expect-error The CLI wrapper is a Node-only JavaScript module.
@@ -17,6 +18,7 @@ import { studentSession } from "../src/routes/student";
 import { reserveSimulationJob } from "../src/lib/simulationJobs";
 import { runRetention } from "../src/lib/retention";
 import * as openai from "../src/lib/openai";
+import { Miniflare, createFetchMock } from "miniflare";
 
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
 const syntheticEnv = { PIN_PEPPER: "disposable-integration-pepper" } as never;
@@ -143,6 +145,63 @@ describe('real Supabase service boundaries', () => {
     }
     await runConcurrency(localCredentials().DB_URL);
   });
+
+  it('saves a foreground job through real durable alarms and Supabase without an open student connection', async () => {
+    const assessment = randomUUID(), assignment = randomUUID(), attempt = randomUUID(), sketch = randomUUID();
+    const description = "Two circles move apart when Play is pressed and return when Reset is pressed.";
+    const sourceHash = createHash("sha256").update(description).digest("hex");
+    await sql.query("insert into assessments(id,type,title,prompt,created_by) values($1,'simulation','Durable runtime','Explain',$2)", [assessment, teacherId]);
+    await sql.query('insert into assessment_assignments(id,class_id,assessment_id) values($1,$2,$3)', [assignment, courseId, assessment]);
+    expect((await service.from('attempts').insert({ id: attempt, assessment_id: assessment, assignment_id: assignment, student_id: studentId })).error).toBeNull();
+    await sql.query("insert into attempt_artifacts(id,attempt_id,student_id,kind,bucket,storage_key,mime_type,upload_state,openai_file_id,source_description_sha256) values($1::uuid,$2,$3,'simulation-sketch','simulation-sketch',$1::text,'image/png','uploaded','file-synthetic',$4)", [sketch, attempt, studentId, sourceHash]);
+    const reservation = await reserveSimulationJob(service, { userId: studentId, attemptId: attempt, operation: 'generate',
+      sketchArtifactId: sketch, sourceDescriptionSha256: sourceHash, htmlReasoningEffort: 'medium', provider: 'openai', requestedModel: 'gpt-6.1-sol', htmlServiceTierRequested: 'fast' });
+    await service.from('simulation_generation_jobs').update({ provider_status: 'managed_queued' }).eq('id', reservation.job.id);
+    const html = '<!doctype html><html><head><style>body{margin:0}</style></head><body><button>Play</button><button>Pause</button><button>Reset</button><button>Step Forward</button><svg viewBox="0 0 800 500"><circle cx="200" cy="200" r="40"/><circle cx="500" cy="200" r="40"/></svg></body></html>';
+    const provider = createFetchMock();
+    provider.disableNetConnect();
+    provider.enableNetConnect(/127\.0\.0\.1|localhost/);
+    const sse = [ { type: "response.created", response: { id: "resp-synthetic-runtime", status: "in_progress", service_tier: "fast" } },
+      { type: "response.output_text.delta", delta: html },
+      { type: "response.completed", response: { id: "resp-synthetic-runtime", status: "completed", model: "gpt-6.1-sol", service_tier: "fast",
+        output: [{ type: "message", content: [{ type: "output_text", text: html }] }] } }
+    ].map(event => `data: ${JSON.stringify(event)}\n\n`).join("");
+    provider.get("https://api.openai.com").intercept({ method: "POST", path: "/v1/responses" }).reply(200, sse,
+      { headers: { "content-type": "text/event-stream" } });
+    const config = localCredentials();
+    const runtime = new Miniflare({ modules: true, scriptPath: fileURLToPath(new URL("../../.worker-build/index.js", import.meta.url)),
+      modulesRules: [{ type: "Text", include: ["**/*.txt"] }], compatibilityDate: "2026-04-28", fetchMock: provider,
+      bindings: { SUPABASE_URL: config.API_URL, SUPABASE_SERVICE_ROLE_KEY: config.SERVICE_ROLE_KEY, OPENAI_API_KEY: "synthetic", PIN_PEPPER: "disposable-integration-pepper", APP_ENV: "test" },
+      durableObjects: { SIMULATION_GENERATIONS: { className: "SimulationGeneration", useSQLite: true },
+        SIMULATION_SCHEDULER: { className: "SimulationScheduler", useSQLite: true }, REALTIME_SESSIONS: { className: "RealtimeEvidence", useSQLite: true } }
+    });
+    try {
+      const namespace = await runtime.getDurableObjectNamespace("SIMULATION_GENERATIONS");
+      const owner = namespace.get(namespace.idFromName(reservation.job.id));
+      const initialized = await owner.fetch("https://internal/init", { method: "POST", body: JSON.stringify({
+        job: reservation.job, description, model: { id: "gpt-6.1-sol", maxOutputTokens: 64000, fastMode: true }
+      }) });
+      expect(initialized.ok).toBe(true);
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline) {
+        const result = await service.from("simulation_generation_jobs").select("status,result_artifact_id,service_tier_used").eq("id", reservation.job.id).single();
+        expect(result.error).toBeNull();
+        if (result.data?.status === "completed") {
+          expect(result.data.result_artifact_id).toBe(reservation.job.id);
+          expect(result.data.service_tier_used).toBe("fast");
+          const artifact = await service.from("attempt_artifacts").select("bucket,storage_key,upload_state").eq("id", result.data.result_artifact_id!).single();
+          expect(artifact.data?.upload_state).toBe("uploaded");
+          const document = await service.storage.from(artifact.data!.bucket).download(artifact.data!.storage_key);
+          expect(document.error).toBeNull(); expect(await document.data!.text()).toContain("<circle");
+          provider.assertNoPendingInterceptors();
+          return;
+        }
+        if (result.data?.status === "failed") throw new Error("Durable runtime generation failed");
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      throw new Error("Durable alarm did not save the HTML within the test deadline");
+    } finally { await runtime.dispose(); }
+  }, 30_000);
 
   it('expires other jobs during a provider outage and retries cancellation without restarting generation', async () => {
     const jobs: string[] = [];

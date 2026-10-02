@@ -162,6 +162,7 @@ describe('real Supabase service boundaries', () => {
     expect((await service.from('simulation_generation_jobs').select('status').eq('id', reservation.job.id).single()).data?.status).toBe('queued');
     const html = '<!doctype html><html><head><style>body{margin:0}</style></head><body><button>Play</button><button>Pause</button><button>Reset</button><button>Step Forward</button><svg viewBox="0 0 800 500"><circle cx="200" cy="200" r="40"/><circle cx="500" cy="200" r="40"/></svg></body></html>';
     let providerCalls = 0;
+    let uploadRejectedOnce = false;
     const sse = [ { type: "response.created", response: { id: "resp-synthetic-runtime", status: "in_progress", service_tier: "fast" } },
       { type: "response.output_text.delta", delta: html },
       { type: "response.completed", response: { id: "resp-synthetic-runtime", status: "completed", model: "gpt-6.1-sol", service_tier: "fast",
@@ -183,6 +184,11 @@ describe('real Supabase service boundaries', () => {
           return new RuntimeResponse(sse, { headers: { "content-type": "text/event-stream" } });
         }
         if (target.origin !== new URL(config.API_URL).origin) throw new Error("Unexpected runtime subrequest");
+        if (!uploadRejectedOnce && request.method === "POST" && target.pathname.startsWith("/storage/v1/object/simulation-derived/")) {
+          uploadRejectedOnce = true;
+          return new RuntimeResponse(JSON.stringify({ message: "Synthetic storage outage" }), { status: 503,
+            headers: { "content-type": "application/json" } });
+        }
         const forwarded = await fetch(request.url, { method: request.method, headers: Object.fromEntries(request.headers),
           ...(["GET", "HEAD"].includes(request.method) ? {} : { body: new Uint8Array(await request.arrayBuffer()) }) });
         if (!forwarded.ok) {
@@ -190,7 +196,8 @@ describe('real Supabase service boundaries', () => {
           console.error("Disposable runtime dependency failure", { path: target.pathname, status: forwarded.status,
             code: problem.code ?? problem.error, message: problem.message });
         }
-        return new RuntimeResponse(await forwarded.arrayBuffer(), { status: forwarded.status, headers: Object.fromEntries(forwarded.headers) });
+        return new RuntimeResponse([204, 205, 304].includes(forwarded.status) ? null : await forwarded.arrayBuffer(),
+          { status: forwarded.status, headers: Object.fromEntries(forwarded.headers) });
       },
       bindings: { SUPABASE_URL: config.API_URL, SUPABASE_SERVICE_ROLE_KEY: config.SERVICE_ROLE_KEY, OPENAI_API_KEY: "synthetic", PIN_PEPPER: "disposable-integration-pepper", APP_ENV: "test" },
       durableObjects: { SIMULATION_GENERATIONS: { className: "SimulationGeneration", useSQLite: true },
@@ -215,6 +222,9 @@ describe('real Supabase service boundaries', () => {
           const document = await service.storage.from(artifact.data!.bucket).download(artifact.data!.storage_key);
           expect(document.error).toBeNull(); expect(await document.data!.text()).toContain("<circle");
           expect(providerCalls).toBe(1);
+          expect(uploadRejectedOnce).toBe(true);
+          const artifacts = await service.from("attempt_artifacts").select("id").eq("attempt_id", attempt).eq("kind", "simulation-derived");
+          expect(artifacts.data).toHaveLength(1);
           return;
         }
         if (result.data?.status === "failed") throw new Error("Durable runtime generation failed");

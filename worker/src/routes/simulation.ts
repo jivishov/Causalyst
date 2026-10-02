@@ -857,7 +857,8 @@ async function completeSimulationGenerationJob(
     return toStudentSimulationJob(job, await previewForCompletedSimulationJob(db, env, userId, job));
   }
 
-  const finalizing = await claimSimulationGenerationJobForFinalization(db, userId, job);
+  const finalizing = preserveCompletedOutput && job.status === "finalizing"
+    ? job : await claimSimulationGenerationJobForFinalization(db, userId, job);
   if (!finalizing) {
     const current = await requireSimulationGenerationJob(db, userId, job.id);
     return toStudentSimulationJob(current, await previewForCompletedSimulationJob(db, env, userId, current));
@@ -960,12 +961,9 @@ export async function setManagedSimulationState(db: AppDatabaseClient, original:
 }
 
 export async function completeManagedSimulation(db: AppDatabaseClient, env: Env, original: SimulationGenerationJobRow, response: any) {
-  let current = await requireSimulationGenerationJob(db, original.student_id, original.id);
-  if (current.status === "finalizing") {
-    // Only the single durable owner can resume interrupted managed finalization.
-    current = await updateSimulationGenerationJob(db, original.student_id, original.id,
-      { status: "in_progress", provider_status: "managed_saving", updated_at: new Date().toISOString() });
-  }
+  // Continue the existing finalization claim. SQL deliberately forbids returning
+  // a finalizing job to provider execution, including during storage retries.
+  const current = await requireSimulationGenerationJob(db, original.student_id, original.id);
   return completeSimulationGenerationJob(db, env, original.student_id, current, response, true);
 }
 

@@ -212,4 +212,28 @@ describe("durable foreground simulation jobs", () => {
     expect(hooks.complete).toHaveBeenCalledTimes(1);
     expect(hooks.update).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), "expired", expect.anything(), expect.anything(), expect.anything());
   });
+
+  it("confirms an active cancellation even when the provider connection is interrupted", async () => {
+    const h = harness(); await h.init("active"); await h.scheduler.alarm();
+    vi.spyOn(ai, "streamSimulationForegroundResponse").mockImplementation(async (_client, _input, signal) => ({
+      response: new Response(null), data: (async function* () {
+        yield { type: "response.created", response: { id: "resp-active" } };
+        await new Promise<void>((_resolve, reject) => signal.addEventListener("abort", () => reject(new Error("Aborted")), { once: true }));
+      })()
+    }) as never);
+    const running = h.owner("active").alarm();
+    for (let i = 0; i < 30; i++) await Promise.resolve();
+    await h.post("active", "/cancel"); await running;
+    expect(h.stores.get("active")!.values.get("state")).toMatchObject({ phase: "done", stop: "cancelled" });
+    expect(hooks.update).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ id: "active" }), "cancelled", "resp-active", undefined, "Generation was cancelled.");
+    expect(ai.streamSimulationForegroundResponse).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not replay an ambiguous provider server error", async () => {
+    const h = harness(); await h.init("server-error"); await h.scheduler.alarm();
+    vi.spyOn(ai, "streamSimulationForegroundResponse").mockRejectedValue({ status: 503, code: "server_error" });
+    await h.owner("server-error").alarm(); await h.owner("server-error").alarm();
+    expect(h.stores.get("server-error")!.values.get("state")).toMatchObject({ phase: "done", retries: 0 });
+    expect(ai.streamSimulationForegroundResponse).toHaveBeenCalledTimes(1);
+  });
 });

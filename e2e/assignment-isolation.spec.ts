@@ -35,6 +35,7 @@ async function fixture(page: Page, type: "simulation" | "writing" = "simulation"
       starts.push(id);
       await route.fulfill({ headers, json: startResponse(id) });
     } else if (path.includes("/artifacts/sketch-")) await route.fulfill({ headers, contentType: "image/png", body: png });
+    else if (/\/simulation\/attempts\/attempt-[ab]\/settings$/.test(path)) await route.fulfill({ headers, json: { sketchModelId: "gpt-image-2.5-flare", htmlModelId: path.includes("attempt-a") ? "gpt-6.1-sol" : "gpt-5.6-terra", htmlReasoningEffort: path.includes("attempt-a") ? "high" : "medium", htmlMaxOutputTokens: 64000 } });
     else if (path.includes("/artifacts/html-")) {
       const id = path.includes("html-a") ? "A" : "B";
       await route.fulfill({ headers, contentType: "text/html", body: `<!doctype html><html><body><h1>Simulation ${id}</h1><button onclick="this.textContent='Advanced'">Step forward</button></body></html>` });
@@ -60,6 +61,7 @@ test("draft descriptions and previews stay with their assignment across navigati
   await page.goto("./assignment/assignment-a");
   const frame = () => page.frameLocator('iframe[title="Safe simulation preview"]');
   await expect(frame().getByRole("heading", { name: "Simulation A" })).toBeVisible();
+  await expect(page.locator(".raw-debug-content")).toContainText("Next HTML model: gpt-6.1-sol | Next HTML reasoning: High");
   await page.locator(".assignment-instructions > summary").click();
   await page.screenshot({ path: testInfo.outputPath("student-preview-workbench.png") });
   const panel = await page.locator(".safe-preview-primary").boundingBox();
@@ -75,6 +77,7 @@ test("draft descriptions and previews stay with their assignment across navigati
   await page.getByLabel("Description", { exact: true }).fill(edited);
   await f.switchTo("b");
   await expect(frame().getByRole("heading", { name: "Simulation B" })).toBeVisible();
+  await expect(page.locator(".raw-debug-content")).toContainText("Next HTML model: gpt-5.6-terra | Next HTML reasoning: Medium");
   await expect(page.getByLabel("Description", { exact: true })).toHaveValue(description("b"));
   await f.switchTo("a");
   await expect(page.getByLabel("Description", { exact: true })).toHaveValue(edited);

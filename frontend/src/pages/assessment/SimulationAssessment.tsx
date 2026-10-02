@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronDown, Image, LoaderCircle, Maximize2, Minimize2, MonitorPlay, RefreshCw, Send, SlidersHorizontal, Sparkles, WandSparkles, X } from "lucide-react";
 import { DEFAULT_SIMULATION_HTML_REASONING_EFFORT, MAX_SIMULATION_STREAM_CHARS,
   assessSimulationDescriptionReadiness, type AssessmentSummary,
-  type SimulationHtmlReasoningEffort, type StudentSimulationGenerationJob, type StudentSimulationPreview } from "@alt-assessment/shared";
+  type SimulationHtmlReasoningEffort, type StudentSimulationGenerationJob, type StudentSimulationModelSettings, type StudentSimulationPreview } from "@alt-assessment/shared";
 import { RubricFeedback } from "../../components/RubricFeedback";
 import { StudentActionProgress } from "../../components/StudentActionProgress";
 import { SimulationHtmlStream } from "../../components/SimulationHtmlStream";
 import { SimulationPreviewFrame, type SimulationPreviewHealthReport } from "../../components/SimulationPreviewFrame";
 import { ApiRequestError, cancelSimulationGenerationJob, fallbackSimulationPreview, generateSimulation,
-  generateSimulationSketch, getSimulationGenerationJob, isRetryableApiError, streamSimulationGenerationJob, getSimulationPreviewUrl, refineSimulation, submitSimulation } from "../../lib/api";
+  generateSimulationSketch, getSimulationGenerationJob, getSimulationModelSettings, isRetryableApiError, streamSimulationGenerationJob, getSimulationPreviewUrl, refineSimulation, submitSimulation } from "../../lib/api";
 import { SIMULATION_STALE_ATTEMPT_RETRY_MESSAGE, canCancelSimulationGenerationJob, canRetrySimulationHtmlPreview,
   isActiveSimulationGenerationJob, isRetryableSimulationAttemptError, isTerminalSimulationJobStatus,
   resolveSimulationGenerateButtonLabel, resolveSimulationReadinessMessage, resolveSimulationRunMessage,
@@ -66,7 +66,6 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
   const [htmlPreviewToken, setHtmlPreviewToken] = useState<string | null>(null);
   const [htmlPreviewGenerationSource, setHtmlPreviewGenerationSource] = useState<StudentSimulationPreview["generationSource"] | null>(null);
   const [htmlPreviewViewport, setHtmlPreviewViewport] = useState<StudentSimulationPreview["htmlViewport"] | null>(null);
-  const selectedHtmlReasoningEffort = DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
   const [currentHtmlReasoningEffort, setCurrentHtmlReasoningEffort] = useState<SimulationHtmlReasoningEffort | null>(null);
   const [htmlPreviewUrl, setHtmlPreviewUrl] = useState<string | null>(null);
   const [htmlRequestedModel, setHtmlRequestedModel] = useState<string | null>(null);
@@ -88,6 +87,11 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
   const [submittingSimulation, setSubmittingSimulation] = useState(false);
   const [inputPanelOpen, setInputPanelOpen] = useState(true);
   const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [modelSettings, setModelSettings] = useState<StudentSimulationModelSettings | null>(null);
+  const [modelSettingsLoading, setModelSettingsLoading] = useState(false);
+  const [modelSettingsError, setModelSettingsError] = useState<string | null>(null);
+  const selectedHtmlReasoningEffort = modelSettings?.htmlReasoningEffort ?? DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
+  const modelSettingsLoadTokenRef = useRef(0);
   const sketchPanelRef = useRef<HTMLDetailsElement | null>(null);
   const htmlPanelRef = useRef<HTMLElement | null>(null);
   const generationRunTokenRef = useRef(0);
@@ -103,12 +107,37 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
       sketchPreviewLoadTokenRef.current += 1;
       htmlPreviewLoadTokenRef.current += 1;
       htmlJobPollTokenRef.current += 1;
+      modelSettingsLoadTokenRef.current += 1;
       htmlStreamAbortRef.current?.abort();
       // StrictMode replays mount effects. A cancelled restoration must be
       // allowed to run again instead of leaving its previews in "Loading".
       restoredDraftKeyRef.current = null;
     };
   }, []);
+
+  const refreshModelSettings = useCallback(async () => {
+    if (!draftAttemptId || !isActive()) return;
+    const token = ++modelSettingsLoadTokenRef.current;
+    setModelSettingsLoading(true);
+    setModelSettingsError(null);
+    try {
+      const settings = await getSimulationModelSettings(draftAttemptId);
+      if (!settings.sketchModelId || !settings.htmlModelId || !settings.htmlReasoningEffort) throw new Error("Model settings are unavailable. Refresh model settings to try again.");
+      if (isActive() && modelSettingsLoadTokenRef.current === token) setModelSettings(settings);
+    } catch (error) {
+      if (isActive() && modelSettingsLoadTokenRef.current === token) {
+        setModelSettings(null);
+        setModelSettingsError(error instanceof Error ? error.message : "Could not load model settings.");
+      }
+    } finally {
+      if (isActive() && modelSettingsLoadTokenRef.current === token) setModelSettingsLoading(false);
+    }
+  }, [draftAttemptId, isActive]);
+
+  useEffect(() => {
+    void refreshModelSettings();
+    return () => { modelSettingsLoadTokenRef.current += 1; };
+  }, [refreshModelSettings]);
 
   useEffect(() => {
     const update = () => setPreviewExpanded(document.fullscreenElement === htmlPanelRef.current);
@@ -769,7 +798,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
             <RubricFeedback feedback={null} rubric={assessment.rubric} />
             <div className="simulation-html-options">
               <p id="html-reasoning-effort" className="overall-comment">Reasoning effort and token limits are assigned by your teacher.</p>
-              <p className="overall-comment">Model: {htmlModelUsed || "Assigned by your teacher"}</p>
+              <p className="overall-comment">Next HTML model: {modelSettings?.htmlModelId || (modelSettingsLoading ? "Loading settings…" : "Unavailable")}{modelSettings ? ` · Reasoning: ${formatSimulationHtmlReasoningEffort(modelSettings.htmlReasoningEffort)}` : ""}</p>
             </div>
             <button
               className="primary-button simulation-submit"
@@ -998,6 +1027,11 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
         <details className="raw-debug-accordion">
           <summary>Simulation Metadata</summary>
           <div className="raw-debug-content">
+            <button type="button" className="secondary-button" disabled={modelSettingsLoading || !draftAttemptId} aria-busy={modelSettingsLoading} onClick={() => { void refreshModelSettings(); }}><RefreshCw size={15} aria-hidden="true" /> {modelSettingsLoading ? "Loading model settings…" : "Refresh model settings"}</button>
+            {modelSettingsError && <p className="field-error" role="alert">{modelSettingsError}</p>}
+            <p className="overall-comment">Next sketch model: {modelSettings?.sketchModelId || (modelSettingsLoading ? "Loading…" : "Unavailable")}</p>
+            <p className="overall-comment">Next HTML model: {modelSettings?.htmlModelId || (modelSettingsLoading ? "Loading…" : "Unavailable")} | Next HTML reasoning: {modelSettings ? formatSimulationHtmlReasoningEffort(modelSettings.htmlReasoningEffort) : "Unavailable"}{modelSettings?.htmlMaxOutputTokens ? ` | Token limit: ${modelSettings.htmlMaxOutputTokens.toLocaleString()}` : ""}</p>
+            <p className="overall-comment">These are the next request settings. Refresh to check for teacher changes. Current preview and job settings below describe the request that created them.</p>
             <p className="overall-comment">
               {sketchRequestedModel ? `Sketch requested model: ${sketchRequestedModel}` : "Sketch requested model: n/a"} | {sketchModelUsed ? `Sketch model used: ${sketchModelUsed}` : "Sketch model used: n/a"} | Output kind: image
             </p>
@@ -1005,7 +1039,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
               {htmlRequestedModel ? `HTML requested model: ${htmlRequestedModel}` : "HTML requested model: n/a"} | {htmlModelUsed ? `HTML model used: ${htmlModelUsed}` : "HTML model used: n/a"} | Output kind: html
             </p>
             <p className="overall-comment">
-              Next HTML reasoning: assigned by your teacher | Current preview/job HTML reasoning: {currentHtmlReasoningEffort ? formatSimulationHtmlReasoningEffort(currentHtmlReasoningEffort) : "n/a"}
+              Current preview/job HTML reasoning: {currentHtmlReasoningEffort ? formatSimulationHtmlReasoningEffort(currentHtmlReasoningEffort) : "n/a"}
             </p>
             <p className="overall-comment">{sketchArtifactId ? `Sketch artifact ID: ${sketchArtifactId}` : "Sketch artifact ID: n/a"}</p>
             <p className="overall-comment">{htmlArtifactId ? `HTML artifact ID: ${htmlArtifactId}` : "HTML artifact ID: n/a"}</p>

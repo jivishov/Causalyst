@@ -8,6 +8,7 @@ import type {
   StudentCourseAssignments,
   StudentSessionResponse,
   StudentSimulationGenerationJob,
+  StudentSimulationModelSettings,
   SimulationHtmlStreamEvent,
   StudentSimulationPreview,
   StudentPublishedFinalResultResponse,
@@ -804,6 +805,10 @@ export function getSimulationGenerationJob(jobId: string) {
   return apiFetch<StudentSimulationGenerationJob>(`/simulation/jobs/${jobId}`, {
     method: "GET"
   }, SIMULATION_JOB_STATUS_TIMEOUT_MS);
+}
+
+export function getSimulationModelSettings(attemptId: string) {
+  return apiFetch<StudentSimulationModelSettings>(`/simulation/attempts/${encodeURIComponent(attemptId)}/settings`, { method: "GET", cache: "no-store" });
 }
 
 export async function streamSimulationGenerationJob(jobId: string, input: {

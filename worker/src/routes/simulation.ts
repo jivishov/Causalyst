@@ -1,4 +1,4 @@
-import { resolveAttemptAiEnv } from "../lib/aiSettings";
+import { defaultRuntimeAiSettings, resolveAttemptAiEnv, type AttemptAiContext } from "../lib/aiSettings";
 import { reserveSimulationJob, type SimulationGenerationJobRow } from "../lib/simulationJobs";
 import { reserveAiBudget, boundStudentText } from "../lib/aiBudget";
 import { completeArtifact, contentDigest } from "../lib/evidence";
@@ -10,6 +10,7 @@ import {
   type StudentSimulationGenerationJobStatus,
   type SimulationHtmlReasoningEffort,
   type StudentSimulationPreview,
+  type StudentSimulationModelSettings,
   type SimulationHtmlStreamEvent,
   MAX_SIMULATION_STREAM_CHARS,
   DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
@@ -36,6 +37,24 @@ const SIMULATION_JOB_EXPIRY_MS = 20 * 60 * 1000;
 const ACTIVE_SIMULATION_JOB_STATUSES: StudentSimulationGenerationJobStatus[] = ["queued", "in_progress", "finalizing"];
 const TERMINAL_SIMULATION_JOB_STATUSES: StudentSimulationGenerationJobStatus[] = ["completed", "failed", "incomplete", "cancelled", "expired"];
 
+export async function getSimulationModelSettings(_request: Request, env: Env, db: AppDatabaseClient, userId: string, attemptId: string): Promise<StudentSimulationModelSettings> {
+  const { assessment } = await requireAttempt(db, userId, attemptId);
+  if (assessment.type !== "simulation") throw new HttpError(400, "Attempt is not a simulation assessment");
+  const { data, error } = await db.rpc("get_attempt_ai_context", { p_attempt_id: attemptId });
+  if (error) throw new HttpError(503, "Assessment AI settings are unavailable");
+  const context = data as unknown as AttemptAiContext | null;
+  // Read the same model policy as generation without capturing credentials,
+  // changing the attempt or starting any provider work.
+  const runtime = context?.teacherId ? context.runtime ?? context.settings ?? defaultRuntimeAiSettings(env) : env.AI_SETTINGS;
+  const current = context?.teacherId ? context.settings ?? runtime : env.AI_SETTINGS;
+  const model = readAssessmentSimulationCodeModel(assessment.config, { ...env, AI_SETTINGS: current });
+  return {
+    sketchModelId: getModel("simulationSketchImage", runtime).id,
+    htmlModelId: model.providerModelId,
+    htmlReasoningEffort: readSimulationHtmlReasoningEffort({}, model),
+    htmlMaxOutputTokens: model.maxOutputTokens
+  };
+}
 
 export async function generateSimulationSketch(request: Request, env: Env, db: AppDatabaseClient, userId: string) {
   const body = await readJson<Record<string, unknown>>(request);
@@ -1088,7 +1107,7 @@ function readSimulationHtmlReasoningEffort(body: Record<string, unknown>, model:
   // Older tabs may send their former effort choice. The teacher's immutable
   // attempt configuration determines the actual request and recorded job effort.
   normalizeSimulationHtmlReasoningEffort(body.htmlReasoningEffort, true);
-  return model.provider === "openai" ? model.reasoningEffort ?? "none" : DEFAULT_SIMULATION_HTML_REASONING_EFFORT;
+  return model.provider === "openai" ? model.reasoningEffort ?? "none" : "none";
 }
 
 function normalizeSimulationHtmlReasoningEffort(value: unknown, rejectInvalid = false): SimulationHtmlReasoningEffort {

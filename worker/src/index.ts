@@ -12,7 +12,7 @@ import { createUploadToken, previewArtifact, uploadArtifact } from "./routes/art
 import { gradeVoiceAttempt } from "./routes/voice";
 import { appendRealtimeVoiceEvents, connectRealtimeVoice, finalizeRealtimeVoice } from "./routes/voiceRealtime";
 import { gradeWritingAttempt } from "./routes/writing";
-import { cancelSimulationGenerationJob, fallbackSimulation, generateSimulation, generateSimulationSketch, getSimulationGenerationJob, streamSimulationGenerationJob, refineSimulation, submitSimulation } from "./routes/simulation";
+import { cancelSimulationGenerationJob, fallbackSimulation, generateSimulation, generateSimulationSketch, getSimulationGenerationJob, getSimulationModelSettings, streamSimulationGenerationJob, refineSimulation, submitSimulation } from "./routes/simulation";
 import {
   commitTeacherRosterImport,
   createTeacherCourse,
@@ -278,6 +278,9 @@ const routes: readonly RouteDefinition[] = [
   studentRoute("POST", "/api/writing/grade", /^\/api\/writing\/grade$/, async (request, env, _match, auth) => {
     const db = serviceSupabase(env);
     return jsonResponse(request, env, await gradeWritingAttempt(request, env, db, auth.userId));
+  }),
+  studentRoute("GET", "/api/simulation/attempts/:attemptId/settings", /^\/api\/simulation\/attempts\/([^/]+)\/settings$/, async (request, env, match, auth) => {
+    return jsonResponse(request, env, await getSimulationModelSettings(request, env, serviceSupabase(env), auth.userId, match[1]), { headers: { "Cache-Control": "no-store" } });
   }),
   studentRoute("POST", "/api/simulation/sketch", /^\/api\/simulation\/sketch$/, async (request, env, _match, auth) => {
     const db = serviceSupabase(env);

@@ -22,6 +22,7 @@ async function studentFixture(page: Page, type: "simulation" | "writing", active
     if (route.request().method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
     if (path === "/api/student/me") await route.fulfill({ headers, json: { profile: { id: user.id, displayName: "Student", email: user.email }, enrollmentStatus: "matched", courses: [{ classId: "course", classCode: "TEST", className: "Test course", assignments: [assignment] }] } });
     else if (path === "/api/attempts/start") await route.fulfill({ headers, json: { attemptId: "attempt", assignment, ...(type === "simulation" ? { simulationDraft: { description: "Move the contents from container A to container B.", simulationSketchPreview: sketch, simulationPreview: null, activeSimulationJob: activeJob } } : {}) } });
+    else if (path === "/api/simulation/attempts/attempt/settings") await route.fulfill({ headers, json: { sketchModelId: "gpt-image-2.5-flare", htmlModelId: "gpt-6.1-sol", htmlReasoningEffort: "high", htmlMaxOutputTokens: 64000 } });
     else if (path === "/api/artifacts/sketch/preview") await route.fulfill({ headers, contentType: "image/png", body: png });
     else await route.fulfill({ headers, json: {} });
   });
@@ -33,6 +34,28 @@ function savedResult(assessment: AssessmentSummary): AttemptResult {
     transcript: null, ocrText: null, simulationDescription: "Move the contents from container A to container B.", simulationSpec: null,
     simulationSketchPreview: sketch, simulationPreview: preview, submittedAt: "2026-09-30T19:21:27Z", submittedAfterDue: false };
 }
+
+test("student sees next model settings before entering a prompt and refreshes them without generation or losing input", async ({ page }) => {
+  const { assignment } = await studentFixture(page, "simulation", null);
+  await page.route("**/api/attempts/start", route => route.fulfill({ headers, json: { attemptId: "attempt", assignment, simulationDraft: null } }));
+  let effort = "high";
+  await page.route("**/api/simulation/attempts/attempt/settings", route => route.fulfill({ headers, json: { sketchModelId: "gpt-image-2.5-flare", htmlModelId: "gpt-6.1-sol", htmlReasoningEffort: effort, htmlMaxOutputTokens: 64000 } }));
+  let generations = 0;
+  page.on("request", request => { if (/\/api\/simulation\/(sketch|generate)$/.test(request.url())) generations++; });
+  await page.goto("./assignment/assignment");
+  await page.getByText("Simulation Metadata", { exact: true }).click();
+  const metadata = page.locator(".raw-debug-content");
+  await expect(metadata).toContainText("Next sketch model: gpt-image-2.5-flare");
+  await expect(metadata).toContainText("Next HTML model: gpt-6.1-sol | Next HTML reasoning: High | Token limit: 64,000");
+  await expect(metadata).toContainText("Current preview/job HTML reasoning: n/a");
+  await expect(page.getByLabel("Description", { exact: true })).toHaveValue("");
+  await page.getByLabel("Description", { exact: true }).fill("Move contents from container A to container B.");
+  effort = "medium";
+  await page.getByRole("button", { name: "Refresh model settings", exact: true }).click();
+  await expect(metadata).toContainText("Next HTML reasoning: Medium");
+  await expect(page.getByLabel("Description", { exact: true })).toHaveValue("Move contents from container A to container B.");
+  expect(generations).toBe(0);
+});
 
 test("HTML generation streams before completion and reconnects without regenerating or executing partial code", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1366, height: 768 });

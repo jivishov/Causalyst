@@ -94,6 +94,13 @@ export interface StudentSimulationPreview {
   htmlViewport?: SimulationHtmlViewport;
 }
 
+export interface StudentSimulationModelSettings {
+  sketchModelId: string;
+  htmlModelId: string;
+  htmlReasoningEffort: SimulationHtmlReasoningEffort;
+  htmlMaxOutputTokens?: number;
+}
+
 export type StudentSimulationGenerationJobOperation = "generate" | "refine";
 
 export type StudentSimulationGenerationJobStatus =

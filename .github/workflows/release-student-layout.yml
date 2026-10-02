@@ -1,4 +1,4 @@
-name: Release compact student layout
+name: Release student preview recovery
 
 on:
   push:
@@ -24,8 +24,8 @@ jobs:
           fetch-depth: 0
       - name: Verify the reviewed frontend and deployed backend
         env:
-          REVIEWED_SHA: 75f21aa4d4cfebc17e0571a3bcd823504d88bd83
-          BACKEND_SHA: e78fdb745d24242a291ad3f33317a836e37afdbb
+          REVIEWED_SHA: 80e93fd252122f676ca712b9391df8b7be255a1e
+          BACKEND_SHA: 68580db7631e474b67fa3c008cbc2c95f41e2d6b
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
           test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = ".github/workflows/release-student-layout.yml"
@@ -34,11 +34,11 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36965244293 });
-            const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36794623155 });
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36966927797 });
+            const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36965621174 });
             for (const [run, sha] of [
-              [checked.data, "75f21aa4d4cfebc17e0571a3bcd823504d88bd83"],
-              [deployed.data, "e78fdb745d24242a291ad3f33317a836e37afdbb"]
+              [checked.data, "80e93fd252122f676ca712b9391df8b7be255a1e"],
+              [deployed.data, "68580db7631e474b67fa3c008cbc2c95f41e2d6b"]
             ]) {
               if (run.head_sha !== sha || run.status !== "completed" || run.conclusion !== "success") {
                 throw new Error("The reviewed checks or deployed backend do not match this release.");

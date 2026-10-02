@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Inspect Cloudflare and prepare the domain zone
         env:
-          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_DNS_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           node --input-type=module - <<'NODE'
@@ -49,8 +49,12 @@ jobs:
             throw new Error("The deployment token cannot verify virtuallab.az in this account. No domain settings have been changed; access to that zone is required.");
           }
           console.log("Verified existing zone:", JSON.stringify({ name: existing[0].name, status: existing[0].status, nameservers: existing[0].name_servers }));
-          const records = await cf("/zones/" + existing[0].id + "/dns_records?per_page=100");
-          console.log("Existing Virtual Lab web records:", JSON.stringify(records.filter(record => ["A", "AAAA", "CNAME"].includes(record.type) && [existing[0].name, "www." + existing[0].name].includes(record.name)).map(({ type, name, content, proxied }) => ({ type, name, content, proxied }))));
+          try {
+            const records = await cf("/zones/" + existing[0].id + "/dns_records?per_page=100");
+            console.log("Existing Virtual Lab web records:", JSON.stringify(records.filter(record => ["A", "AAAA", "CNAME"].includes(record.type) && [existing[0].name, "www." + existing[0].name].includes(record.name)).map(({ type, name, content, proxied }) => ({ type, name, content, proxied }))));
+          } catch (error) {
+            console.log("Virtual Lab DNS inspection unavailable:", error.message);
+          }
           const matches = await cf("/zones?name=explain.az&account.id=" + encodeURIComponent(accountId));
           if (matches.length > 1) throw new Error("Multiple explain.az zones found; no changes made.");
           const zone = matches[0] || await cf("/zones", "POST", { name: "explain.az", account: { id: accountId }, type: "full" });

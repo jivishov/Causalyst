@@ -577,7 +577,9 @@ export async function getSimulationGenerationJob(_request: Request, env: Env, db
     }
   }
 
-  if (!expired && response && normalizeProviderStatus(response.status) === "completed") {
+  // A delayed status check can arrive after the local deadline even though the
+  // provider finished. Save that completed output before applying the timeout.
+  if (response && normalizeProviderStatus(response.status) === "completed") {
     return completeSimulationGenerationJob(db, env, userId, job, response);
   }
 

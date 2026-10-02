@@ -464,7 +464,7 @@ describe("simulation artifact flow", () => {
     expect(backgroundSpy).not.toHaveBeenCalled();
   });
 
-  it("polls a completed background job, stores HTML once, and hides provider ids from the client", async () => {
+  it.each(["2099-01-01T00:00:00.000Z", "2000-01-01T00:00:00.000Z"])("saves a completed background response even when its deadline is %s", async (expiresAt) => {
     const jobRow = {
       id: "job-complete",
       attempt_id: "attempt-1",
@@ -485,7 +485,7 @@ describe("simulation artifact flow", () => {
       created_at: "2026-05-07T12:00:00.000Z",
       updated_at: "2026-05-07T12:00:00.000Z",
       completed_at: null,
-      expires_at: "2099-01-01T00:00:00.000Z",
+      expires_at: expiresAt,
       cancelled_at: null
     };
     const client = {} as any;

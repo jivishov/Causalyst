@@ -123,10 +123,14 @@ export async function completeTeacherAuthCallbackIfPresent(
 }
 
 export function readStudentSupabaseSessionFallback(): Session | null {
+  // Supabase persists token refreshes from this tab and other tabs. Prefer that
+  // current session over the snapshot retained from the OAuth callback.
+  const storedSession = readStoredStudentSession();
+  if (storedSession) return storedSession;
   if (lastCompletedStudentSession && isUsableSession(lastCompletedStudentSession)) {
     return lastCompletedStudentSession;
   }
-  return readStoredStudentSession();
+  return null;
 }
 
 export function rememberStudentSupabaseSession(session: Session | null): void {
@@ -429,7 +433,7 @@ function isUsableSession(value: unknown): value is Session {
   if (!value || typeof value !== "object") return false;
   const session = value as { access_token?: unknown; expires_at?: unknown };
   if (typeof session.access_token !== "string" || !session.access_token.trim()) return false;
-  if (typeof session.expires_at === "number" && session.expires_at * 1000 < Date.now() - 60000) {
+  if (typeof session.expires_at === "number" && session.expires_at * 1000 <= Date.now() + 60000) {
     return false;
   }
   return true;

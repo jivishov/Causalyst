@@ -174,15 +174,14 @@ export async function signInTeacherWithGoogle() {
 export async function signOutStudent() {
   if (!isSupabaseConfigured) return;
   await studentSupabase.auth.signOut();
+  resetStudentSupabaseAuthState();
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
-  const session = await withTimeout(requireStudentSession(), SESSION_TIMEOUT_MS, "Session bootstrap timed out.");
-  const response = await fetchWithTimeout(`${workerUrl}/api${path}`, {
+  const response = await studentAuthenticatedFetch(`${workerUrl}/api${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
       ...init.headers
     }
   }, timeoutMs);
@@ -670,11 +669,9 @@ export function reserveUpload(input: {
 }
 
 export async function uploadArtifact(reservation: UploadReservation, file: Blob) {
-  const session = await withTimeout(requireStudentSession(), SESSION_TIMEOUT_MS, "Session bootstrap timed out.");
-  const response = await fetchWithTimeout(reservation.uploadUrl, {
+  const response = await studentAuthenticatedFetch(reservation.uploadUrl, {
     method: "PUT",
     headers: {
-      Authorization: `Bearer ${session.access_token}`,
       "Content-Type": file.type || "application/octet-stream",
       "X-Upload-Token": reservation.uploadToken
     },
@@ -816,7 +813,6 @@ export async function streamSimulationGenerationJob(jobId: string, input: {
   signal: AbortSignal;
   onEvent: (event: SimulationHtmlStreamEvent) => void;
 }): Promise<void> {
-  const session = await requireStudentSession();
   if (input.signal.aborted) return;
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -826,8 +822,8 @@ export async function streamSimulationGenerationJob(jobId: string, input: {
   const timeout = setTimeout(abort, 75_000);
   try {
     const query = input.after === undefined ? "" : `?after=${input.after}`;
-    const response = await fetch(`${workerUrl}/api/simulation/jobs/${encodeURIComponent(jobId)}/stream${query}`, {
-      headers: { Authorization: `Bearer ${session.access_token}`, Accept: "text/event-stream" },
+    const response = await studentAuthenticatedFetch(`${workerUrl}/api/simulation/jobs/${encodeURIComponent(jobId)}/stream${query}`, {
+      headers: { Accept: "text/event-stream" },
       cache: "no-store",
       signal: controller.signal
     });
@@ -868,12 +864,8 @@ export async function createSimulationPreviewObjectUrl(previewBlob: Blob, option
 }
 
 export async function getSimulationPreviewUrl(input: { artifactId: string; previewPath: string; previewToken: string; healthNonce?: string }) {
-  const session = await withTimeout(requireStudentSession(), SESSION_TIMEOUT_MS, "Session bootstrap timed out.");
-  const response = await fetchWithTimeout(`${workerUrl}/api${input.previewPath}?previewToken=${encodeURIComponent(input.previewToken)}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${session.access_token}`
-    }
+  const response = await studentAuthenticatedFetch(`${workerUrl}/api${input.previewPath}?previewToken=${encodeURIComponent(input.previewToken)}`, {
+    method: "GET"
   }, REQUEST_TIMEOUT_MS);
 
   if (!response.ok) {
@@ -1004,6 +996,53 @@ export async function getTeacherArtifactDownload(artifactId: string): Promise<{ 
     blob,
     filename: parseDownloadFilename(response.headers.get("Content-Disposition")) || "artifact.bin"
   };
+}
+
+let studentSessionRefresh: Promise<Session> | null = null;
+
+async function refreshStudentSession(rejectedToken: string): Promise<Session> {
+  const latest = readStudentSupabaseSessionFallback();
+  if (latest && latest.access_token !== rejectedToken) return latest;
+  if (studentSessionRefresh) return studentSessionRefresh;
+  studentSessionRefresh = (async () => {
+    const result = await withTimeout(
+      studentSupabase.auth.refreshSession(), SESSION_TIMEOUT_MS, "Sign-in refresh timed out."
+    ).catch(() => {
+      throw new ApiConnectionError("Could not refresh your sign-in. Check your connection and try again.");
+    });
+    if (result.error && (!result.error.status || result.error.status >= 500)) {
+      throw new ApiConnectionError("Could not refresh your sign-in. Check your connection and try again.");
+    }
+    const session = result.data.session;
+    if (result.error || !session || isAnonymousSession(session) || !getSessionEmail(session)) {
+      throw new ApiRequestError("Your sign-in has expired. Sign in with Google again to continue. Your saved work is preserved.", 401, "student_session_expired");
+    }
+    rememberStudentSupabaseSession(session);
+    return session;
+  })();
+  try {
+    return await studentSessionRefresh;
+  } finally {
+    studentSessionRefresh = null;
+  }
+}
+
+async function studentAuthenticatedFetch(input: RequestInfo | URL, init: RequestInit, timeoutMs?: number): Promise<Response> {
+  const session = await withTimeout(requireStudentSession(), SESSION_TIMEOUT_MS, "Session bootstrap timed out.");
+  const send = (token: string) => {
+    const headers = new Headers(init.headers);
+    headers.set("Authorization", `Bearer ${token}`);
+    return timeoutMs === undefined
+      ? fetch(input, { ...init, headers })
+      : fetchWithTimeout(input, { ...init, headers }, timeoutMs);
+  };
+  const response = await send(session.access_token);
+  if (response.status !== 401 || init.signal?.aborted) return response;
+  // A 401 is rejected before the Worker starts provider work. Retry the exact
+  // request once with a refreshed token, preserving its job ID and request ID.
+  const refreshed = await refreshStudentSession(session.access_token);
+  await response.body?.cancel().catch(() => undefined);
+  return send(refreshed.access_token);
 }
 
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number): Promise<Response> {

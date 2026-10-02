@@ -532,6 +532,11 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
     setRunError(null);
     try {
       const cancelled = await cancelSimulationGenerationJob(htmlGenerationJob.jobId);
+      if (!isTerminalSimulationJobStatus(cancelled.status)) {
+        await pollHtmlGenerationJob(cancelled, { runToken: generationRunTokenRef.current,
+          preservePreviewOnFailure: Boolean(htmlPreviewUrl) });
+        return;
+      }
       const message = cancelled.message || "Generation was cancelled.";
       setHtmlGenerationJob(cancelled);
       setHtmlGenerationMessage(message);

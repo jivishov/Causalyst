@@ -1,5 +1,6 @@
 import { MAX_SIMULATION_STREAM_CHARS, type SimulationHtmlStreamEvent } from "@alt-assessment/shared";
 import type { Env } from "./env";
+import { HttpError } from "./http";
 import { serviceSupabase } from "./supabase";
 import { resolveAttemptAiEnv } from "./aiSettings";
 import { openaiClient, parseSimulationHtmlResponse, retrieveSimulationBackgroundResponse, streamSimulationForegroundResponse } from "./openai";
@@ -161,6 +162,7 @@ export class SimulationGeneration {
 
     const db = serviceSupabase(this.env);
     let timeout: ReturnType<typeof setTimeout> | undefined;
+    let checkedKnownResponse = false;
     try {
       const runtime = await resolveAttemptAiEnv(db, this.env, this.input.job.attempt_id);
       const client = openaiClient(runtime.OPENAI_API_KEY, undefined, runtime.AI_SETTINGS);
@@ -175,6 +177,7 @@ export class SimulationGeneration {
       // Alarm delivery is at least once. Never replay a possibly accepted POST.
       if (this.state.phase === "starting" || this.state.phase === "running" || this.state.stop) {
         if (this.state.responseId) {
+          checkedKnownResponse = true;
           const response = await retrieveSimulationBackgroundResponse(client, this.state.responseId);
           if (response.status === "completed") {
             await this.recordCompleted(response);
@@ -233,10 +236,15 @@ export class SimulationGeneration {
     } catch (error) {
       const status = error && typeof error === "object" && "status" in error ? Number(error.status) : 0;
       const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
-      console.error("Managed simulation interrupted", { jobId: this.input.job.id, phase: this.state.phase, status, code });
+      console.error("Managed simulation interrupted", { jobId: this.input.job.id, phase: this.state.phase, status, code,
+        stage: error instanceof HttpError ? error.message : undefined });
       if (this.state.phase === "saving") {
         // Keep the completed HTML for a storage retry; no model request is needed.
         await this.ctx.storage.setAlarm(Date.now() + 15_000);
+      } else if (this.state.stop === "cancelled") {
+        await this.finish("cancelled");
+      } else if (this.state.responseId && this.state.stop === "expired" && !checkedKnownResponse) {
+        await this.ctx.storage.setAlarm(Date.now() + 1);
       } else if (!this.state.responseId && (status === 429 && code !== "insufficient_quota"
         || status === 503 && ["overloaded", "capacity_exceeded"].includes(code)) && this.state.retries < 3 && !this.state.stop) {
         this.state.retries++;

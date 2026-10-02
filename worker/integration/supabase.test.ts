@@ -185,6 +185,11 @@ describe('real Supabase service boundaries', () => {
         if (target.origin !== new URL(config.API_URL).origin) throw new Error("Unexpected runtime subrequest");
         const forwarded = await fetch(request.url, { method: request.method, headers: Object.fromEntries(request.headers),
           ...(["GET", "HEAD"].includes(request.method) ? {} : { body: new Uint8Array(await request.arrayBuffer()) }) });
+        if (!forwarded.ok) {
+          const problem = await forwarded.clone().json().catch(() => ({})) as { code?: string; error?: string; message?: string };
+          console.error("Disposable runtime dependency failure", { path: target.pathname, status: forwarded.status,
+            code: problem.code ?? problem.error, message: problem.message });
+        }
         return new RuntimeResponse(await forwarded.arrayBuffer(), { status: forwarded.status, headers: Object.fromEntries(forwarded.headers) });
       },
       bindings: { SUPABASE_URL: config.API_URL, SUPABASE_SERVICE_ROLE_KEY: config.SERVICE_ROLE_KEY, OPENAI_API_KEY: "synthetic", PIN_PEPPER: "disposable-integration-pepper", APP_ENV: "test" },

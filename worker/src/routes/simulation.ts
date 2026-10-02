@@ -672,7 +672,8 @@ export async function cancelSimulationGenerationJob(_request: Request, env: Env,
   if (TERMINAL_SIMULATION_JOB_STATUSES.includes(job.status)) return toStudentSimulationJob(job);
   if (isManagedSimulationJob(job)) {
     await managedRequest(simulationOwner(env, job.id), "/cancel");
-    return toStudentSimulationJob(await requireSimulationGenerationJob(db, userId, job.id));
+    const current = await requireSimulationGenerationJob(db, userId, job.id);
+    return toStudentSimulationJob(current, await previewForCompletedSimulationJob(db, env, userId, current));
   }
   if (job.provider === "openai" && job.provider_response_id) {
     await cancelSimulationBackgroundResponseBestEffort(openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS), job.provider_response_id, job.id);

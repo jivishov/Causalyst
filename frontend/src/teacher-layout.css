@@ -99,3 +99,75 @@
 .review-work-column > *, .review-grading-column > * { min-width: 0; }
 .teacher-page.account-workspace .review-work-column .simulation-preview-frame { min-height: 260px; }
 .teacher-page.account-workspace .review-work-column .simulation-preview-iframe { min-height: 0; }
+
+/* Library and editor remain visible together on a laptop. */
+.teacher-page.account-workspace .assessment-library-layout { display: grid; grid-template-columns: minmax(300px, .9fr) minmax(0, 1.8fr); gap: 14px; align-items: start; }
+.assessment-library-layout > * { min-width: 0; }
+.teacher-page.account-workspace .assessment-library-panel { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 12px; max-height: calc(100dvh - 112px); }
+.teacher-page.account-workspace .assessment-library-header { display: grid; gap: 10px; margin: 0; }
+.teacher-page.account-workspace .assessment-library-header p { margin-top: 3px; font-size: .75rem; }
+.teacher-page.account-workspace .assessment-library-toolbar { justify-content: space-between; gap: 8px; }
+.teacher-page.account-workspace .assessment-library-toolbar .checkbox-row { gap: 6px; font-size: .72rem; font-weight: 500; }
+.teacher-page.account-workspace .assessment-library-toolbar .primary-button { min-height: 32px; padding: 6px 9px; font-size: .73rem; }
+.teacher-page.account-workspace .assessment-library-panel .assessment-template-panel { display: grid; gap: 8px; padding: 10px; margin: 0; border-radius: 8px; background: #f4f8f2; }
+.teacher-page.account-workspace .assessment-template-panel strong { font-size: .77rem; font-weight: 600; }
+.teacher-page.account-workspace .assessment-template-panel p { margin: 3px 0 0; font-size: .73rem; line-height: 1.45; }
+.teacher-page.account-workspace .assessment-template-panel .secondary-button { justify-content: flex-start; min-height: 32px; padding: 6px 9px; font-size: .74rem; }
+.teacher-page.account-workspace .assessment-library-items { min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; gap: 8px; padding-right: 3px; scrollbar-width: thin; }
+.teacher-page.account-workspace .assessment-library-item { display: grid; gap: 8px; padding: 10px; }
+.teacher-page.account-workspace .assessment-library-item strong { display: block; font-size: .81rem; line-height: 1.45; font-weight: 600; overflow-wrap: normal; word-break: normal; }
+.teacher-page.account-workspace .assessment-library-item p { margin: 4px 0 0; font-size: .7rem; line-height: 1.4; }
+.teacher-page.account-workspace .assessment-library-item .course-actions { justify-content: flex-end; }
+.teacher-page.account-workspace .assessment-library-item .secondary-button { min-height: 30px; padding: 5px 8px; font-size: .71rem; }
+.teacher-page.account-workspace .assessment-library-item.selected-assessment { border-color: #91b29a; background: #f0f7ed; box-shadow: inset 3px 0 #508568; }
+.teacher-page.account-workspace .assessment-library-item .secondary-button[aria-pressed=true] { color: #fff; background: #246b56; border-color: #246b56; }
+.teacher-page.account-workspace .assessment-builder-panel { display: block; margin: 0; background: #fff; }
+.teacher-page.account-workspace .assessment-builder-panel > .course-list-header { align-items: flex-start; flex-direction: row; flex-wrap: nowrap; margin-bottom: 12px; }
+.teacher-page.account-workspace .assessment-builder-panel > .course-list-header > div { flex: 1; min-width: 0; }
+.teacher-page.account-workspace .assessment-builder-panel > .course-list-header p { margin-top: 3px; font-size: .75rem; line-height: 1.45; overflow-wrap: normal; }
+.teacher-page.account-workspace .assessment-builder-close { flex: 0 0 32px; min-height: 32px; padding: 6px; }
+.teacher-page.account-workspace .compact-assessment-builder { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0; padding: 0; border: 0; background: transparent; }
+.teacher-page.account-workspace .assessment-builder-section { display: grid; gap: 8px; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.teacher-page.account-workspace .assessment-builder-section + .assessment-builder-section { padding-top: 12px; border-top: 1px solid var(--line); }
+.teacher-page.account-workspace .assessment-builder-section h4 { margin: 0; font-size: .8rem; line-height: 1.4; font-weight: 650; }
+.teacher-page.account-workspace .assessment-builder-section-grid { gap: 10px; }
+.teacher-page.account-workspace .assessment-basics-fields { grid-template-columns: 170px minmax(0, 1fr); }
+.teacher-page.account-workspace .assessment-prompt-fields { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+.teacher-page.account-workspace .assessment-builder-panel label { gap: 4px; min-width: 0; font-size: .73rem; font-weight: 550; }
+.teacher-page.account-workspace .assessment-builder-panel :is(input, select):not([type=checkbox]) { min-height: 34px; padding: 6px 9px; font-size: .8rem; font-weight: 500; }
+.teacher-page.account-workspace .assessment-builder-panel textarea { width: 100%; min-height: 72px; padding: 8px 9px; font-size: .8rem; font-weight: 400; line-height: 1.55; resize: vertical; }
+.teacher-page.account-workspace .assessment-prompt-fields textarea { min-height: 112px; }
+.assessment-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.assessment-section-heading > span { color: var(--muted); font-size: .7rem; }
+.teacher-page.account-workspace .assessment-builder-panel .rubric-editor { display: grid; gap: 8px; }
+.teacher-page.account-workspace .assessment-builder-panel .rubric-editor-row { grid-template-columns: minmax(0, 1fr) 78px 32px; align-items: end; gap: 8px; padding: 10px; border-radius: 8px; background: #f7faf5; }
+.teacher-page.account-workspace .rubric-editor-row .rubric-description-field { grid-column: 1 / -1; }
+.teacher-page.account-workspace .rubric-editor-row textarea { min-height: 62px; }
+.teacher-page.account-workspace .rubric-remove-control { grid-column: 3; grid-row: 1; }
+.teacher-page.account-workspace .rubric-remove-button { width: 32px; min-height: 34px; padding: 6px; }
+.teacher-page.account-workspace .assessment-builder-options { display: block; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: #f7faf5; }
+.teacher-page.account-workspace .assessment-builder-options + .assessment-builder-options { padding-top: 0; }
+.assessment-builder-options > summary { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; list-style: none; color: var(--ink); font-size: .78rem; font-weight: 600; }
+.assessment-builder-options > summary::-webkit-details-marker { display: none; }
+.assessment-builder-options > summary > span { margin-left: auto; color: var(--muted); font-size: .7rem; font-weight: 400; }
+.assessment-builder-options > summary::after { content: "+"; color: var(--accent); font-size: 1rem; }
+.assessment-builder-options[open] > summary::after { content: "−"; }
+.assessment-builder-options[open] > summary { border-bottom: 1px solid var(--line); }
+.assessment-builder-options > :not(summary) { padding: 10px 12px; }
+.assessment-option-fields { display: grid; gap: 10px; }
+.teacher-page.account-workspace .assessment-builder-panel .compact-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.teacher-page.account-workspace .assessment-builder-save { position: sticky; bottom: 0; z-index: 2; gap: 8px; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--line); background: #fff; }
+.teacher-page.account-workspace .assessment-builder-empty { display: grid; justify-items: start; align-content: start; gap: 10px; min-height: 180px; }
+.teacher-page.account-workspace .assessment-builder-empty > svg { color: var(--accent); }
+.teacher-page.account-workspace .assessment-builder-empty p { margin: 0; font-size: .83rem; color: var(--muted); }
+@media (max-width: 1060px) {
+  .teacher-page.account-workspace .assessment-library-layout { grid-template-columns: minmax(0, 1fr); }
+  .teacher-page.account-workspace .assessment-library-panel { position: static; max-height: none; }
+  .teacher-page.account-workspace .assessment-library-items { max-height: 320px; }
+}
+@media (max-width: 600px) {
+  .teacher-page.account-workspace .assessment-basics-fields,
+  .teacher-page.account-workspace .assessment-prompt-fields,
+  .teacher-page.account-workspace .assessment-builder-panel .compact-settings-grid { grid-template-columns: minmax(0, 1fr); }
+  .assessment-builder-options > summary > span { display: none; }
+}

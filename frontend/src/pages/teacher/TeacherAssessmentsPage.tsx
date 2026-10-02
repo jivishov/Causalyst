@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Archive, ChevronUp, ClipboardList, Pencil, Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
+import { Archive, ClipboardList, Pencil, Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
 import {
   DEFAULT_REALTIME_VOICE_MAX_SESSION_SEC,
   DEFAULT_SIMULATION_CODE_MODEL_ID,
@@ -68,7 +68,7 @@ export function TeacherAssessmentsPage() {
   const [simulationMinDescriptionChars, setSimulationMinDescriptionChars] = useState(String(DEFAULT_SIMULATION_MIN_DESCRIPTION_CHARS));
   const [simulationCodeModelId, setSimulationCodeModelId] = useState<SimulationCodeModelId>(DEFAULT_SIMULATION_CODE_MODEL_ID);
   const [assessmentSaving, setAssessmentSaving] = useState(false);
-  const [builderOpen, setBuilderOpen] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(true);
 
   useEffect(() => {
     if (!aiSettings) return;
@@ -266,125 +266,103 @@ export function TeacherAssessmentsPage() {
   }
 
   return (
-    <section className="course-list-panel teacher-assessment-page">
-      <div className="course-list-header">
-        <div>
-          <h2>Assessment Library</h2>
-          <p>Create from templates or manage reusable assessment prompts.</p>
-        </div>
-        <div className="course-actions">
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={includeArchivedAssessments}
-              onChange={(event) => setIncludeArchivedAssessments(event.target.checked)}
-            />
-            Show archived
-          </label>
-          <button
-            className={builderOpen ? "secondary-button" : "primary-button"}
-            type="button"
-            onClick={() => {
-              if (builderOpen) {
-                resetAssessmentForm();
-                setBuilderOpen(false);
-              } else {
+    <div className="teacher-assessment-page assessment-library-layout">
+      <section className="course-list-panel assessment-library-panel" aria-label="Assessment library">
+        <div className="course-list-header assessment-library-header">
+          <div>
+            <h2>Assessment Library</h2>
+            <p>Reusable prompts and assessment templates.</p>
+          </div>
+          <div className="course-actions assessment-library-toolbar">
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={includeArchivedAssessments}
+                onChange={(event) => setIncludeArchivedAssessments(event.target.checked)}
+              />
+              Show archived
+            </label>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => {
                 resetAssessmentForm();
                 setBuilderOpen(true);
-              }
-            }}
-          >
-            {builderOpen ? <X size={16} /> : <Plus size={16} />}
-            {builderOpen ? "Close builder" : "New assessment"}
-          </button>
-        </div>
-      </div>
-      <div className="assessment-template-panel">
-        <div>
-          <strong>Scaffolded templates</strong>
-          <p>Load a complete writing assessment with prompt, answer key, rubric, and upload settings.</p>
-        </div>
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={() => applyAssessmentTemplate(FINDING_TO_QUESTION_TEMPLATE)}
-        >
-          <ClipboardList size={16} /> Load Finding-to-Question
-        </button>
-      </div>
-
-      {loadingAssessments ? (
-        <p className="status-line">Loading assessments</p>
-      ) : assessments.length === 0 ? (
-        <div className="empty-state teacher-empty-state">
-          <div>
-            <ClipboardList size={28} />
-            <p>No assessments yet.</p>
+              }}
+            >
+              <Plus size={15} /> New assessment
+            </button>
           </div>
         </div>
-      ) : (
-        <div className="course-list">
-          {assessments.map((assessment) => (
-            <article key={assessment.id} className="course-row">
-              <div>
-                <strong>{assessment.title}</strong>
-                <p>{formatAssessmentTypeLabel(assessment.type)} · {assessment.rubric.length} rubric criteria</p>
-                {assessment.archivedAt && <span className="archive-badge">Archived</span>}
-              </div>
-              <div className="course-actions">
-                <button className="secondary-button" type="button" onClick={() => beginEditAssessment(assessment)}>
-                  <Pencil size={16} /> Edit
-                </button>
-                {assessment.archivedAt ? (
-                  <button className="secondary-button" type="button" onClick={() => toggleAssessmentArchived(assessment.id, false)}>
-                    <RotateCcw size={16} /> Unarchive
-                  </button>
-                ) : (
-                  <button className="secondary-button" type="button" onClick={() => toggleAssessmentArchived(assessment.id, true)}>
-                    <Archive size={16} /> Archive
-                  </button>
-                )}
-              </div>
-            </article>
-          ))}
+        <div className="assessment-template-panel">
+          <div>
+            <strong>Start from a template</strong>
+            <p>Writing prompt, answer key, rubric, and upload settings.</p>
+          </div>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => applyAssessmentTemplate(FINDING_TO_QUESTION_TEMPLATE)}
+          >
+            <ClipboardList size={15} /> Finding-to-Question
+          </button>
         </div>
-      )}
 
-      {builderOpen && (
-        <div className="assessment-builder-panel">
+        {loadingAssessments ? (
+          <p className="status-line">Loading assessments</p>
+        ) : assessments.length === 0 ? (
+          <div className="empty-state teacher-empty-state">
+            <div>
+              <ClipboardList size={28} />
+              <p>No assessments yet.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="course-list assessment-library-items">
+            {assessments.map((assessment) => (
+              <article key={assessment.id} className={`course-row assessment-library-item ${editingAssessmentId === assessment.id && builderOpen ? "selected-assessment" : ""}`} aria-label={assessment.title}>
+                <div>
+                  <strong>{assessment.title}</strong>
+                  <p>{formatAssessmentTypeLabel(assessment.type)} · {assessment.rubric.length} rubric criteria</p>
+                  {assessment.archivedAt && <span className="archive-badge">Archived</span>}
+                </div>
+                <div className="course-actions">
+                  <button className="secondary-button" type="button" aria-pressed={editingAssessmentId === assessment.id && builderOpen} onClick={() => beginEditAssessment(assessment)}>
+                    <Pencil size={16} /> Edit
+                  </button>
+                  {assessment.archivedAt ? (
+                    <button className="secondary-button" type="button" onClick={() => toggleAssessmentArchived(assessment.id, false)}>
+                      <RotateCcw size={16} /> Unarchive
+                    </button>
+                  ) : (
+                    <button className="secondary-button" type="button" onClick={() => toggleAssessmentArchived(assessment.id, true)}>
+                      <Archive size={16} /> Archive
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+      </section>
+
+      {builderOpen ? (
+        <section className="course-list-panel assessment-builder-panel" aria-label="Assessment builder">
           <div className="course-list-header">
             <div>
-              <h3>{assessmentMode === "edit" ? `Edit Assessment: ${assessmentTitle || "Untitled"}` : "Assessment Builder"}</h3>
-              <p>Keep the library focused while editing the full prompt, rubric, and type settings here.</p>
+              <h2>{assessmentMode === "edit" ? "Edit Assessment" : "Assessment Builder"}</h2>
+              <p>{assessmentMode === "edit" ? assessmentTitle || "Untitled assessment" : "Create a prompt, answer key, and rubric."}</p>
             </div>
-            <ChevronUp size={18} aria-hidden="true" />
+            <button className="secondary-button assessment-builder-close" type="button" aria-label="Close assessment builder" title="Close builder" onClick={() => {
+              resetAssessmentForm();
+              setBuilderOpen(false);
+            }}><X size={16} /></button>
           </div>
           <form className="assessment-builder-form compact-assessment-builder" onSubmit={submitAssessment}>
             <section className="assessment-builder-section assessment-span-full">
-              <h4>Scoring</h4>
-              <label>Total calculation
-                <select value={scoringMode} onChange={(event) => setScoringMode(event.target.value)}>
-                  <option value="additive">Percentage of rubric points</option>
-                  <option value="capped">Rubric percentage with score caps</option>
-                  <option value="review_adjustments">Teacher reviews any total adjustment</option>
-                </select>
-              </label>
-              {scoringMode === "capped" && <>
-                {scoringCaps.map((cap, index) => <div className="assessment-builder-section-grid" key={cap.id}>
-                  <label>Apply this cap when
-                    <input required value={cap.condition} onChange={(event) => setScoringCaps((caps) => caps.map((c, i) => i === index ? { ...c, condition: event.target.value } : c))} />
-                  </label>
-                  <label>Maximum total (%)
-                    <input required type="number" min="0" max="100" value={cap.maximumPercent} onChange={(event) => setScoringCaps((caps) => caps.map((c, i) => i === index ? { ...c, maximumPercent: Number(event.target.value) } : c))} />
-                  </label>
-                  <button type="button" onClick={() => setScoringCaps((caps) => caps.filter((_, i) => i !== index))}>Remove cap</button>
-                </div>)}
-                <button type="button" onClick={() => setScoringCaps((caps) => [...caps, { id: crypto.randomUUID(), condition: "", maximumPercent: 50 }])}>Add score cap</button>
-              </>}
-            </section>
-            <section className="assessment-builder-section assessment-span-full">
               <h4>Basics</h4>
-              <div className="assessment-builder-section-grid">
+              <div className="assessment-builder-section-grid assessment-basics-fields">
                 <label>
                   Type
                   <select value={assessmentType} onChange={(event) => setAssessmentType(event.target.value as AssessmentType)}>
@@ -403,7 +381,7 @@ export function TeacherAssessmentsPage() {
 
             <section className="assessment-builder-section assessment-span-full">
               <h4>Prompt</h4>
-              <div className="assessment-builder-section-grid">
+              <div className="assessment-builder-section-grid assessment-prompt-fields">
                 <label>
                   Prompt
                   <textarea value={assessmentPrompt} onChange={(event) => setAssessmentPrompt(event.target.value)} rows={4} required />
@@ -416,10 +394,10 @@ export function TeacherAssessmentsPage() {
             </section>
 
             <section className="assessment-builder-section assessment-span-full">
-              <h4>Rubric</h4>
+              <div className="assessment-section-heading"><h4>Rubric</h4><span>{rubricRows.length} {rubricRows.length === 1 ? "criterion" : "criteria"}</span></div>
               <div className="rubric-editor">
                 {rubricRows.map((row, index) => (
-                  <article key={`rubric-${index}`} className="rubric-editor-row">
+                  <article key={`rubric-${index}`} className="rubric-editor-row" aria-label={`Criterion ${index + 1}`}>
                     <label>
                       Name
                       <input value={row.name} onChange={(event) => updateRubricRow(index, { name: event.target.value })} />
@@ -433,20 +411,22 @@ export function TeacherAssessmentsPage() {
                         pattern="[0-9]*"
                       />
                     </label>
-                    <label className="assessment-span-full">
-                      Description
-                      <textarea value={row.description} onChange={(event) => updateRubricRow(index, { description: event.target.value })} rows={2} />
-                    </label>
-                    <div className="assessment-span-full">
+                    <div className="rubric-remove-control">
                       <button
-                        className="secondary-button"
+                        className="secondary-button rubric-remove-button"
                         type="button"
+                        aria-label={`Remove criterion ${index + 1}`}
+                        title="Remove criterion"
                         onClick={() => removeRubricRow(index)}
                         disabled={rubricRows.length === 1}
                       >
-                        <Trash2 size={14} /> Remove
+                        <Trash2 size={14} />
                       </button>
                     </div>
+                    <label className="assessment-span-full rubric-description-field">
+                      Description
+                      <textarea value={row.description} onChange={(event) => updateRubricRow(index, { description: event.target.value })} rows={2} />
+                    </label>
                   </article>
                 ))}
               </div>
@@ -457,8 +437,32 @@ export function TeacherAssessmentsPage() {
               </div>
             </section>
 
-            <section className="assessment-builder-section assessment-span-full">
-              <h4>Type Settings</h4>
+            <details className="assessment-builder-section assessment-builder-options assessment-span-full">
+              <summary>Scoring<span>{scoringMode === "additive" ? "Rubric percentage" : scoringMode === "capped" ? "Score caps" : "Teacher adjustments"}</span></summary>
+              <div className="assessment-option-fields">
+                <label>Total calculation
+                  <select value={scoringMode} onChange={(event) => setScoringMode(event.target.value)}>
+                    <option value="additive">Percentage of rubric points</option>
+                    <option value="capped">Rubric percentage with score caps</option>
+                    <option value="review_adjustments">Teacher reviews any total adjustment</option>
+                  </select>
+                </label>
+                {scoringMode === "capped" && <>
+                  {scoringCaps.map((cap, index) => <div className="assessment-builder-section-grid" key={cap.id}>
+                    <label>Apply this cap when
+                      <input required value={cap.condition} onChange={(event) => setScoringCaps((caps) => caps.map((c, i) => i === index ? { ...c, condition: event.target.value } : c))} />
+                    </label>
+                    <label>Maximum total (%)
+                      <input required type="number" min="0" max="100" value={cap.maximumPercent} onChange={(event) => setScoringCaps((caps) => caps.map((c, i) => i === index ? { ...c, maximumPercent: Number(event.target.value) } : c))} />
+                    </label>
+                    <button className="secondary-button" type="button" onClick={() => setScoringCaps((caps) => caps.filter((_, i) => i !== index))}>Remove cap</button>
+                  </div>)}
+                  <button className="secondary-button" type="button" onClick={() => setScoringCaps((caps) => [...caps, { id: crypto.randomUUID(), condition: "", maximumPercent: 50 }])}>Add score cap</button>
+                </>}
+              </div>
+            </details>
+            <details className="assessment-builder-section assessment-builder-options assessment-span-full">
+              <summary>Type settings<span>{formatAssessmentTypeLabel(assessmentType)}</span></summary>
               <div className="assessment-builder-section-grid compact-settings-grid">
                 {assessmentType === "voice" && (
                   <label>
@@ -525,9 +529,9 @@ export function TeacherAssessmentsPage() {
                   </>
                 )}
               </div>
-            </section>
+            </details>
 
-            <div className="control-row assessment-span-full">
+            <div className="control-row assessment-span-full assessment-builder-save">
               <button className="primary-button" type="submit" disabled={assessmentSaving}>
                 <Save size={16} /> {assessmentSaving ? "Saving" : assessmentMode === "edit" ? "Save assessment" : "Create assessment"}
               </button>
@@ -538,9 +542,16 @@ export function TeacherAssessmentsPage() {
               )}
             </div>
           </form>
-        </div>
+        </section>
+      ) : (
+        <section className="course-list-panel assessment-builder-empty" aria-label="Assessment builder">
+          <Pencil size={24} aria-hidden="true" />
+          <h2>Assessment Builder</h2>
+          <p>Choose Edit from the library, or start a new assessment.</p>
+          <button className="primary-button" type="button" onClick={() => { resetAssessmentForm(); setBuilderOpen(true); }}><Plus size={15} /> New assessment</button>
+        </section>
       )}
-    </section>
+    </div>
   );
 }
 

@@ -15,5 +15,17 @@ class_name = "RealtimeEvidence"
 tag = "v1-realtime-evidence"
 new_sqlite_classes = ["RealtimeEvidence"]
 
+[[durable_objects.bindings]]
+name = "SIMULATION_GENERATIONS"
+class_name = "SimulationGeneration"
+
+[[durable_objects.bindings]]
+name = "SIMULATION_SCHEDULER"
+class_name = "SimulationScheduler"
+
+[[migrations]]
+tag = "v2-simulation-generation"
+new_sqlite_classes = ["SimulationGeneration", "SimulationScheduler"]
+
 [triggers]
 crons = ["*/10 * * * *"]

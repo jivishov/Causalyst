@@ -26,6 +26,8 @@ import {
 import { cancelSimulationBackgroundResponse, classifySimulationReadiness, deleteOpenAIFile, enforceModelConfirmation, generateSimulationHtmlChatCompletion, generateSimulationSketch as generateSimulationSketchImage, openaiClient, parseSimulationHtmlResponse, refineSimulationHtmlChatCompletion, retrieveSimulationBackgroundResponse, streamSimulationBackgroundResponse, startRefineSimulationHtmlBackgroundResponse, startSimulationHtmlBackgroundResponse, uploadUserDataFile } from "../lib/openai";
 import { requireArtifact, requireAttempt, logAudit } from "../lib/db";
 import type { Env } from "../lib/env";
+import { isProductionEnv } from "../lib/env";
+import { isManagedSimulationJob, managedRequest, simulationOwner, simulationScheduler, type ManagedSimulationInput } from "../lib/simulationManaged";
 import { HttpError, corsHeaders, getOptionalString, getRequiredString, readJson } from "../lib/http";
 import { signPreviewToken } from "../lib/crypto";
 import { assertDraftAttemptStatus, claimAttemptSubmission } from "../lib/attemptLifecycle";
@@ -178,6 +180,14 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
     reservedId = activeJob.id;
     await saveSimulationDraftDescription(db, userId, attempt.id, description);
     if (simulationCodeModel.generationApi === "responses") {
+      if (env.SIMULATION_GENERATIONS || isProductionEnv(env)) {
+        const owner = simulationOwner(env, activeJob.id);
+        const managed = await updateSimulationGenerationJob(db, userId, activeJob.id, { provider_status: "managed_queued" });
+        // Once ownership is handed off, a lost acknowledgement must not fail a running job.
+        reservedId = null;
+        await managedRequest(owner, "/init", { job: managed, description, model: toOpenAIModelCatalogEntry(simulationCodeModel) });
+        return { ...toStudentSimulationJob(managed), message: "Waiting for a generation slot..." };
+      }
       const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
       const sketchFileId = await ensureOpenAIFileForArtifact(db, client, userId, sketchArtifact);
       logSimulationRouteStage("/api/simulation/generate", attemptId, "sketch-file-ready-for-openai", routeStartedAt);
@@ -299,6 +309,13 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
     logSimulationRouteStage("/api/simulation/refine", attemptId, "current-html-downloaded", routeStartedAt);
     await saveSimulationDraftDescription(db, userId, attempt.id, description);
     if (simulationCodeModel.generationApi === "responses") {
+      if (env.SIMULATION_GENERATIONS || isProductionEnv(env)) {
+        const owner = simulationOwner(env, activeJob.id);
+        const managed = await updateSimulationGenerationJob(db, userId, activeJob.id, { provider_status: "managed_queued" });
+        reservedId = null;
+        await managedRequest(owner, "/init", { job: managed, description, currentHtml, model: toOpenAIModelCatalogEntry(simulationCodeModel) });
+        return { ...toStudentSimulationJob(managed), message: "Waiting for a generation slot..." };
+      }
       const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
       const sketchFileId = await ensureOpenAIFileForArtifact(db, client, userId, sketchArtifact);
       logSimulationRouteStage("/api/simulation/refine", attemptId, "sketch-file-ready-for-openai", routeStartedAt);
@@ -444,6 +461,12 @@ export async function fallbackSimulation(request: Request, env: Env, db: AppData
 export async function streamSimulationGenerationJob(request: Request, env: Env, db: AppDatabaseClient, userId: string, jobId: string): Promise<Response> {
   // Ownership is checked before sending any headers or generated content.
   const job = await requireSimulationGenerationJob(db, userId, jobId);
+  if (isManagedSimulationJob(job)) {
+    const response = await simulationOwner(env, job.id).fetch(new Request("https://simulation.internal/stream", { signal: request.signal }));
+    if (!response.ok) throw new HttpError(503, "Live output is temporarily unavailable.");
+    return new Response(response.body, { headers: { ...corsHeaders(request, env),
+      "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store, no-transform" } });
+  }
   env = await resolveAttemptAiEnv(db, env, job.attempt_id);
   const rawCursor = new URL(request.url).searchParams.get("after");
   const cursor = rawCursor === null ? undefined : Number(rawCursor);
@@ -544,6 +567,13 @@ export async function getSimulationGenerationJob(_request: Request, env: Env, db
   env = await resolveAttemptAiEnv(db, env, job.attempt_id);
   if (job.status === "completed") return toStudentSimulationJob(job, await previewForCompletedSimulationJob(db, env, userId, job));
   if (TERMINAL_SIMULATION_JOB_STATUSES.includes(job.status)) return toStudentSimulationJob(job);
+  if (isManagedSimulationJob(job)) {
+    if (job.status !== "queued") return toStudentSimulationJob(job);
+    const response = await managedRequest(simulationScheduler(env), `/position?id=${encodeURIComponent(job.id)}`);
+    const { position } = await response.json() as { position: number };
+    return { ...toStudentSimulationJob(job), message: position > 0
+      ? `Waiting for a generation slot (${position} in queue)...` : "Preparing your generation request..." };
+  }
   if (job.status === "finalizing") {
     if (Date.now() - Date.parse(job.updated_at) < 120_000) return toStudentSimulationJob(job);
     await failReservedJob(db, userId, job.id);
@@ -634,6 +664,10 @@ export async function cancelSimulationGenerationJob(_request: Request, env: Env,
   env = await resolveAttemptAiEnv(db, env, job.attempt_id);
   if (job.status === "completed") return toStudentSimulationJob(job, await previewForCompletedSimulationJob(db, env, userId, job));
   if (TERMINAL_SIMULATION_JOB_STATUSES.includes(job.status)) return toStudentSimulationJob(job);
+  if (isManagedSimulationJob(job)) {
+    await managedRequest(simulationOwner(env, job.id), "/cancel");
+    return toStudentSimulationJob(await requireSimulationGenerationJob(db, userId, job.id));
+  }
   if (job.provider === "openai" && job.provider_response_id) {
     await cancelSimulationBackgroundResponseBestEffort(openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS), job.provider_response_id, job.id);
   }
@@ -791,7 +825,7 @@ async function claimSimulationGenerationJobForFinalization(
     .from("simulation_generation_jobs")
     .update({
       status: "finalizing",
-      provider_status: "completed",
+      provider_status: isManagedSimulationJob(job) ? "managed_finalizing" : "completed",
       updated_at: new Date().toISOString()
     })
     .eq("id", job.id)
@@ -809,7 +843,8 @@ async function completeSimulationGenerationJob(
   env: Env,
   userId: string,
   job: SimulationGenerationJobRow,
-  response: any
+  response: any,
+  preserveCompletedOutput = false
 ): Promise<StudentSimulationGenerationJob> {
   if (job.result_artifact_id) {
     return toStudentSimulationJob(job, await previewForCompletedSimulationJob(db, env, userId, job));
@@ -877,6 +912,10 @@ async function completeSimulationGenerationJob(
   logSimulationRouteStage("/api/simulation/jobs/:jobId", finalizing.attempt_id, "html-artifact-stored", Date.now());
   return toStudentSimulationJob(completed, await previewForCompletedSimulationJob(db, env, userId, completed));
   } catch (error) {
+    if (preserveCompletedOutput && !(error instanceof HttpError && error.message.startsWith("Simulation HTML "))) {
+      // The owner retains the completed HTML and retries only its storage operation.
+      throw error;
+    }
     // Validation reasons contain only app-owned labels. Persist that safe reason
     // so the next poll can display it instead of an unknown-provider failure.
     const message = error instanceof HttpError && error.message.startsWith("Simulation HTML ")
@@ -885,6 +924,45 @@ async function completeSimulationGenerationJob(
     await failReservedJob(db, userId, job.id, message);
     throw toPublicSimulationGenerationError(error);
   }
+}
+
+export async function prepareManagedSimulation(db: AppDatabaseClient, env: Env, input: ManagedSimulationInput) {
+  const current = await requireSimulationGenerationJob(db, input.job.student_id, input.job.id);
+  if (TERMINAL_SIMULATION_JOB_STATUSES.includes(current.status)) throw new HttpError(409, "Generation has already ended.");
+  const artifact = await requireArtifact(db, input.job.student_id, input.job.sketch_artifact_id);
+  const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+  const sketchFileId = await ensureOpenAIFileForArtifact(db, client, input.job.student_id, artifact);
+  return { description: input.description, currentHtml: input.currentHtml, sketchFileId,
+    model: input.model, htmlReasoningEffort: input.job.reasoning_effort };
+}
+
+export async function setManagedSimulationState(db: AppDatabaseClient, original: SimulationGenerationJobRow,
+  status: StudentSimulationGenerationJobStatus, responseId?: string, serviceTier?: unknown, message?: string) {
+  const current = await requireSimulationGenerationJob(db, original.student_id, original.id);
+  if (TERMINAL_SIMULATION_JOB_STATUSES.includes(current.status)) return toStudentSimulationJob(current);
+  const terminal = TERMINAL_SIMULATION_JOB_STATUSES.includes(status);
+  const now = new Date().toISOString();
+  const updated = await updateSimulationGenerationJob(db, original.student_id, original.id, {
+    status, provider_status: `managed_${status}`, provider_response_id: responseId ?? current.provider_response_id,
+    service_tier_used: normalizeSimulationHtmlServiceTier(serviceTier) ?? current.service_tier_used,
+    updated_at: now, ...(terminal ? { completed_at: now, error_message: message ?? null,
+      ...(status === "cancelled" ? { cancelled_at: now } : {}) } : {})
+  });
+  return toStudentSimulationJob(updated);
+}
+
+export async function completeManagedSimulation(db: AppDatabaseClient, env: Env, original: SimulationGenerationJobRow, response: any) {
+  let current = await requireSimulationGenerationJob(db, original.student_id, original.id);
+  if (current.status === "finalizing") {
+    // Only the single durable owner can resume interrupted managed finalization.
+    current = await updateSimulationGenerationJob(db, original.student_id, original.id,
+      { status: "in_progress", provider_status: "managed_saving", updated_at: new Date().toISOString() });
+  }
+  return completeSimulationGenerationJob(db, env, original.student_id, current, response, true);
+}
+
+export async function recoverExpiredSimulationJob(db: AppDatabaseClient, env: Env, userId: string, jobId: string) {
+  return getSimulationGenerationJob(new Request("https://simulation.internal/status"), env, db, userId, jobId);
 }
 
 async function completeImmediateSimulationGenerationJob(

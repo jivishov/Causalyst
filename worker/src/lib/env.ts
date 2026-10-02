@@ -1,5 +1,7 @@
 export interface Env {
   REALTIME_SESSIONS?: DurableObjectNamespace;
+  SIMULATION_GENERATIONS?: DurableObjectNamespace;
+  SIMULATION_SCHEDULER?: DurableObjectNamespace;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   SUPABASE_JWKS_URL?: string;

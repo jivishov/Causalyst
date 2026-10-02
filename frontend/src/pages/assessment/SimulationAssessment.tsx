@@ -344,7 +344,12 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
             signal: streamAbort.signal,
             onEvent(event) {
               if (!isCurrent()) return;
-              if (event.type === "html_delta" || event.type === "checkpoint") {
+              if (event.type === "html_snapshot") {
+                cursor = event.cursor;
+                streamFailures = 0;
+                setHtmlStreamLive(true);
+                setHtmlStreamSource(event.source);
+              } else if (event.type === "html_delta" || event.type === "checkpoint") {
                 if (cursor !== undefined && event.cursor <= cursor) return;
                 cursor = event.cursor;
                 streamFailures = 0;

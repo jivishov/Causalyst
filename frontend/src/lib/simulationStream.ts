@@ -16,7 +16,8 @@ export async function consumeSimulationHtmlStream(response: Response, onEvent: (
       const { value, done } = await reader.read();
       if (done || signal?.aborted) break;
       buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
-      if (buffer.length > MAX_SIMULATION_STREAM_CHARS) throw new Error("Live output exceeded the display limit.");
+      // JSON escaping can expand a full reconnect snapshot up to sixfold.
+      if (buffer.length > 6 * MAX_SIMULATION_STREAM_CHARS + 4096) throw new Error("Live output exceeded the display limit.");
       let boundary: number;
       while ((boundary = buffer.indexOf("\n\n")) !== -1) {
         const frame = buffer.slice(0, boundary);
@@ -41,9 +42,11 @@ function isSimulationHtmlStreamEvent(value: unknown): value is SimulationHtmlStr
   if (!value || typeof value !== "object" || !("type" in value)) return false;
   const event = value as Record<string, unknown>;
   if (event.type === "heartbeat" || event.type === "unavailable") return true;
-  if (event.type === "html_delta" || event.type === "checkpoint") {
+  if (event.type === "html_delta" || event.type === "checkpoint" || event.type === "html_snapshot") {
     return Number.isSafeInteger(event.cursor) && Number(event.cursor) >= 0
-      && (event.type === "checkpoint" || typeof event.delta === "string");
+      && (event.type === "checkpoint" || (event.type === "html_snapshot"
+        ? typeof event.source === "string" && event.source.length <= MAX_SIMULATION_STREAM_CHARS
+        : typeof event.delta === "string" && event.delta.length <= MAX_SIMULATION_STREAM_CHARS));
   }
   if (event.type === "job" && event.job && typeof event.job === "object") {
     const job = event.job as Record<string, unknown>;

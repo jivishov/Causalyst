@@ -143,6 +143,7 @@ export interface StudentSimulationGenerationJob {
 export type SimulationHtmlStreamEvent =
   | { type: "job"; job: StudentSimulationGenerationJob }
   | { type: "html_delta"; delta: string; cursor: number }
+  | { type: "html_snapshot"; source: string; cursor: number }
   | { type: "checkpoint"; cursor: number }
   | { type: "unavailable" }
   | { type: "heartbeat" };

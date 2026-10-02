@@ -647,7 +647,24 @@ function requireOutputText(response: any, message: string): string {
   if (typeof response.output_text === "string" && response.output_text.trim().length > 0) {
     return response.output_text;
   }
+  // Streaming terminal events do not have the SDK's output_text convenience field.
+  const text = (response.output ?? []).filter((item: any) => item.type === "message")
+    .flatMap((item: any) => item.content ?? []).filter((part: any) => part.type === "output_text")
+    .map((part: any) => typeof part.text === "string" ? part.text : "").join("");
+  if (text.trim()) return text;
   throw new HttpError(502, message);
+}
+
+export async function streamSimulationForegroundResponse(client: OpenAI, input: {
+  description: string; sketchFileId: string; currentHtml?: string;
+  htmlReasoningEffort: SimulationHtmlReasoningEffort; model: ModelCatalogEntry;
+}, signal: AbortSignal) {
+  const { payload } = input.currentHtml === undefined
+    ? buildSimulationHtmlResponsePayload(input)
+    : buildRefineSimulationHtmlResponsePayload({ ...input, currentHtml: input.currentHtml });
+  // No fallback or SDK retries: a disconnected POST has an ambiguous outcome.
+  return client.responses.create({ ...payload, background: false, store: true, stream: true },
+    { timeout: 60_000, maxRetries: 0, signal }).withResponse();
 }
 
 function requireChatCompletionText(response: any, message: string): string {

@@ -1,4 +1,4 @@
-name: Release model capability controls
+name: Release student simulation model settings
 
 on:
   push:
@@ -24,8 +24,8 @@ jobs:
           fetch-depth: 0
       - name: Verify reviewed code and unchanged database preparation
         env:
-          REVIEWED_SHA: eb60ebbb2e9732c5c9f7fdbdf8353a551fd24398
-          BACKEND_SHA: 68580db7631e474b67fa3c008cbc2c95f41e2d6b
+          REVIEWED_SHA: 137c5d7ff6d4ded37ab78c3263de3db73af19862
+          BACKEND_SHA: b1f7bc63918237dee2de411d5f3c3b2e378dd595
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
           test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = ".github/workflows/release-model-capabilities.yml"
@@ -33,7 +33,7 @@ jobs:
           python - <<'PYCODE'
           import os, subprocess
           changed = set(subprocess.check_output(["git", "diff", "--name-only", os.environ["BACKEND_SHA"], os.environ["REVIEWED_SHA"], "--", "worker", "shared"], text=True).splitlines())
-          allowed = {"worker/src/lib/aiSettings.ts", "worker/test/aiSettings.test.ts", "shared/src/aiSettings.ts"}
+          allowed = {"worker/src/index.ts", "worker/src/routes/simulation.ts", "worker/test/simulationModelSettings.test.ts", "shared/src/types.ts"}
           if not changed.issubset(allowed):
               raise SystemExit("Unexpected backend changes in this model-settings release")
           PYCODE
@@ -41,12 +41,12 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36970408950 });
-            if (checked.data.head_sha !== "eb60ebbb2e9732c5c9f7fdbdf8353a551fd24398" || checked.data.status !== "completed" || checked.data.conclusion !== "success") {
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36971023527 });
+            if (checked.data.head_sha !== "137c5d7ff6d4ded37ab78c3263de3db73af19862" || checked.data.status !== "completed" || checked.data.conclusion !== "success") {
               throw new Error("The reviewed checks do not match this release.");
             }
-            const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36965621174 });
-            if (deployed.data.head_sha !== "68580db7631e474b67fa3c008cbc2c95f41e2d6b" || deployed.data.status !== "completed" || deployed.data.conclusion !== "success") {
+            const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36970659643 });
+            if (deployed.data.head_sha !== "b1f7bc63918237dee2de411d5f3c3b2e378dd595" || deployed.data.status !== "completed" || deployed.data.conclusion !== "success") {
               throw new Error("The production backend baseline is not verified.");
             }
 

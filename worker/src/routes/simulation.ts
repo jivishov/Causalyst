@@ -12,6 +12,7 @@ import {
   type StudentSimulationPreview,
   type StudentSimulationModelSettings,
   type SimulationHtmlStreamEvent,
+  normalizeSimulationHtmlServiceTier,
   MAX_SIMULATION_STREAM_CHARS,
   DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
   SIMULATION_HTML_REASONING_EFFORTS,
@@ -28,7 +29,7 @@ import type { Env } from "../lib/env";
 import { HttpError, corsHeaders, getOptionalString, getRequiredString, readJson } from "../lib/http";
 import { signPreviewToken } from "../lib/crypto";
 import { assertDraftAttemptStatus, claimAttemptSubmission } from "../lib/attemptLifecycle";
-import { getModel, getSimulationCodeModel, toOpenAIModelCatalogEntry, type SimulationCodeModelEntry } from "../lib/models";
+import { getModel, getSimulationCodeModel, simulationHtmlServiceTier, toOpenAIModelCatalogEntry, type SimulationCodeModelEntry } from "../lib/models";
 import { buildSimulationFallbackHtml } from "../lib/simulationFallbackRenderer";
 import { prepareGeneratedSimulationHtml } from "../lib/simulationHtmlPolicy";
 import { CURRENT_SIMULATION_HTML_VIEWPORT, normalizeSimulationHtmlViewport, simulationHtmlViewportColumns } from "../lib/simulationViewport";
@@ -52,7 +53,9 @@ export async function getSimulationModelSettings(_request: Request, env: Env, db
     sketchModelId: getModel("simulationSketchImage", runtime).id,
     htmlModelId: model.providerModelId,
     htmlReasoningEffort: readSimulationHtmlReasoningEffort({}, model),
-    htmlMaxOutputTokens: model.maxOutputTokens
+    htmlMaxOutputTokens: model.maxOutputTokens,
+    htmlFastMode: simulationHtmlServiceTier(model) === "fast",
+    htmlServiceTierRequested: simulationHtmlServiceTier(model)
   };
 }
 
@@ -163,7 +166,8 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
       sourceDescriptionSha256,
       htmlReasoningEffort,
       provider: simulationCodeModel.provider,
-      requestedModel: simulationCodeModel.providerModelId
+      requestedModel: simulationCodeModel.providerModelId,
+      htmlServiceTierRequested: simulationHtmlServiceTier(simulationCodeModel)
     });
     const activeJob = reservation.job;
     if (!reservation.claimed) {
@@ -194,6 +198,7 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
         providerStatus: background.status,
         requestedModel: simulationCodeModel.providerModelId,
         modelUsed: background.modelUsed,
+        serviceTierUsed: background.serviceTierUsed,
         htmlReasoningEffort,
         sketchArtifactId,
         inputHtmlArtifactId: null,
@@ -280,7 +285,8 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
       sourceDescriptionSha256,
       htmlReasoningEffort,
       provider: simulationCodeModel.provider,
-      requestedModel: simulationCodeModel.providerModelId
+      requestedModel: simulationCodeModel.providerModelId,
+      htmlServiceTierRequested: simulationHtmlServiceTier(simulationCodeModel)
     });
     const activeJob = reservation.job;
     if (!reservation.claimed) {
@@ -314,6 +320,7 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
         providerStatus: background.status,
         requestedModel: simulationCodeModel.providerModelId,
         modelUsed: background.modelUsed,
+        serviceTierUsed: background.serviceTierUsed,
         htmlReasoningEffort,
         sketchArtifactId,
         inputHtmlArtifactId: htmlArtifactId,
@@ -600,6 +607,7 @@ export async function getSimulationGenerationJob(_request: Request, env: Env, db
     const terminalJob = await updateSimulationGenerationJob(db, userId, job.id, {
       status: providerStatus,
       provider_status: providerStatus,
+      service_tier_used: normalizeSimulationHtmlServiceTier(response?.service_tier) ?? job.service_tier_used,
       error_message: providerFailureMessage(response, providerStatus),
       updated_at: new Date().toISOString(),
       completed_at: new Date().toISOString()
@@ -610,10 +618,12 @@ export async function getSimulationGenerationJob(_request: Request, env: Env, db
 
   const activeStatus: StudentSimulationGenerationJobStatus = providerStatus === "queued" ? "queued" : "in_progress";
   const updatedJob = activeStatus === job.status && providerStatus === job.provider_status
+    && (normalizeSimulationHtmlServiceTier(response?.service_tier) ?? job.service_tier_used) === job.service_tier_used
     ? job
     : await updateSimulationGenerationJob(db, userId, job.id, {
       status: activeStatus,
       provider_status: providerStatus,
+      service_tier_used: normalizeSimulationHtmlServiceTier(response?.service_tier) ?? job.service_tier_used,
       updated_at: new Date().toISOString()
     });
   return toStudentSimulationJob(updatedJob);
@@ -696,6 +706,7 @@ async function createSimulationGenerationJob(db: AppDatabaseClient, input: {
   status?: StudentSimulationGenerationJobStatus;
   requestedModel: string;
   modelUsed: string;
+  serviceTierUsed?: string | null;
   htmlReasoningEffort: SimulationHtmlReasoningEffort;
   sketchArtifactId: string;
   inputHtmlArtifactId: string | null;
@@ -715,6 +726,7 @@ async function createSimulationGenerationJob(db: AppDatabaseClient, input: {
     provider_response_id: input.providerResponseId ?? null,
     requested_model: input.requestedModel,
     model_used: input.modelUsed,
+    service_tier_used: normalizeSimulationHtmlServiceTier(input.serviceTierUsed) ?? null,
     reasoning_effort: input.htmlReasoningEffort,
     sketch_artifact_id: input.sketchArtifactId,
     input_html_artifact_id: input.inputHtmlArtifactId,
@@ -827,6 +839,7 @@ async function completeSimulationGenerationJob(
     provider_status: "completed",
     result_artifact_id: artifact.id,
     model_used: typeof response.model === "string" ? response.model : finalizing.model_used,
+    service_tier_used: normalizeSimulationHtmlServiceTier(response.service_tier) ?? finalizing.service_tier_used,
     error_message: null,
     updated_at: completedAt,
     completed_at: completedAt
@@ -841,6 +854,8 @@ async function completeSimulationGenerationJob(
       simulationModelRequested: finalizing.requested_model,
       simulationModelUsed: completed.model_used,
       htmlReasoningEffort: finalizing.reasoning_effort,
+      htmlServiceTierRequested: finalizing.service_tier_requested,
+      htmlServiceTierUsed: completed.service_tier_used,
       sketchArtifactId: finalizing.sketch_artifact_id,
       htmlArtifactId: finalizing.input_html_artifact_id,
       operation: finalizing.operation,
@@ -970,6 +985,8 @@ async function previewForCompletedSimulationJob(
     outputKind: "html",
     generationSource: "model",
     htmlReasoningEffort: job.reasoning_effort,
+    htmlServiceTierRequested: normalizeSimulationHtmlServiceTier(job.service_tier_requested),
+    htmlServiceTierUsed: normalizeSimulationHtmlServiceTier(job.service_tier_used),
     htmlViewport
   };
 }
@@ -1015,6 +1032,8 @@ function toStudentSimulationJob(
     requestedModel: job.requested_model,
     modelUsed: job.model_used ?? undefined,
     htmlReasoningEffort: job.reasoning_effort,
+    htmlServiceTierRequested: normalizeSimulationHtmlServiceTier(job.service_tier_requested),
+    htmlServiceTierUsed: normalizeSimulationHtmlServiceTier(job.service_tier_used),
     preview,
     errorMessage: job.error_message ?? undefined
   };
@@ -1091,6 +1110,8 @@ function toSimulationGenerationJobRow(data: any): SimulationGenerationJobRow {
     requested_model: String(data.requested_model ?? DEFAULT_SIMULATION_CODE_MODEL_ID),
     model_used: typeof data.model_used === "string" ? data.model_used : null,
     reasoning_effort: normalizeSimulationHtmlReasoningEffort(data.reasoning_effort),
+    service_tier_requested: normalizeSimulationHtmlServiceTier(data.service_tier_requested) ?? null,
+    service_tier_used: normalizeSimulationHtmlServiceTier(data.service_tier_used) ?? null,
     sketch_artifact_id: String(data.sketch_artifact_id),
     input_html_artifact_id: typeof data.input_html_artifact_id === "string" ? data.input_html_artifact_id : null,
     result_artifact_id: typeof data.result_artifact_id === "string" ? data.result_artifact_id : null,

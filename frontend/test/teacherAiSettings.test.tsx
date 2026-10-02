@@ -124,3 +124,29 @@ it("updates an unused model's capability when its provider ID changes to an imag
   expect(select.value).toBe("image");
   expect([...select.options].filter(option => !option.disabled).map(option => option.value)).toEqual(["image"]);
 });
+
+
+it("keeps HTML Fast mode off until explicit opt-in and restores saved choices", async () => {
+  let settings = fixture();
+  const grading = structuredClone(settings.roleModels.grading);
+  vi.mocked(teacherApiFetch).mockImplementation(async (_path, options) => {
+    if (options?.method === "PUT") settings = { ...settings, ...JSON.parse(options.body as string) };
+    return settings as never;
+  });
+  render(<TeacherAiSettingsPage />);
+  const checkbox = await screen.findByRole("checkbox", { name: "Interactive simulation HTML fast mode" }) as HTMLInputElement;
+  expect(checkbox.checked).toBe(false);
+  fireEvent.click(checkbox);
+  expect(checkbox.checked).toBe(true);
+  fireEvent.click(screen.getAllByRole("button", { name: "Save settings" })[0]);
+  await screen.findByText(/Saved\. New previews/);
+  expect(settings.codeModels[0].fastMode).toBe(true);
+  expect(settings.providerModels![0].fastMode).toBe(true);
+  expect(settings.roleModels.grading).toEqual(grading);
+  fireEvent.click(screen.getByRole("button", { name: "Reload saved settings" }));
+  expect((await screen.findByRole("checkbox", { name: "Interactive simulation HTML fast mode" }) as HTMLInputElement).checked).toBe(true);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Interactive simulation HTML fast mode" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "Save settings" })[0]);
+  await screen.findByText(/Saved\. New previews/);
+  expect(settings.codeModels[0].fastMode).toBe(false);
+});

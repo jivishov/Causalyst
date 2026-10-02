@@ -28,6 +28,7 @@ describe("simulation artifact flow", () => {
       if (active) return { claimed: false, job: active as jobsLib.SimulationGenerationJobRow };
       const { data: job } = await table.insert({ attempt_id: input.attemptId, student_id: input.userId, operation: input.operation,
         status: "queued", provider: input.provider, requested_model: input.requestedModel, reasoning_effort: input.htmlReasoningEffort,
+        service_tier_requested: input.htmlServiceTierRequested ?? null, service_tier_used: null,
         sketch_artifact_id: input.sketchArtifactId, input_html_artifact_id: input.inputHtmlArtifactId ?? null,
         source_description_sha256: input.sourceDescriptionSha256, expires_at: new Date(Date.now() + 1200000).toISOString() }).select("*").single();
       if (!job) throw new Error("Missing simulation job fixture");
@@ -476,6 +477,8 @@ describe("simulation artifact flow", () => {
       requested_model: "openai:gpt-5.5",
       model_used: "gpt-5.5",
       reasoning_effort: "low",
+      service_tier_requested: "fast",
+      service_tier_used: null,
       sketch_artifact_id: "sketch-1",
       input_html_artifact_id: null,
       result_artifact_id: null,
@@ -494,6 +497,7 @@ describe("simulation artifact flow", () => {
       id: "resp-secret",
       status: "completed",
       model: "gpt-5.5-2026-03-17",
+      service_tier: "default",
       output_text: '<!doctype html><html><body><button id="step">Step</button><script>document.getElementById("step").addEventListener("click", function () { this.textContent = "Advanced"; });</script></body></html>'
     });
     vi.spyOn(cryptoLib, "signPreviewToken").mockResolvedValue("preview-token");
@@ -533,6 +537,8 @@ describe("simulation artifact flow", () => {
         outputKind: "html",
         generationSource: "model",
         htmlReasoningEffort: "low",
+        htmlServiceTierRequested: "fast",
+        htmlServiceTierUsed: "default",
         htmlViewport: SIMULATION_HTML_VIEWPORT
       }
     });
@@ -545,6 +551,10 @@ describe("simulation artifact flow", () => {
     });
     expect(updatedArtifactRows.at(-1)).toMatchObject({ upload_state: "uploaded", content_sha256: expect.stringMatching(/^[a-f0-9]{64}$/) });
     expect(jobRow.result_artifact_id).toBe(result.preview?.artifactId);
+    expect(result).toMatchObject({ htmlServiceTierRequested: "fast", htmlServiceTierUsed: "default" });
+    const restored = await getSimulationGenerationJob(new Request("https://worker.test/api/simulation/jobs/job-complete"), { OPENAI_API_KEY: "key", PIN_PEPPER: "pepper" } as any, db, "student-1", "job-complete");
+    expect(restored).toMatchObject({ htmlServiceTierRequested: "fast", htmlServiceTierUsed: "default", preview: { htmlServiceTierRequested: "fast", htmlServiceTierUsed: "default" } });
+    expect(uploadSpy).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(result)).not.toContain("resp-secret");
   });
 

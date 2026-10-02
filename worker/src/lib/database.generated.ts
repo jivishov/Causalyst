@@ -923,6 +923,8 @@ export type Database = {
           reasoning_effort: string
           requested_model: string
           result_artifact_id: string | null
+          service_tier_requested: string | null
+          service_tier_used: string | null
           sketch_artifact_id: string
           source_description_sha256: string
           status: string
@@ -947,6 +949,8 @@ export type Database = {
           reasoning_effort?: string
           requested_model: string
           result_artifact_id?: string | null
+          service_tier_requested?: string | null
+          service_tier_used?: string | null
           sketch_artifact_id: string
           source_description_sha256: string
           status: string
@@ -971,6 +975,8 @@ export type Database = {
           reasoning_effort?: string
           requested_model?: string
           result_artifact_id?: string | null
+          service_tier_requested?: string | null
+          service_tier_used?: string | null
           sketch_artifact_id?: string
           source_description_sha256?: string
           status?: string

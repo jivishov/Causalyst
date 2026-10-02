@@ -66,6 +66,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
   const [htmlPreviewToken, setHtmlPreviewToken] = useState<string | null>(null);
   const [htmlPreviewGenerationSource, setHtmlPreviewGenerationSource] = useState<StudentSimulationPreview["generationSource"] | null>(null);
   const [htmlPreviewViewport, setHtmlPreviewViewport] = useState<StudentSimulationPreview["htmlViewport"] | null>(null);
+  const [currentHtmlServiceTiers, setCurrentHtmlServiceTiers] = useState<Pick<StudentSimulationPreview, "htmlServiceTierRequested" | "htmlServiceTierUsed"> | null>(null);
   const [currentHtmlReasoningEffort, setCurrentHtmlReasoningEffort] = useState<SimulationHtmlReasoningEffort | null>(null);
   const [htmlPreviewUrl, setHtmlPreviewUrl] = useState<string | null>(null);
   const [htmlRequestedModel, setHtmlRequestedModel] = useState<string | null>(null);
@@ -191,6 +192,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
     setHtmlPreviewGenerationSource(null);
     setHtmlPreviewViewport(null);
     setCurrentHtmlReasoningEffort(null);
+    setCurrentHtmlServiceTiers(null);
     setHtmlRequestedModel(null);
     setHtmlModelUsed(null);
     setHtmlPreviewRequested(false);
@@ -283,6 +285,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
       if (input) {
         setHtmlPreviewGenerationSource(input.generationSource ?? null);
         setCurrentHtmlReasoningEffort(input.htmlReasoningEffort ?? null);
+        setCurrentHtmlServiceTiers({ htmlServiceTierRequested: input.htmlServiceTierRequested, htmlServiceTierUsed: input.htmlServiceTierUsed });
         setHtmlPreviewViewport(input.htmlViewport ?? null);
       }
       setHtmlPreviewHealthNonce(healthNonce);
@@ -484,6 +487,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
       setHtmlPreviewToken(initialDraft.simulationPreview.previewToken);
       setHtmlPreviewGenerationSource(initialDraft.simulationPreview.generationSource ?? null);
       setHtmlPreviewViewport(initialDraft.simulationPreview.htmlViewport ?? null);
+      setCurrentHtmlServiceTiers({ htmlServiceTierRequested: initialDraft.simulationPreview.htmlServiceTierRequested, htmlServiceTierUsed: initialDraft.simulationPreview.htmlServiceTierUsed });
       setCurrentHtmlReasoningEffort(initialDraft.simulationPreview.htmlReasoningEffort ?? initialDraft.activeSimulationJob?.htmlReasoningEffort ?? null);
       void requestHtmlPreview(initialDraft.simulationPreview);
     }
@@ -657,6 +661,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
         setHtmlRequestedModel("system");
         setHtmlModelUsed("structured-fallback");
         setCurrentHtmlReasoningEffort(null);
+    setCurrentHtmlServiceTiers(null);
         setHtmlGenerationJob(null);
         setHtmlGenerationMessage("Structured fallback preview ready.");
         await requestHtmlPreview(preview);
@@ -1031,6 +1036,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
             {modelSettingsError && <p className="field-error" role="alert">{modelSettingsError}</p>}
             <p className="overall-comment">Next sketch model: {modelSettings?.sketchModelId || (modelSettingsLoading ? "Loading…" : "Unavailable")}</p>
             <p className="overall-comment">Next HTML model: {modelSettings?.htmlModelId || (modelSettingsLoading ? "Loading…" : "Unavailable")} | Next HTML reasoning: {modelSettings ? formatSimulationHtmlReasoningEffort(modelSettings.htmlReasoningEffort) : "Unavailable"}{modelSettings?.htmlMaxOutputTokens ? ` | Token limit: ${modelSettings.htmlMaxOutputTokens.toLocaleString()}` : ""}</p>
+            <p className="overall-comment">Next HTML mode: {modelSettings ? modelSettings.htmlFastMode ? "Fast" : modelSettings.htmlServiceTierRequested === "provider_default" ? "Provider default" : "Standard" : modelSettingsLoading ? "Loading…" : "Unavailable"} | Fast mode: {modelSettings ? modelSettings.htmlFastMode ? "On" : "Off" : "Unavailable"} | Request tier: {modelSettings?.htmlServiceTierRequested ?? "n/a"}</p>
             <p className="overall-comment">These are the next request settings. Refresh to check for teacher changes. Current preview and job settings below describe the request that created them.</p>
             <p className="overall-comment">
               {sketchRequestedModel ? `Sketch requested model: ${sketchRequestedModel}` : "Sketch requested model: n/a"} | {sketchModelUsed ? `Sketch model used: ${sketchModelUsed}` : "Sketch model used: n/a"} | Output kind: image
@@ -1041,6 +1047,8 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
             <p className="overall-comment">
               Current preview/job HTML reasoning: {currentHtmlReasoningEffort ? formatSimulationHtmlReasoningEffort(currentHtmlReasoningEffort) : "n/a"}
             </p>
+            <p className="overall-comment">HTML requested tier: {(htmlGenerationJob ?? currentHtmlServiceTiers)?.htmlServiceTierRequested ?? "n/a"} | Provider reported tier: {(htmlGenerationJob ?? currentHtmlServiceTiers)?.htmlServiceTierUsed ?? "Not reported"}</p>
+            <p className="overall-comment">Fast requests may be served as Standard (default). Reported tiers fast and priority both indicate Fast processing.</p>
             <p className="overall-comment">{sketchArtifactId ? `Sketch artifact ID: ${sketchArtifactId}` : "Sketch artifact ID: n/a"}</p>
             <p className="overall-comment">{htmlArtifactId ? `HTML artifact ID: ${htmlArtifactId}` : "HTML artifact ID: n/a"}</p>
           </div>

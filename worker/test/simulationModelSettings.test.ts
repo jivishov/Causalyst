@@ -16,12 +16,12 @@ describe("student simulation model settings", () => {
     frozen.apiKeys.openai = "synthetic-encrypted-value";
     const current = defaultAiSettings(env);
     current.forceDefaultSimulationModel = true;
-    current.codeModels[0] = { ...current.codeModels[0], reasoningEffort: "high", maxOutputTokens: 56000 };
+    current.codeModels[0] = { ...current.codeModels[0], reasoningEffort: "high", maxOutputTokens: 56000, fastMode: true };
     current.roleModels.simulationSketchImage.id = "synthetic-new-sketch";
     const rpc = vi.fn().mockResolvedValue({ data: { teacherId: "teacher", runtime: frozen, settings: current }, error: null });
     const fetch = vi.spyOn(globalThis, "fetch");
     const settings = await getSimulationModelSettings(request, env, { rpc } as never, "student", "attempt");
-    expect(settings).toEqual({ sketchModelId: "gpt-image-2.5-flare", htmlModelId: "gpt-6.1-sol", htmlReasoningEffort: "high", htmlMaxOutputTokens: 56000 });
+    expect(settings).toEqual({ sketchModelId: "gpt-image-2.5-flare", htmlModelId: "gpt-6.1-sol", htmlReasoningEffort: "high", htmlMaxOutputTokens: 56000, htmlFastMode: true, htmlServiceTierRequested: "fast" });
     expect(rpc).toHaveBeenCalledExactlyOnceWith("get_attempt_ai_context", { p_attempt_id: "attempt" });
     expect(fetch).not.toHaveBeenCalled();
     expect(frozen.codeModels[0].reasoningEffort).toBe("max");
@@ -34,7 +34,7 @@ describe("student simulation model settings", () => {
     const current = defaultAiSettings(env);
     current.codeModels[1] = { ...current.codeModels[1], enabled: true, reasoningEffort: "medium" };
     const rpc = vi.fn().mockResolvedValue({ data: { teacherId: "teacher", runtime: null, settings: current }, error: null });
-    expect(await getSimulationModelSettings(request, env, { rpc } as never, "student", "attempt")).toMatchObject({ htmlModelId: "gpt-5.6-terra", htmlReasoningEffort: "medium" });
+    expect(await getSimulationModelSettings(request, env, { rpc } as never, "student", "attempt")).toMatchObject({ htmlModelId: "gpt-5.6-terra", htmlReasoningEffort: "medium", htmlFastMode: false, htmlServiceTierRequested: "default" });
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
@@ -44,7 +44,7 @@ describe("student simulation model settings", () => {
     current.defaultSimulationModelId = "kimi:kimi-k2.6";
     current.codeModels.find(model => model.id === current.defaultSimulationModelId)!.enabled = true;
     const rpc = vi.fn().mockResolvedValue({ data: { teacherId: "teacher", runtime: null, settings: current }, error: null });
-    expect(await getSimulationModelSettings(request, env, { rpc } as never, "student", "attempt")).toMatchObject({ htmlModelId: "kimi-k2.6", htmlReasoningEffort: "none" });
+    expect(await getSimulationModelSettings(request, env, { rpc } as never, "student", "attempt")).toMatchObject({ htmlModelId: "kimi-k2.6", htmlReasoningEffort: "none", htmlFastMode: false, htmlServiceTierRequested: "provider_default" });
   });
 
   it("checks attempt ownership before reading teacher configuration", async () => {

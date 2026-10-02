@@ -277,6 +277,8 @@ describe("attempt result lifecycle projection", () => {
       student_id: "student-1",
       result_artifact_id: "artifact-sim",
       reasoning_effort: "low",
+      service_tier_requested: "fast",
+      service_tier_used: "priority",
       completed_at: "2026-04-30T11:06:00.000Z",
       created_at: "2026-04-30T11:04:00.000Z"
     });
@@ -306,6 +308,8 @@ describe("attempt result lifecycle projection", () => {
       outputKind: "html",
       generationSource: "model",
       htmlReasoningEffort: "low",
+      htmlServiceTierRequested: "fast",
+      htmlServiceTierUsed: "priority",
       htmlViewport: SIMULATION_HTML_VIEWPORT
     }));
     expect(typeof result.simulationPreview?.previewToken).toBe("string");

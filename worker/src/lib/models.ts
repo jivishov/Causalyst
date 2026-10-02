@@ -22,6 +22,7 @@ export interface ModelCatalogEntry {
   reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   verbosity?: "low" | "medium" | "high";
   maxOutputTokens?: number;
+  fastMode?: boolean;
   requiresConfirmation?: boolean;
   fallbackModelId?: string;
 }
@@ -38,6 +39,7 @@ export interface SimulationCodeModelEntry {
   reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   verbosity?: "low" | "medium" | "high";
   maxOutputTokens?: number;
+  fastMode?: boolean;
 }
 
 const CONFIRMATION_REQUIRED_MODEL_IDS = new Set<string>();
@@ -137,7 +139,12 @@ export function getSimulationCodeModel(modelId?: SimulationCodeModelId, settings
   const base = simulationCodeModelCatalog[selected.id] ?? Object.values(simulationCodeModelCatalog).find(model => model.provider === selected.provider)!;
   return { ...base, id: selected.id, provider: selected.provider, label: selected.label, providerModelId: selected.modelId,
     maxOutputTokens: selected.maxOutputTokens ?? base.maxOutputTokens,
-    reasoningEffort: selected.reasoningEffort === "none" ? undefined : selected.reasoningEffort };
+    reasoningEffort: selected.reasoningEffort === "none" ? undefined : selected.reasoningEffort,
+    fastMode: selected.provider === "openai" && selected.fastMode === true };
+}
+
+export function simulationHtmlServiceTier(model: SimulationCodeModelEntry): "fast" | "default" | "provider_default" {
+  return model.provider === "openai" ? model.fastMode === true ? "fast" : "default" : "provider_default";
 }
 
 export function toOpenAIModelCatalogEntry(model: SimulationCodeModelEntry): ModelCatalogEntry {
@@ -145,7 +152,8 @@ export function toOpenAIModelCatalogEntry(model: SimulationCodeModelEntry): Mode
     id: model.providerModelId,
     reasoningEffort: model.reasoningEffort,
     verbosity: model.verbosity,
-    maxOutputTokens: model.maxOutputTokens
+    maxOutputTokens: model.maxOutputTokens,
+    fastMode: model.fastMode === true
   };
 }
 

@@ -11,7 +11,7 @@ const grade = () => ({ score: 100, overallComment: "Review", criteria: [{ id: "r
 const reservationInput = { userId: "u", attemptId: "a", operation: "generate" as const, sketchArtifactId: "s", sourceDescriptionSha256: "hash", htmlReasoningEffort: "low" as const, provider: "openai", requestedModel: "model" };
 const reservedJob = (): SimulationGenerationJobRow => ({
   id: "job", student_id: "u", attempt_id: "a", operation: "generate", status: "queued", provider: "openai",
-  provider_response_id: null, requested_model: "model", model_used: null, reasoning_effort: "low",
+  provider_response_id: null, requested_model: "model", model_used: null, reasoning_effort: "low", service_tier_requested: null, service_tier_used: null,
   sketch_artifact_id: "s", input_html_artifact_id: null, result_artifact_id: null, source_description_sha256: "hash",
   error_message: null, provider_status: null, created_at: "2026-09-22T12:00:00Z", updated_at: "2026-09-22T12:00:00Z",
   expires_at: "2026-09-22T12:20:00Z", completed_at: null, cancelled_at: null

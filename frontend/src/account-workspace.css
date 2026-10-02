@@ -313,6 +313,10 @@
 .ai-model-actions { grid-column: 7; display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 6px; min-height: 36px; margin-left: 0; white-space: nowrap; }
 .ai-model-assignment { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 5px; color: var(--accent-strong); background: var(--accent-soft); font-size: .7rem; font-weight: 550; white-space: nowrap; }
 .ai-role-model-row { display: grid; grid-template-columns: 168px minmax(260px, 320px) 118px 64px; gap: 10px; align-items: end; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.ai-html-model-row { grid-template-columns: 168px minmax(260px, 320px) 118px 78px minmax(110px, 160px); }
+.ai-html-fast-mode { align-self: end; min-width: 0; }
+.ai-html-fast-mode .checkbox-label { min-height: 26px; }
+.ai-html-fast-mode .field-help { display: block; font-size: .7rem; line-height: 1.35; margin-top: 3px; }
 .ai-role-model-row:last-child { border-bottom: 0; }
 .ai-role-model-row > label[for] { align-self: end; padding-bottom: 8px; }
 .ai-role-model-row > select { align-self: end; }

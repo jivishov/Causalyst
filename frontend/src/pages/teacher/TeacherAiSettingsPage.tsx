@@ -64,7 +64,7 @@ export function TeacherAiSettingsPage() {
       const catalog = teacherProviderModels(current);
       const previous = catalog.find(model => model.id === id)!;
       const next = { ...previous, ...patch, capability };
-      if (next.capability !== "text") { next.reasoningEffort = "none"; next.maxOutputTokens = undefined; next.enabled = false; }
+      if (next.capability !== "text") { next.reasoningEffort = "none"; next.maxOutputTokens = undefined; next.enabled = false; next.fastMode = false; }
       else if (!reasoningEffortsForModel(next.modelId).includes(next.reasoningEffort)) next.reasoningEffort = "low";
       const models = catalog.map(model => model.id === id ? next : model);
       const roleModels = { ...current.roleModels };
@@ -212,12 +212,12 @@ export function TeacherAiSettingsPage() {
       <section className="course-list-panel">
         <h2>Assessment model assignments</h2>
         <p className="panel-description">Choose from your provider model lists. OpenAI supports grading, transcription, images, and live voice; Kimi and Z.AI are available for student simulation code. Each list shows models with the matching capability.</p>
-        <p className="field-help">Interactive simulation HTML controls student previews. Simulation specification is a separate step. HTML reasoning and token limits are shared with the selected model in the provider list.</p>
+        <p className="field-help">Interactive simulation HTML controls student previews. Simulation specification is a separate step. HTML reasoning, token limits, and Fast mode are saved per selected model. Fast mode keeps your reasoning effort, costs more per token, and depends on provider availability.</p>
         <p className="field-help">Token limits for OpenAI text models cover reasoning and the answer together, from {AI_MIN_OUTPUT_TOKENS.toLocaleString()} to {AI_MAX_OUTPUT_TOKENS.toLocaleString()}. Leave blank to use the app default.</p>
         <div className="ai-model-list">{AI_MODEL_ROLES.map(role => {
           const isHtml = role === "simulationHtml";
           const assigned = isHtml ? { id: htmlModel.modelId, catalogModelId: htmlModel.id, reasoningEffort: htmlModel.reasoningEffort, maxOutputTokens: htmlModel.maxOutputTokens } : settings.roleModels[role];
-          return <div className="ai-role-model-row" key={role}>
+          return <div className={`ai-role-model-row${isHtml ? " ai-html-model-row" : ""}`} key={role}>
           <label htmlFor={`ai-role-${role}`}>{roleNames[role]}</label>
           <select id={`ai-role-${role}`} value={assigned.catalogModelId ?? models.find(model => model.provider === "openai" && model.modelId === assigned.id)?.id ?? ""}
             onChange={event => isHtml ? setSettings(current => current && ({ ...current, defaultSimulationModelId: event.target.value as typeof current.defaultSimulationModelId })) : assignRoleModel(role, event.target.value)}>
@@ -233,6 +233,11 @@ export function TeacherAiSettingsPage() {
           {textRoles.has(role) && <label title="Maximum reasoning and answer tokens combined">Token limit<input aria-label={`${roleNames[role]} token limit`} type="number" min={AI_MIN_OUTPUT_TOKENS} max={AI_MAX_OUTPUT_TOKENS} step={1}
               value={assigned.maxOutputTokens ?? ""} placeholder="App default" onChange={event => isHtml ? editProviderModel(htmlModel.id, { maxOutputTokens: event.target.value === "" ? undefined : Number(event.target.value) }) : editRoleModel(role, { maxOutputTokens: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>
           }
+          {isHtml && <div className="ai-html-fast-mode" title="Fast mode applies to HTML generation and refinement for this model. Faster processing; higher API cost. Subject to provider availability.">
+            <label className="checkbox-label"><input type="checkbox" aria-label="Interactive simulation HTML fast mode" checked={htmlModel.provider === "openai" && htmlModel.fastMode === true} disabled={htmlModel.provider !== "openai"}
+              onChange={event => editProviderModel(htmlModel.id, { fastMode: event.target.checked })} />Fast mode</label>
+            <span className="field-help">{htmlModel.provider === "openai" ? "Higher API cost" : "OpenAI only"}</span>
+          </div>}
         </div>})}</div>
       </section>
     </fieldset>

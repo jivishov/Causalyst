@@ -37,6 +37,8 @@ export interface TeacherCodeModel {
   reasoningEffort: AiReasoningEffort;
   maxOutputTokens?: number;
   enabled: boolean;
+  // Explicit opt-in for HTML generation/refinement only. Legacy settings use Standard.
+  fastMode?: boolean;
 }
 export interface TeacherProviderModel extends TeacherCodeModel { capability: AiModelCapability }
 export interface TeacherAiSettings {

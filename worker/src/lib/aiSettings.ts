@@ -27,7 +27,7 @@ export function defaultAiSettings(env: Env): StoredAiSettings {
     codeModels: SIMULATION_CODE_MODEL_OPTIONS.map(option => {
       const model = simulationCodeModelCatalog[option.id];
       return { id: option.id, provider: option.provider, label: option.label, modelId: model.providerModelId,
-        reasoningEffort: model.reasoningEffort ?? "none", maxOutputTokens: model.maxOutputTokens, enabled: Boolean(env[PROVIDER_ENV[option.provider]]) };
+        reasoningEffort: model.reasoningEffort ?? "none", maxOutputTokens: model.maxOutputTokens, fastMode: false, enabled: Boolean(env[PROVIDER_ENV[option.provider]]) };
     }),
     defaultSimulationModelId: DEFAULT_SIMULATION_CODE_MODEL_ID,
     forceDefaultSimulationModel: false
@@ -98,9 +98,11 @@ function validateProviderModels(value: unknown): TeacherProviderModel[] {
     if (entry.provider !== "openai" && (entry.capability !== "text" || model.reasoningEffort !== "none")) throw new HttpError(400, "Kimi and Z.AI models support student simulations with provider default reasoning");
     if (entry.capability !== "text" && (model.reasoningEffort !== "none" || model.maxOutputTokens !== undefined || entry.enabled === true)) throw new HttpError(400, "Only text models have reasoning, token limits, and simulation availability");
     if (typeof entry.label !== "string" || !entry.label.trim() || entry.label.length > 100) throw new HttpError(400, "Model labels must contain 1–100 characters");
+    if (entry.fastMode !== undefined && typeof entry.fastMode !== "boolean") throw new HttpError(400, "Fast mode must be explicitly checked or unchecked");
+    if (entry.fastMode === true && (entry.provider !== "openai" || entry.capability !== "text")) throw new HttpError(400, "Fast mode is available for OpenAI HTML models only");
     if (typeof entry.enabled !== "boolean") throw new HttpError(400, "Select which simulation models are enabled");
     return { id: entry.id, provider: entry.provider as AiProvider, label: entry.label.trim(), modelId: model.id,
-      capability: entry.capability as TeacherProviderModel["capability"], reasoningEffort: model.reasoningEffort, maxOutputTokens: model.maxOutputTokens, enabled: entry.enabled };
+      capability: entry.capability as TeacherProviderModel["capability"], reasoningEffort: model.reasoningEffort, maxOutputTokens: model.maxOutputTokens, enabled: entry.enabled, fastMode: entry.fastMode === true };
   });
 }
 

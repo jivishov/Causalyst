@@ -84,6 +84,12 @@ export interface SimulationHtmlViewport {
   height: number;
 }
 
+export type SimulationHtmlServiceTier = "default" | "fast" | "priority" | "flex" | "auto" | "provider_default";
+export function normalizeSimulationHtmlServiceTier(value: unknown): SimulationHtmlServiceTier | undefined {
+  return typeof value === "string" && ["default", "fast", "priority", "flex", "auto", "provider_default"].includes(value)
+    ? value as SimulationHtmlServiceTier : undefined;
+}
+
 export interface StudentSimulationPreview {
   artifactId: string;
   previewPath: string;
@@ -91,6 +97,8 @@ export interface StudentSimulationPreview {
   outputKind: "html" | "image";
   generationSource?: "model" | "structured_fallback";
   htmlReasoningEffort?: SimulationHtmlReasoningEffort;
+  htmlServiceTierRequested?: SimulationHtmlServiceTier;
+  htmlServiceTierUsed?: SimulationHtmlServiceTier;
   htmlViewport?: SimulationHtmlViewport;
 }
 
@@ -99,6 +107,8 @@ export interface StudentSimulationModelSettings {
   htmlModelId: string;
   htmlReasoningEffort: SimulationHtmlReasoningEffort;
   htmlMaxOutputTokens?: number;
+  htmlFastMode: boolean;
+  htmlServiceTierRequested: SimulationHtmlServiceTier;
 }
 
 export type StudentSimulationGenerationJobOperation = "generate" | "refine";
@@ -123,6 +133,8 @@ export interface StudentSimulationGenerationJob {
   requestedModel?: string;
   modelUsed?: string;
   htmlReasoningEffort?: SimulationHtmlReasoningEffort;
+  htmlServiceTierRequested?: SimulationHtmlServiceTier;
+  htmlServiceTierUsed?: SimulationHtmlServiceTier;
   preview?: StudentSimulationPreview;
   errorMessage?: string;
 }

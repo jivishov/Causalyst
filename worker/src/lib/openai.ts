@@ -224,6 +224,8 @@ export function buildSimulationHtmlResponsePayload(input: {
     model,
     payload: {
       model: model.id,
+      // Explicit Standard avoids inheriting a project-level Fast default.
+      service_tier: model.fastMode === true ? "fast" : "default",
       reasoning: reasoningEffort ? { effort: reasoningEffort } : undefined,
       text: model.verbosity ? { verbosity: model.verbosity } : undefined,
       max_output_tokens: model.maxOutputTokens,
@@ -313,6 +315,8 @@ export function buildRefineSimulationHtmlResponsePayload(input: {
     model,
     payload: {
       model: model.id,
+      // Explicit Standard avoids inheriting a project-level Fast default.
+      service_tier: model.fastMode === true ? "fast" : "default",
       reasoning: reasoningEffort ? { effort: reasoningEffort } : undefined,
       text: model.verbosity ? { verbosity: model.verbosity } : undefined,
       max_output_tokens: model.maxOutputTokens,
@@ -752,7 +756,7 @@ export async function startSimulationHtmlBackgroundResponse(client: OpenAI, inpu
   sketchFileId?: string;
   htmlReasoningEffort?: SimulationHtmlReasoningEffort;
   model?: ModelCatalogEntry;
-}): Promise<{ responseId: string; status: string; modelUsed: string; requestedModel: string }> {
+}): Promise<{ responseId: string; status: string; modelUsed: string; requestedModel: string; serviceTierUsed?: string | null }> {
   const { model, payload } = buildSimulationHtmlResponsePayload(input);
   return startSimulationBackgroundResponse(client, model, payload);
 }
@@ -763,7 +767,7 @@ export async function startRefineSimulationHtmlBackgroundResponse(client: OpenAI
   currentHtml: string;
   htmlReasoningEffort?: SimulationHtmlReasoningEffort;
   model?: ModelCatalogEntry;
-}): Promise<{ responseId: string; status: string; modelUsed: string; requestedModel: string }> {
+}): Promise<{ responseId: string; status: string; modelUsed: string; requestedModel: string; serviceTierUsed?: string | null }> {
   const { model, payload } = buildRefineSimulationHtmlResponsePayload(input);
   return startSimulationBackgroundResponse(client, model, payload);
 }
@@ -797,7 +801,7 @@ async function startSimulationBackgroundResponse(
   client: OpenAI,
   model: ModelCatalogEntry,
   payload: ResponsePayload
-): Promise<{ responseId: string; status: string; modelUsed: string; requestedModel: string }> {
+): Promise<{ responseId: string; status: string; modelUsed: string; requestedModel: string; serviceTierUsed?: string | null }> {
   // A response must be created with streaming enabled to replay/resume its events.
   // Disconnect after the acknowledgement; background mode keeps the generation
   // running, and the authenticated job stream reconnects to this same response.
@@ -821,7 +825,8 @@ async function startSimulationBackgroundResponse(
           responseId: event.response.id,
           status: event.response.status ?? "queued",
           modelUsed,
-          requestedModel: model.id
+          requestedModel: model.id,
+          serviceTierUsed: event.response.service_tier
         };
       }
     }

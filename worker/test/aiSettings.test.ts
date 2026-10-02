@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { defaultAiSettings, publicAiSettings, resolveAttemptAiEnv, validateAiModelSettings } from "../src/lib/aiSettings";
 import { encryptProviderSecret, decryptProviderSecret } from "../src/lib/providerSecrets";
 import { getSimulationCodeModel } from "../src/lib/models";
-import { buildSimulationHtmlResponsePayload, classifySimulationReadiness, openaiClient, transcribeAudio } from "../src/lib/openai";
+import { buildRefineSimulationHtmlResponsePayload, buildSimulationHtmlResponsePayload, classifySimulationReadiness, openaiClient, transcribeAudio } from "../src/lib/openai";
 import { toOpenAIModelCatalogEntry } from "../src/lib/models";
 import { getTeacherAiSettings, updateTeacherAiSettings } from "../src/routes/teacherAiSettings";
 import type { Env } from "../src/lib/env";
@@ -69,7 +69,7 @@ describe("teacher assessment AI settings", () => {
     current.apiKeys.openai = await encryptProviderSecret("synthetic-replacement-key", "teacher:openai", env);
     current.defaultSimulationModelId = "openai:gpt-5.6-terra";
     current.forceDefaultSimulationModel = true;
-    current.codeModels[1] = { ...current.codeModels[1], reasoningEffort: "high", maxOutputTokens: 48000 };
+    current.codeModels[1] = { ...current.codeModels[1], reasoningEffort: "high", maxOutputTokens: 48000, fastMode: true };
     current.roleModels.grading = { id: "synthetic-new-grading-model", reasoningEffort: "low" };
     const rpc = vi.fn().mockResolvedValue({ data: { teacherId: "teacher", runtime: frozen, settings: current }, error: null });
     const result = await resolveAttemptAiEnv({ rpc } as never, env, "attempt", { currentSimulationModels: true });
@@ -78,7 +78,7 @@ describe("teacher assessment AI settings", () => {
     expect(result.AI_SETTINGS?.roleModels.grading).toEqual(frozen.roleModels.grading);
     const model = getSimulationCodeModel("openai:gpt-5.6-sol", result.AI_SETTINGS);
     expect(buildSimulationHtmlResponsePayload({ description: "Synthetic classroom example", model: toOpenAIModelCatalogEntry(model) }).payload)
-      .toMatchObject({ model: "gpt-5.6-terra", reasoning: { effort: "high" }, max_output_tokens: 48000 });
+      .toMatchObject({ model: "gpt-5.6-terra", reasoning: { effort: "high" }, max_output_tokens: 48000, service_tier: "fast" });
     const polling = await resolveAttemptAiEnv({ rpc } as never, env, "attempt");
     expect(polling.AI_SETTINGS).toEqual(frozen);
     expect(frozen.defaultSimulationModelId).toBe("openai:gpt-5.6-sol");
@@ -157,4 +157,31 @@ describe("teacher assessment AI settings", () => {
     expect(customCall.mock.calls[0][0].model).toBe("teacher-transcription-model");
     expect(defaultCall.mock.calls[0][0].model).toBe("gpt-4o-transcribe");
   });
+});
+
+
+it.each([undefined, false, true])("uses an explicit HTML service tier for saved Fast mode %s in generation and refinement", (fastMode) => {
+  const settings = defaultAiSettings(env);
+  settings.codeModels[0].fastMode = fastMode;
+  const model = toOpenAIModelCatalogEntry(getSimulationCodeModel(undefined, settings));
+  const generate = buildSimulationHtmlResponsePayload({ description: "Synthetic flow", model }).payload;
+  const refine = buildRefineSimulationHtmlResponsePayload({ description: "Synthetic flow", sketchFileId: "synthetic", currentHtml: "<html></html>", model }).payload;
+  for (const payload of [generate, refine]) {
+    expect(payload.service_tier).toBe(fastMode === true ? "fast" : "default");
+    expect(payload.reasoning).toEqual({ effort: "max" });
+  }
+});
+
+it("persists an explicit Fast opt-in and rejects malformed or incompatible provider settings", () => {
+  const settings = defaultAiSettings(env);
+  const body = { ...settings, providerModels: settings.providerModels!.map(model => ({ ...model, fastMode: model.id === settings.defaultSimulationModelId })) };
+  const saved = validateAiModelSettings(body, settings);
+  expect(saved.codeModels[0].fastMode).toBe(true);
+  expect(saved.roleModels.grading).toMatchObject(settings.roleModels.grading);
+  const legacy = { ...settings, providerModels: settings.providerModels!.map(({ fastMode: _, ...model }) => model) };
+  expect(validateAiModelSettings(legacy, settings).codeModels.every(model => model.fastMode === false)).toBe(true);
+  for (const [id, value, message] of [[settings.defaultSimulationModelId, "true", "explicitly"], ["kimi:kimi-k2.6", true, "OpenAI HTML"], ["openai:gpt-image-2.5-flare", true, "OpenAI HTML"]] as const) {
+    const invalid = { ...settings, providerModels: settings.providerModels!.map(model => model.id === id ? { ...model, fastMode: value } : model) };
+    expect(() => validateAiModelSettings(invalid, settings)).toThrow(message);
+  }
 });

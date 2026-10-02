@@ -4,9 +4,9 @@ import type { AssessmentSummary, AttemptResult, StudentAssignmentSummary } from 
 
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jh1sAAAAASUVORK5CYII=", "base64");
 const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
-const job = { jobId: "job", operation: "generate", status: "in_progress", message: "Generating interactive HTML...", requestedModel: "gpt-5.6-terra", modelUsed: "gpt-5.6-terra", htmlReasoningEffort: "max" };
+const job = { jobId: "job", operation: "generate", status: "in_progress", message: "Generating interactive HTML...", requestedModel: "gpt-5.6-terra", modelUsed: "gpt-5.6-terra", htmlReasoningEffort: "max", htmlServiceTierRequested: "fast", htmlServiceTierUsed: "default" };
 const sketch = { artifactId: "sketch", previewPath: "/artifacts/sketch/preview", previewToken: "synthetic", outputKind: "image" };
-const preview = { artifactId: "html", previewPath: "/artifacts/html/preview", previewToken: "synthetic", outputKind: "html", htmlViewport: { width: 1024, height: 768 } };
+const preview = { artifactId: "html", previewPath: "/artifacts/html/preview", previewToken: "synthetic", outputKind: "html", htmlServiceTierRequested: "fast", htmlServiceTierUsed: "default", htmlViewport: { width: 1024, height: 768 } };
 
 async function studentFixture(page: Page, type: "simulation" | "writing", activeJob: typeof job | null = job) {
   const user = { id: "11111111-1111-4111-8111-111111111111", email: "student@test.invalid", is_anonymous: false, role: "authenticated", app_metadata: { provider: "google" }, user_metadata: {} };
@@ -22,7 +22,7 @@ async function studentFixture(page: Page, type: "simulation" | "writing", active
     if (route.request().method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
     if (path === "/api/student/me") await route.fulfill({ headers, json: { profile: { id: user.id, displayName: "Student", email: user.email }, enrollmentStatus: "matched", courses: [{ classId: "course", classCode: "TEST", className: "Test course", assignments: [assignment] }] } });
     else if (path === "/api/attempts/start") await route.fulfill({ headers, json: { attemptId: "attempt", assignment, ...(type === "simulation" ? { simulationDraft: { description: "Move the contents from container A to container B.", simulationSketchPreview: sketch, simulationPreview: null, activeSimulationJob: activeJob } } : {}) } });
-    else if (path === "/api/simulation/attempts/attempt/settings") await route.fulfill({ headers, json: { sketchModelId: "gpt-image-2.5-flare", htmlModelId: "gpt-6.1-sol", htmlReasoningEffort: "high", htmlMaxOutputTokens: 64000 } });
+    else if (path === "/api/simulation/attempts/attempt/settings") await route.fulfill({ headers, json: { sketchModelId: "gpt-image-2.5-flare", htmlModelId: "gpt-6.1-sol", htmlReasoningEffort: "high", htmlMaxOutputTokens: 64000, htmlFastMode: false, htmlServiceTierRequested: "default" } });
     else if (path === "/api/artifacts/sketch/preview") await route.fulfill({ headers, contentType: "image/png", body: png });
     else await route.fulfill({ headers, json: {} });
   });
@@ -39,7 +39,8 @@ test("student sees next model settings before entering a prompt and refreshes th
   const { assignment } = await studentFixture(page, "simulation", null);
   await page.route("**/api/attempts/start", route => route.fulfill({ headers, json: { attemptId: "attempt", assignment, simulationDraft: null } }));
   let effort = "high";
-  await page.route("**/api/simulation/attempts/attempt/settings", route => route.fulfill({ headers, json: { sketchModelId: "gpt-image-2.5-flare", htmlModelId: "gpt-6.1-sol", htmlReasoningEffort: effort, htmlMaxOutputTokens: 64000 } }));
+  let fastMode = true;
+  await page.route("**/api/simulation/attempts/attempt/settings", route => route.fulfill({ headers, json: { sketchModelId: "gpt-image-2.5-flare", htmlModelId: "gpt-6.1-sol", htmlReasoningEffort: effort, htmlMaxOutputTokens: 64000, htmlFastMode: fastMode, htmlServiceTierRequested: fastMode ? "fast" : "default" } }));
   let generations = 0;
   page.on("request", request => { if (/\/api\/simulation\/(sketch|generate)$/.test(request.url())) generations++; });
   await page.goto("./assignment/assignment");
@@ -47,12 +48,16 @@ test("student sees next model settings before entering a prompt and refreshes th
   const metadata = page.locator(".raw-debug-content");
   await expect(metadata).toContainText("Next sketch model: gpt-image-2.5-flare");
   await expect(metadata).toContainText("Next HTML model: gpt-6.1-sol | Next HTML reasoning: High | Token limit: 64,000");
+  await expect(metadata).toContainText("Next HTML mode: Fast | Fast mode: On | Request tier: fast");
+  await expect(metadata).toContainText("Provider reported tier: Not reported");
   await expect(metadata).toContainText("Current preview/job HTML reasoning: n/a");
   await expect(page.getByLabel("Description", { exact: true })).toHaveValue("");
   await page.getByLabel("Description", { exact: true }).fill("Move contents from container A to container B.");
   effort = "medium";
+  fastMode = false;
   await page.getByRole("button", { name: "Refresh model settings", exact: true }).click();
   await expect(metadata).toContainText("Next HTML reasoning: Medium");
+  await expect(metadata).toContainText("Next HTML mode: Standard | Fast mode: Off | Request tier: default");
   await expect(page.getByLabel("Description", { exact: true })).toHaveValue("Move contents from container A to container B.");
   expect(generations).toBe(0);
 });
@@ -136,6 +141,8 @@ test("restored simulation work shows progress, renders completed HTML and signal
   });
   await page.goto("./assignment/assignment");
   await expect(page.getByRole("progressbar", { name: "Generating your interactive preview" })).toBeVisible();
+  await page.getByText("Simulation Metadata", { exact: true }).click();
+  await expect(page.locator(".raw-debug-content")).toContainText("HTML requested tier: fast | Provider reported tier: default");
   await page.locator(".safe-preview-primary").scrollIntoViewIfNeeded();
   const box = await page.locator(".student-action-progress").boundingBox();
   expect(box!.y).toBeGreaterThanOrEqual(8);

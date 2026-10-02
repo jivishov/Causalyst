@@ -11,7 +11,8 @@ import type {
 } from "@alt-assessment/shared";
 import {
   DEFAULT_SIMULATION_HTML_REASONING_EFFORT,
-  SIMULATION_HTML_REASONING_EFFORTS
+  SIMULATION_HTML_REASONING_EFFORTS,
+  normalizeSimulationHtmlServiceTier
 } from "@alt-assessment/shared";
 import { requireAssignedAssignment, requireAttempt, toGradeFeedback, studentAssessment } from "../lib/db";
 import type { Env } from "../lib/env";
@@ -212,7 +213,7 @@ async function loadSimulationDraftPreview(
 async function loadActiveSimulationGenerationJob(db: AppDatabaseClient, userId: string, attemptId: string): Promise<StudentSimulationGenerationJob | null> {
   const { data, error } = await db
     .from("simulation_generation_jobs")
-    .select("id, operation, status, created_at, expires_at, requested_model, model_used, reasoning_effort, error_message")
+    .select("id, operation, status, created_at, expires_at, requested_model, model_used, reasoning_effort, service_tier_requested, service_tier_used, error_message")
     .eq("student_id", userId)
     .eq("attempt_id", attemptId)
     .in("status", ["queued", "in_progress", "finalizing"])
@@ -246,6 +247,8 @@ async function loadActiveSimulationGenerationJob(db: AppDatabaseClient, userId: 
     requestedModel: typeof (data as { requested_model?: unknown }).requested_model === "string" ? (data as { requested_model: string }).requested_model : undefined,
     modelUsed: typeof (data as { model_used?: unknown }).model_used === "string" ? (data as { model_used: string }).model_used : undefined,
     htmlReasoningEffort: normalizeSimulationHtmlReasoningEffort((data as { reasoning_effort?: unknown }).reasoning_effort) ?? undefined,
+    htmlServiceTierRequested: normalizeSimulationHtmlServiceTier(data.service_tier_requested),
+    htmlServiceTierUsed: normalizeSimulationHtmlServiceTier(data.service_tier_used),
     errorMessage: typeof (data as { error_message?: unknown }).error_message === "string" ? (data as { error_message: string }).error_message : undefined
   };
 }
@@ -368,8 +371,8 @@ async function loadSimulationPreviewForAttempt(
       ? "structured_fallback" as const
       : "model" as const
     : undefined;
-  const htmlReasoningEffort = outputKind === "html" && generationSource === "model"
-    ? await loadSimulationHtmlReasoningEffortForArtifact(db, userId, attemptId, artifactId)
+  const htmlMetadata = outputKind === "html" && generationSource === "model"
+    ? await loadSimulationHtmlMetadataForArtifact(db, userId, attemptId, artifactId)
     : null;
   const previewToken = await signPreviewToken(artifactId, userId, env);
   return {
@@ -378,20 +381,20 @@ async function loadSimulationPreviewForAttempt(
     previewToken,
     outputKind,
     ...(generationSource ? { generationSource } : {}),
-    ...(htmlReasoningEffort ? { htmlReasoningEffort } : {}),
+    ...htmlMetadata,
     ...(outputKind === "html" ? { htmlViewport: normalizeSimulationHtmlViewport(data) } : {})
   };
 }
 
-async function loadSimulationHtmlReasoningEffortForArtifact(
+async function loadSimulationHtmlMetadataForArtifact(
   db: AppDatabaseClient,
   userId: string,
   attemptId: string,
   artifactId: string
-): Promise<SimulationHtmlReasoningEffort | null> {
+): Promise<Pick<StudentSimulationPreview, "htmlReasoningEffort" | "htmlServiceTierRequested" | "htmlServiceTierUsed"> | null> {
   const { data, error } = await db
     .from("simulation_generation_jobs")
-    .select("reasoning_effort")
+    .select("reasoning_effort, service_tier_requested, service_tier_used")
     .eq("student_id", userId)
     .eq("attempt_id", attemptId)
     .eq("result_artifact_id", artifactId)
@@ -400,9 +403,13 @@ async function loadSimulationHtmlReasoningEffortForArtifact(
     .maybeSingle();
   if (error) {
     if (isMissingSimulationGenerationJobsTable(error) || isMissingSimulationReasoningEffortColumn(error)) return null;
-    throw new HttpError(500, "Failed to load simulation preview reasoning effort", error.message);
+    throw new HttpError(500, "Failed to load simulation preview metadata", error.message);
   }
-  return normalizeSimulationHtmlReasoningEffort((data as { reasoning_effort?: unknown } | null)?.reasoning_effort, null);
+  return data ? {
+    htmlReasoningEffort: normalizeSimulationHtmlReasoningEffort(data.reasoning_effort, null) ?? undefined,
+    htmlServiceTierRequested: normalizeSimulationHtmlServiceTier(data.service_tier_requested),
+    htmlServiceTierUsed: normalizeSimulationHtmlServiceTier(data.service_tier_used)
+  } : null;
 }
 
 async function resolveRosterStudentIdForCourse(db: AppDatabaseClient, classId: string, userId: string): Promise<string | null> {

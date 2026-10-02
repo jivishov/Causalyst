@@ -37,6 +37,7 @@ export async function reserveSimulationJob(db: AppDatabaseClient, input: {
   htmlReasoningEffort: SimulationHtmlReasoningEffort;
   provider: string;
   requestedModel: string;
+  htmlServiceTierRequested?: "fast" | "default" | "provider_default";
 }): Promise<{ claimed: boolean; job: SimulationGenerationJobRow }> {
   if (input.requestId !== undefined && (typeof input.requestId !== "string" || !/^[a-zA-Z0-9_-]{8,128}$/.test(input.requestId))) {
     throw new HttpError(400, "Invalid generation request ID");
@@ -51,5 +52,7 @@ export async function reserveSimulationJob(db: AppDatabaseClient, input: {
     || data.job.student_id !== input.userId || data.job.attempt_id !== input.attemptId) {
     throw new HttpError(503, "Invalid simulation reservation");
   }
-  return { claimed: data.claimed, job: data.job };
+  return { claimed: data.claimed, job: { ...data.job,
+    service_tier_requested: data.job.service_tier_requested ?? null,
+    service_tier_used: data.job.service_tier_used ?? null } };
 }

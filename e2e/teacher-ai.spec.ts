@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { AI_MODEL_ROLES, modelCapabilityForRole, type TeacherAiSettings } from "../shared/src/index";
 
-test("teacher provider lists, model assignments, and token controls work on desktop and mobile", async ({ page }) => {
+test("teacher provider lists, model assignments, and token controls work on desktop and mobile", async ({ page }, testInfo) => {
   const user = { id: "11111111-1111-4111-8111-111111111111", email: "teacher@test.invalid", is_anonymous: false, role: "authenticated", app_metadata: { provider: "google" }, user_metadata: {} };
   await page.addInitScript(user => {
     const token = `${btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))}.${btoa(JSON.stringify({ sub: user.id, exp: Math.floor(Date.now()/1000)+3600 }))}.synthetic`;
@@ -37,6 +37,9 @@ test("teacher provider lists, model assignments, and token controls work on desk
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("./teacher/ai-settings");
   await expect(page.getByRole("heading", { name: "Providers and model lists" })).toBeVisible();
+  const fastMode = page.getByRole("checkbox", { name: "Interactive simulation HTML fast mode", exact: true });
+  await expect(fastMode).not.toBeChecked();
+  await fastMode.check();
   const solCapability = page.locator(".ai-provider-model-card").filter({ has: page.locator('input[value="gpt-6.1-sol"]') }).locator(".ai-model-capability select");
   await expect(solCapability).toBeEnabled();
   expect(await solCapability.evaluate(element => [...(element as HTMLSelectElement).options].filter(option => !option.disabled).map(option => option.value))).toEqual(["text"]);
@@ -93,6 +96,9 @@ test("teacher provider lists, model assignments, and token controls work on desk
   await page.getByRole("button", { name: "Remove New model", exact: true }).click();
   await expect(page.getByText("No models for this provider. Add a model to make it available.")).toBeVisible();
   await page.getByRole("button", { name: "OpenAI (5)", exact: true }).click();
+  await expect(fastMode).toBeChecked();
+  expect(settings.codeModels.find(model => model.id === settings.defaultSimulationModelId)?.fastMode).toBe(true);
+  await page.locator(".ai-html-model-row").screenshot({ path: testInfo.outputPath("html-fast-mode.png") });
   const assignmentDimensions = await page.locator(".ai-role-model-row").first().evaluate(element => [...element.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select")].map(control => ({ top: control.getBoundingClientRect().top, height: control.getBoundingClientRect().height })));
   expect(assignmentDimensions).toHaveLength(3);
   expect(Math.max(...assignmentDimensions.map(control => control.top)) - Math.min(...assignmentDimensions.map(control => control.top))).toBeLessThanOrEqual(1);

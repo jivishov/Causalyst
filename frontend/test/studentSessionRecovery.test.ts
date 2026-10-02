@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Session } from "@supabase/supabase-js";
 
 afterEach(() => {
   vi.doUnmock("../src/lib/supabase");
@@ -9,9 +10,11 @@ afterEach(() => {
   vi.resetModules();
 });
 
-function session(token: string, expiresAt = Math.floor(Date.now() / 1000) + 3600) {
+function session(token: string, expiresAt = Math.floor(Date.now() / 1000) + 3600): Session {
   return { access_token: token, refresh_token: "test-refresh", expires_at: expiresAt,
-    user: { id: "student-1", email: "student@example.edu", is_anonymous: false } };
+    expires_in: 3600, token_type: "bearer",
+    user: { id: "student-1", email: "student@example.edu", is_anonymous: false,
+      aud: "authenticated", app_metadata: {}, user_metadata: {}, created_at: "2026-10-02T00:00:00Z" } };
 }
 
 async function setup(refreshResult?: unknown) {

@@ -7,9 +7,10 @@ import { RubricFeedback } from "../../components/RubricFeedback";
 import { gradeVoice, reserveUpload, uploadArtifact } from "../../lib/api";
 import { formatBytes, resolveAudioMaxBytes, resolveVoiceMaxRecordingSec } from "../../lib/uploadPolicy";
 
-export function VoiceAssessment({ assessment, disabled, onSubmit }: {
+export function VoiceAssessment({ assessment, disabled, isActive, onSubmit }: {
   assessment: AssessmentSummary;
   disabled: boolean;
+  isActive: () => boolean;
   onSubmit: (task: (attemptId: string) => Promise<void>) => Promise<void>;
 }) {
   const navigate = useNavigate();
@@ -40,7 +41,7 @@ export function VoiceAssessment({ assessment, disabled, onSubmit }: {
             });
             await uploadArtifact(upload, recording.blob);
             await gradeVoice({ attemptId, artifactId: upload.artifactId, browserTranscript: recording.transcript });
-            navigate(`/attempt/${attemptId}`);
+            if (isActive()) navigate(`/attempt/${attemptId}`);
           })}
         >
           {disabled ? <LoaderCircle size={18} className="student-action-spinner" aria-hidden="true" /> : <Send size={18} />} {disabled ? "Submitting voice response..." : "Submit voice response"}

@@ -52,6 +52,88 @@
 .app-shell.account-workspace .assignment-prompt-list li { min-width: 0; padding-left: 2px; white-space: normal; }
 .app-shell.account-workspace .assignment-prompt-list li::marker { color: var(--accent); font-weight: 650; }
 .app-shell.account-workspace .assignment-prompt .assignment-prompt-note { max-width: none; padding: 8px 11px; border-left: 3px solid #83a691; border-radius: 0 6px 6px 0; background: #eaf3ed; }
+
+/* Student workbench: full-width instructions and preview, with secondary
+   material in compact disclosure panels. Never cap prose by character count. */
+.app-shell.account-workspace .content-shell { padding-right: 20px; padding-left: 20px; }
+.app-shell.account-workspace .student-assessment-page .assessment-header { border: 0; padding-bottom: 2px; }
+.app-shell.account-workspace .student-assessment-page > .text-button { padding: 4px 8px; border-radius: 7px; background: #e8eee7; color: #3e5e50; text-decoration: none; }
+.app-shell.account-workspace .student-assessment-page > .text-button:hover { background: #dce8dc; }
+.app-shell.account-workspace .assignment-instructions { min-width: 0; border: 1px solid #d6e0d5; border-radius: 12px; background: #fff; overflow: hidden; }
+.app-shell.account-workspace :is(.assignment-instructions, .simulation-input-accordion, .simulation-sketch-panel) > summary {
+  display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 10px 14px;
+  color: #294f41; background: #f1f5ee; font-size: .85rem; font-weight: 650; cursor: pointer; list-style: none;
+}
+.app-shell.account-workspace :is(.assignment-instructions, .simulation-input-accordion, .simulation-sketch-panel) > summary::-webkit-details-marker { display: none; }
+.app-shell.account-workspace :is(.assignment-instructions, .simulation-input-accordion, .simulation-sketch-panel) > summary:hover { background: #e9f0e5; }
+.app-shell.account-workspace :is(.assignment-instructions, .simulation-input-accordion, .simulation-sketch-panel) > summary:focus-visible { outline-offset: -3px; }
+.app-shell.account-workspace :is(.assignment-instructions, .simulation-input-accordion, .simulation-sketch-panel) > summary > svg { flex-shrink: 0; }
+.app-shell.account-workspace .accordion-chevron { margin-left: auto; transform: rotate(-90deg); transition: transform .15s ease; }
+.app-shell.account-workspace details[open] > summary > .accordion-chevron { transform: rotate(0); }
+.app-shell.account-workspace .instructions-hint { color: #697a6c; font-size: .75rem; font-weight: 400; }
+.app-shell.account-workspace .assignment-instructions > .assignment-prompt { width: auto; margin: 12px 16px 14px; padding: 0; gap: 8px; color: #43584e; font-size: .89rem; line-height: 1.55; }
+.app-shell.account-workspace .assignment-prompt-list { gap: 6px; }
+.app-shell.account-workspace .assignment-prompt-list li::marker { color: #357b61; }
+.app-shell.account-workspace .assignment-prompt .assignment-prompt-note { padding: 9px 12px; background: #edf5ed; border-left-color: #609577; }
+.app-shell.account-workspace .assignment-retry { justify-self: start; }
+
+.app-shell.account-workspace :is(.primary-button, .secondary-button, .danger-button, .card-action) {
+  min-height: 36px; padding: 7px 11px; border-radius: 8px; font-weight: 600;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.app-shell.account-workspace :is(.primary-button, .card-action) { box-shadow: inset 0 1px 0 #ffffff20, 0 2px 3px #193d3310; }
+.app-shell.account-workspace :is(.primary-button, .card-action):hover:not(:disabled) { box-shadow: inset 0 1px 0 #ffffff20, 0 3px 6px #193d331b; }
+.app-shell.account-workspace .secondary-button { background: #fff; border-color: #cfdbd1; }
+.app-shell.account-workspace :is(.primary-button, .secondary-button, .danger-button, .card-action) svg { flex-shrink: 0; }
+.app-shell.account-workspace :is(.primary-button, .secondary-button, .danger-button):disabled { opacity: .5; box-shadow: none; }
+
+.app-shell.account-workspace .simulation-layout { gap: 10px; }
+.app-shell.account-workspace .simulation-input-accordion { border: 1px solid var(--line); border-radius: 12px; background: #fff; overflow: hidden; }
+.app-shell.account-workspace .simulation-input-body { padding: 12px 14px; }
+.app-shell.account-workspace .simulation-input-grid { grid-template-columns: minmax(0, 1.7fr) minmax(240px, 1fr); gap: 10px 14px; }
+.app-shell.account-workspace .simulation-input-grid > :is(.writing-panel, .feedback-panel) { padding: 12px; border-radius: 9px; }
+.app-shell.account-workspace .simulation-input-grid .writing-panel label { display: block; margin-bottom: 7px; color: var(--ink); font-size: .85rem; }
+.app-shell.account-workspace .simulation-input-body textarea { min-height: 140px; height: 165px; line-height: 1.55; background: #fcfdf9; }
+.app-shell.account-workspace .simulation-input-grid .feedback-panel h2 { font-size: 1rem; }
+.app-shell.account-workspace .simulation-input-grid .criterion-list { margin-top: 8px; gap: 5px; }
+.app-shell.account-workspace .simulation-input-grid .criterion-row { padding: 7px 0; gap: 3px 8px; }
+.app-shell.account-workspace .simulation-input-grid .overall-comment { margin: 0; font-size: .78rem; }
+.app-shell.account-workspace .simulation-html-options { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 18px; }
+.app-shell.account-workspace .simulation-submit { justify-self: start; }
+.app-shell.account-workspace .simulation-output-stack { display: flex; flex-direction: column; gap: 10px; }
+.app-shell.account-workspace .safe-preview-primary { order: 0; width: 100%; padding: 14px; border-color: #c9d9cd; border-radius: 12px; box-shadow: 0 3px 12px #1a493508; }
+.app-shell.account-workspace .safe-preview-primary .safe-preview-header { gap: 10px; padding-bottom: 9px; border-bottom: 1px solid #e5ebe3; }
+.app-shell.account-workspace .safe-preview-primary h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.05rem; }
+.app-shell.account-workspace .safe-preview-primary .preview-actions { flex: 1 1 100%; gap: 6px; }
+.app-shell.account-workspace .safe-preview-primary .preview-actions .secondary-button { min-height: 34px; padding: 6px 9px; font-size: .76rem; white-space: nowrap; }
+.app-shell.account-workspace .safe-preview-primary .preview-expand-button { margin-left: auto; color: var(--accent-strong); background: #edf4e8; border-color: #cbdcc1; }
+.app-shell.account-workspace .simulation-preview-status { display: flex; flex-wrap: wrap; align-items: center; min-height: 0; margin: 0; gap: 4px 14px; padding: 7px 0; }
+.app-shell.account-workspace .simulation-preview-status .overall-comment { margin: 0; font-size: .75rem; }
+.app-shell.account-workspace .safe-preview-primary .safe-preview-empty { min-height: 400px; height: 58vh; max-height: 700px; padding: 22px; border: 1px solid #dce6da; background: #f7faf3; font-size: .9rem; }
+.app-shell.account-workspace .safe-preview-primary .simulation-preview-frame { min-height: 0; border-radius: 9px; }
+.app-shell.account-workspace .simulation-final-actions { order: 1; justify-content: flex-end; }
+.app-shell.account-workspace .simulation-sketch-panel { order: 2; padding: 0; overflow: hidden; border-radius: 12px; }
+.app-shell.account-workspace .simulation-sketch-body { padding: 12px 14px; }
+.app-shell.account-workspace .simulation-sketch-body .overall-comment { margin: 7px 0 10px; font-size: .8rem; }
+.app-shell.account-workspace .simulation-sketch-body .safe-preview-header { justify-content: flex-end; }
+.app-shell.account-workspace .raw-debug-accordion { order: 3; border-radius: 10px; background: #f7f9f4; }
+.app-shell.account-workspace .raw-debug-accordion summary { min-height: 38px; padding: 8px 12px; color: #607467; font-size: .8rem; font-weight: 500; }
+.app-shell.account-workspace .safe-preview-primary:fullscreen { display: flex; flex-direction: column; padding: 16px; overflow: auto; background: #fff; border: 0; border-radius: 0; }
+.app-shell.account-workspace .safe-preview-primary:fullscreen .simulation-preview-frame { flex: 1; height: auto !important; max-height: none !important; min-height: 260px; }
+.app-shell.account-workspace .safe-preview-primary:fullscreen .safe-preview-empty { flex: 1; max-height: none; height: auto; }
+
+@media (max-width: 920px) {
+  .app-shell.account-workspace .instructions-hint { display: none; }
+  .app-shell.account-workspace .simulation-input-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .app-shell.account-workspace .content-shell { padding-right: 12px; padding-left: 12px; }
+  .app-shell.account-workspace .assignment-instructions > .assignment-prompt { margin: 12px; }
+  .app-shell.account-workspace .safe-preview-primary { padding: 10px; }
+  .app-shell.account-workspace .safe-preview-primary .preview-actions { gap: 6px; }
+  .app-shell.account-workspace .safe-preview-primary .preview-expand-button { margin-left: 0; }
+  .app-shell.account-workspace .safe-preview-primary .safe-preview-empty { min-height: 300px; height: 50vh; }
+}
 @media (max-width: 1100px) {
   .app-shell.account-workspace .student-dashboard-title-row { display: block; }
   .app-shell.account-workspace .student-dashboard-header .workspace-eyebrow { margin-top: 2px; }

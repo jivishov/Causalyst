@@ -7,9 +7,10 @@ import { RubricFeedback } from "../../components/RubricFeedback";
 import { gradeWriting, reserveUpload, uploadArtifact } from "../../lib/api";
 import { resolveWritingAcceptedMime, resolveWritingMaxBytes } from "../../lib/uploadPolicy";
 
-export function WritingAssessment({ assessment, disabled, onSubmit }: {
+export function WritingAssessment({ assessment, disabled, isActive, onSubmit }: {
   assessment: AssessmentSummary;
   disabled: boolean;
+  isActive: () => boolean;
   onSubmit: (task: (attemptId: string) => Promise<void>) => Promise<void>;
 }) {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export function WritingAssessment({ assessment, disabled, onSubmit }: {
             });
             await uploadArtifact(upload, file);
             await gradeWriting({ attemptId, artifactId: upload.artifactId });
-            navigate(`/attempt/${attemptId}`);
+            if (isActive()) navigate(`/attempt/${attemptId}`);
           })}
         >
           {disabled ? <LoaderCircle size={18} className="student-action-spinner" aria-hidden="true" /> : <Send size={18} />} {disabled ? "Submitting written work..." : "Submit written work"}

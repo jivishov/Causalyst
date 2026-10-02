@@ -44,6 +44,8 @@ interface SessionState {
   assignments: StudentAssignmentSummary[];
   refresh: () => Promise<void>;
   rememberAttemptResult: (result: RememberedAttemptResult, newSubmission?: boolean) => void;
+  readSimulationDescriptionDraft: (assignmentId: string, attemptId: string) => string | undefined;
+  rememberSimulationDescriptionDraft: (assignmentId: string, attemptId: string, description: string) => void;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -68,6 +70,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(true);
   const statusRef = useRef<StudentSessionStatus>("checking");
   const sessionDataRef = useRef({ authEmail, profile, courses });
+  const simulationDescriptionDraftsRef = useRef(new Map<string, { attemptId: string; description: string }>());
+  const readSimulationDescriptionDraft = useCallback((assignmentId: string, attemptId: string) => {
+    const draft = simulationDescriptionDraftsRef.current.get(assignmentId);
+    return draft?.attemptId === attemptId ? draft.description : undefined;
+  }, []);
+  const rememberSimulationDescriptionDraft = useCallback((assignmentId: string, attemptId: string, description: string) => {
+    simulationDescriptionDraftsRef.current.set(assignmentId, { attemptId, description });
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -96,6 +106,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     nextCourses: StudentCourseAssignments[],
     nextAuthError: string | null = null
   ) => {
+    if (sessionDataRef.current.profile?.id !== nextProfile?.id) simulationDescriptionDraftsRef.current.clear();
     statusRef.current = nextStatus;
     sessionDataRef.current = { authEmail: nextAuthEmail, profile: nextProfile, courses: nextCourses };
     setStatus(nextStatus);
@@ -348,10 +359,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       assignments,
       refresh,
       rememberAttemptResult,
+      readSimulationDescriptionDraft,
+      rememberSimulationDescriptionDraft,
       signInWithGoogle,
       logout
     }),
-    [status, authStep, authError, authEmail, profile, courses, assignments, refresh, rememberAttemptResult, signInWithGoogle, logout]
+    [status, authStep, authError, authEmail, profile, courses, assignments, refresh, rememberAttemptResult, readSimulationDescriptionDraft, rememberSimulationDescriptionDraft, signInWithGoogle, logout]
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

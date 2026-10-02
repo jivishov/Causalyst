@@ -9,9 +9,10 @@ import { resolveRealtimeVoiceMaxSessionSec } from "../../lib/uploadPolicy";
 
 type RealtimeSessionStatus = "idle" | "connecting" | "live" | "finalizing" | "complete" | "error";
 
-export function RealtimeVoiceAssessment({ assessment, disabled, onSubmit }: {
+export function RealtimeVoiceAssessment({ assessment, disabled, isActive, onSubmit }: {
   assessment: AssessmentSummary;
   disabled: boolean;
+  isActive: () => boolean;
   onSubmit: (task: (attemptId: string) => Promise<void>) => Promise<void>;
 }) {
   const navigate = useNavigate();
@@ -173,7 +174,7 @@ export function RealtimeVoiceAssessment({ assessment, disabled, onSubmit }: {
       const finalEvents = pendingEventsRef.current.splice(0, pendingEventsRef.current.length);
       await finalizeRealtimeVoice({ sessionId: activeSessionId, events: finalEvents });
       setStatus("complete");
-      navigate(`/attempt/${activeAttemptId}`);
+      if (isActive()) navigate(`/attempt/${activeAttemptId}`);
     } catch (error) {
       setStatus("error");
       setLocalError(error instanceof Error ? error.message : "Could not finalize live voice assessment.");

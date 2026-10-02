@@ -173,6 +173,7 @@ test("failed submission preserves the editor and result loading can be retried w
   await expect(editor.getByRole("button", { name: "Advanced" })).toBeVisible();
   await page.getByText("Input and Rubric", { exact: true }).click();
   await expect(page.getByLabel("Description", { exact: true })).toHaveValue(result.simulationDescription!);
+  await page.locator(".simulation-sketch-panel > summary").click();
   await expect(page.getByRole("img", { name: "Generated simulation sketch" })).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await page.getByRole("button", { name: "Submit Simulation", exact: true }).click();

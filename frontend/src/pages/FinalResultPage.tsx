@@ -7,6 +7,10 @@ import { getPublishedFinalResult } from "../lib/api";
 
 export function FinalResultPage() {
   const { assignmentId } = useParams();
+  return <FinalResultWorkspace key={assignmentId} assignmentId={assignmentId} />;
+}
+
+function FinalResultWorkspace({ assignmentId }: { assignmentId: string | undefined }) {
   const [result, setResult] = useState<StudentPublishedFinalResultResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -14,9 +18,11 @@ export function FinalResultPage() {
     if (!assignmentId) return;
     setError(null);
     setResult(null);
+    let cancelled = false;
     getPublishedFinalResult(assignmentId)
-      .then(setResult)
-      .catch((err) => setError(err instanceof Error ? err.message : "Could not load final result"));
+      .then(loaded => { if (!cancelled) setResult(loaded); })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Could not load final result"); });
+    return () => { cancelled = true; };
   }, [assignmentId]);
 
   if (error) {

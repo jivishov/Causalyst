@@ -10,6 +10,10 @@ import { useSession } from "../state/session";
 
 export function AttemptResultPage() {
   const { attemptId } = useParams();
+  return <AttemptResultWorkspace key={attemptId} attemptId={attemptId} />;
+}
+
+function AttemptResultWorkspace({ attemptId }: { attemptId: string | undefined }) {
   const { rememberAttemptResult } = useSession();
   const [result, setResult] = useState<AttemptResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +65,11 @@ export function AttemptResultPage() {
       return null;
     });
     void reloadResult();
-    return () => { resultRequestIdRef.current += 1; };
+    return () => {
+      resultRequestIdRef.current += 1;
+      previewRequestIdRef.current += 1;
+      sketchRequestIdRef.current += 1;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attemptId, rememberAttemptResult]);
 

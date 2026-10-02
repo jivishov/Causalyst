@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ArrowLeft,
   BookOpen,
   ClipboardCheck,
   ClipboardList,
@@ -245,6 +246,7 @@ function TeacherWorkspaceShell({ profile, onSignOut }: { profile: TeacherProfile
     []
   );
   const current = navItems.find((item) => item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)) ?? navItems[0];
+  const isAttemptReview = /^\/teacher\/review\/[^/]+\/?$/.test(location.pathname);
 
   return (
     <div className={`teacher-page account-workspace ${collapsed ? "sidebar-collapsed" : ""}`}>
@@ -277,7 +279,13 @@ function TeacherWorkspaceShell({ profile, onSignOut }: { profile: TeacherProfile
       </div>
       </aside>
       <main className="teacher-workspace content-shell" id="teacher-content" tabIndex={-1}>
-      <header className="workspace-page-header"><div><span className="workspace-eyebrow">Teacher workspace</span><h1>{current.label}</h1><p>{current.description}</p></div><span className="workspace-context"><BookOpen size={16} aria-hidden="true" />{courses.filter((course) => !course.archivedAt).length} courses</span></header>
+      <header className={`workspace-page-header${isAttemptReview ? " review-detail-page-header" : ""}`}>
+        <div><span className="workspace-eyebrow">Teacher workspace</span><h1>{current.label}</h1><p>{current.description}</p></div>
+        <div className="workspace-header-actions">
+          {isAttemptReview && <Link className="secondary-button review-back-button" to="/teacher/review"><ArrowLeft size={16} aria-hidden="true" />Back to review list</Link>}
+          <span className="workspace-context"><BookOpen size={16} aria-hidden="true" />{courses.filter((course) => !course.archivedAt).length} courses</span>
+        </div>
+      </header>
       <div className="teacher-dashboard">
       {error && (
         <p className="field-error teacher-workspace-error" role="alert">

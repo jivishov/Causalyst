@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   CheckCircle2,
   CircleSlash,
   Download,
@@ -9,7 +8,7 @@ import {
   Save,
   Send,
 } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import type { TeacherAttemptReviewDetail } from "@alt-assessment/shared";
 import { ReviewTimestamp } from "../../components/ReviewTimestamp";
 import { RubricFeedback } from "../../components/RubricFeedback";
@@ -367,13 +366,6 @@ export function TeacherAttemptReviewPage() {
 
   return (
     <div className="page-stack teacher-attempt-review">
-      <Link
-        className="secondary-button review-back-button"
-        to="/teacher/review"
-      >
-        <ArrowLeft size={16} /> Back to review list
-      </Link>
-
       <section className="course-list-panel review-attempt-header">
         <div className="course-list-header">
           <h2>{attempt.assessment.title}</h2>

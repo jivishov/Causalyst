@@ -38,7 +38,10 @@
 .review-activity-cell small { color: var(--muted); font-size: .65rem; }
 .teacher-page.account-workspace .review-open-button { min-height: 30px; padding: 5px 8px; gap: 5px; white-space: nowrap; }
 .teacher-page.account-workspace .teacher-attempt-review { gap: 12px; }
-.review-back-button { justify-self: start; width: fit-content; }
+.teacher-page.account-workspace .workspace-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.teacher-page.account-workspace .review-detail-page-header { flex-wrap: wrap; }
+.teacher-page.account-workspace .review-detail-page-header > div:first-child { flex: 1 1 380px; }
+.review-back-button { width: fit-content; white-space: nowrap; }
 .teacher-page.account-workspace .review-attempt-header .course-list-header { align-items: baseline; }
 .teacher-page.account-workspace .review-attempt-header .course-list-header h2 { flex: 1 1 300px; }
 .teacher-page.account-workspace .review-attempt-header .teacher-attempt-summary-grid { display: flex; flex-wrap: wrap; gap: 8px 22px; }

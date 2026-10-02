@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { FileSearch, Filter } from "lucide-react";
+import { ArrowUpRight, FileSearch, Filter } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { TeacherAttemptReviewListItem } from "@alt-assessment/shared";
+import { ReviewTimestamp } from "../../components/ReviewTimestamp";
 import { listTeacherAttempts } from "../../lib/api";
 import { useTeacherWorkspaceData } from "./TeacherWorkspaceData";
 
@@ -72,9 +73,10 @@ export function TeacherReviewPage() {
   }
 
   return (
-    <section className="course-list-panel">
+    <section className="course-list-panel teacher-review-list">
       <div className="course-list-header">
-        <h2>Response Review</h2>
+        <h2>Student responses</h2>
+        <span className="review-count" aria-live="polite">{loading ? "Loading…" : `${attempts.length} responses`}</span>
       </div>
 
       <form className="review-filters" onSubmit={submitFilters}>
@@ -145,7 +147,7 @@ export function TeacherReviewPage() {
                 <th>Status</th>
                 <th>Score</th>
                 <th>Flags</th>
-                <th>Submitted</th>
+                <th>Activity</th>
                 <th>Review</th>
               </tr>
             </thead>
@@ -155,13 +157,17 @@ export function TeacherReviewPage() {
                   <td>{attempt.student.displayName}</td>
                   <td>{attempt.assessmentTitle}</td>
                   <td>{attempt.course.code}</td>
-                  <td>{attempt.status}</td>
+                  <td><span className={`review-status review-status-${attempt.status}`}>{attempt.status}</span></td>
                   <td>{typeof attempt.provisionalScore === "number" ? Math.round(attempt.provisionalScore) : "-"}</td>
                   <td>{attempt.reviewFlags.length > 0 ? attempt.reviewFlags.join(", ") : "-"}</td>
-                  <td>{attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString() : "Not submitted"}</td>
+                  <td className="review-activity-cell">
+                    <span>{attempt.submittedAt ? "Submitted" : "Not submitted"}</span>
+                    <ReviewTimestamp value={attempt.submittedAt ?? attempt.updatedAt ?? attempt.createdAt} />
+                    {!attempt.submittedAt && <small>{attempt.updatedAt ? "Last activity" : "Started"}</small>}
+                  </td>
                   <td>
-                    <Link className="text-button" to={`/teacher/review/${attempt.attemptId}`}>
-                      Open
+                    <Link className="secondary-button review-open-button" to={`/teacher/review/${attempt.attemptId}`}>
+                      Open <ArrowUpRight size={14} aria-hidden="true" />
                     </Link>
                   </td>
                 </tr>

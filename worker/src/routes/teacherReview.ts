@@ -61,6 +61,7 @@ interface AttemptRow {
   simulation_spec: unknown | null;
   submitted_at: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 interface ProfileRow {
@@ -78,6 +79,7 @@ interface ArtifactRow {
   byte_size: number;
   original_filename: string;
   upload_state: TeacherAttemptReviewArtifact["uploadState"];
+  created_at: string;
   frozen_at?: string | null;
   simulation_html_viewport_width: number | null;
   simulation_html_viewport_height: number | null;
@@ -108,8 +110,8 @@ interface RealtimeSessionRow {
 
 const ASSESSMENT_SELECT = "id, type, title, prompt, expected_answer, rubric, config";
 const ASSIGNMENT_SELECT = `id, class_id, assessment_id, opens_at, due_at, classes(id,code,name,teacher_id), assessments(${ASSESSMENT_SELECT})`;
-const ATTEMPT_SELECT = "assessment_versions(definition,legacy_capture), id, assignment_id, student_id, status, submitted_after_due, provisional_score, provisional_feedback, transcript, ocr_text, simulation_description, simulation_spec, submitted_at, created_at";
-const ARTIFACT_SELECT = "frozen_at, id, attempt_id, kind, bucket, storage_key, mime_type, byte_size, original_filename, upload_state, simulation_html_viewport_width, simulation_html_viewport_height";
+const ATTEMPT_SELECT = "assessment_versions(definition,legacy_capture), id, assignment_id, student_id, status, submitted_after_due, provisional_score, provisional_feedback, transcript, ocr_text, simulation_description, simulation_spec, submitted_at, created_at, updated_at";
+const ARTIFACT_SELECT = "created_at, frozen_at, id, attempt_id, kind, bucket, storage_key, mime_type, byte_size, original_filename, upload_state, simulation_html_viewport_width, simulation_html_viewport_height";
 const REALTIME_EVENT_SELECT = "id, session_id, sequence, event_type, role, text, metadata, created_at";
 const REALTIME_SESSION_SELECT = "id, attempt_id, status, started_at, ended_at, expires_at, continuity_diagnostics, finalized_at, finalize_error";
 export async function listTeacherAttempts(request: Request, db: AppDatabaseClient, userId: string): Promise<TeacherAttemptReviewListResponse> {
@@ -175,6 +177,8 @@ export async function listTeacherAttempts(request: Request, db: AppDatabaseClien
         assessmentTitle: attempt.assessment_versions?.definition.title ?? assignmentAssessment.title,
         status: attempt.status,
         submittedAt: attempt.submitted_at,
+        createdAt: attempt.created_at,
+        updatedAt: attempt.updated_at,
         provisionalScore: attempt.provisional_score,
         reviewFlags: reviewFlagsForAttempt(attempt),
         student: {
@@ -228,6 +232,8 @@ export async function teacherAttemptDetail(db: AppDatabaseClient, userId: string
       assignmentId: attempt.assignment_id,
       status: attempt.status,
       submittedAt: attempt.submitted_at,
+      createdAt: attempt.created_at,
+      updatedAt: attempt.updated_at,
       provisionalScore: attempt.provisional_score,
       provisionalFeedback: feedbackFromUnknown(attempt.provisional_feedback),
       reviewFlags: reviewFlagsForAttempt(attempt),
@@ -488,6 +494,7 @@ function toTeacherArtifact(row: ArtifactRow): TeacherAttemptReviewArtifact {
     mimeType: row.mime_type,
     byteSize: row.byte_size,
     originalFilename: row.original_filename,
+    createdAt: row.created_at,
     uploadState: row.upload_state,
     previewPath,
     downloadPath: `/teacher/artifacts/${row.id}/download`,

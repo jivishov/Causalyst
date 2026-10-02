@@ -286,6 +286,7 @@ export interface TeacherAssignmentsResponse {
 
 export interface TeacherAttemptReviewArtifact {
   id: string;
+  createdAt?: string;
   kind: "audio" | "writing" | "simulation-derived" | "simulation-sketch";
   mimeType: string;
   byteSize: number;
@@ -339,6 +340,8 @@ export interface TeacherAttemptReviewListItem {
   assessmentTitle: string;
   status: AttemptStatus;
   submittedAt: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   provisionalScore: number | null;
   reviewFlags: string[];
   student: {
@@ -367,6 +370,8 @@ export interface TeacherAttemptReviewDetail {
   assignmentId: string | null;
   status: AttemptStatus;
   submittedAt: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   provisionalScore: number | null;
   provisionalFeedback: GradeFeedback | null;
   reviewFlags: string[];

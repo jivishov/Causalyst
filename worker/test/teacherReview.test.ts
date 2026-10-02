@@ -47,6 +47,8 @@ describe("teacher review routes", () => {
     expect(result.attempts[0]).toMatchObject({
       attemptId: "attempt-owned",
       status: "graded",
+      createdAt: "2026-04-20T09:59:00.000Z",
+      updatedAt: "2026-04-20T10:02:00.000Z",
       student: { displayName: "Roster Student" },
       course: { code: "BIO101" }
     });
@@ -79,12 +81,15 @@ describe("teacher review routes", () => {
     const db = createDb(createState());
     const detail = await teacherAttemptDetail(db as never, "teacher-1", "attempt-owned");
 
+    expect(detail.attempt.createdAt).toBe("2026-04-20T09:59:00.000Z");
+    expect(detail.attempt.updatedAt).toBe("2026-04-20T10:02:00.000Z");
     expect(detail.attempt.assessment.title).toBe("Voice Check");
     expect(detail.attempt.transcript).toContain("sample transcript");
     expect(detail.attempt.reviewFlags).toEqual(["needs-human-check"]);
     expect(detail.attempt.gradebookEntry?.finalStatus).toBe("approved_ai");
     expect(detail.attempt.artifacts[0]).toMatchObject({
       id: "artifact-owned",
+      createdAt: "2026-04-20T09:59:30.000Z",
       previewPath: "/teacher/artifacts/artifact-owned/preview",
       downloadPath: "/teacher/artifacts/artifact-owned/download",
       htmlViewport: SIMULATION_HTML_VIEWPORT
@@ -279,7 +284,8 @@ function createState(): State {
         simulation_description: null,
         simulation_spec: null,
         submitted_at: "2026-04-20T10:00:00.000Z",
-        created_at: "2026-04-20T09:59:00.000Z"
+        created_at: "2026-04-20T09:59:00.000Z",
+        updated_at: "2026-04-20T10:02:00.000Z"
       },
       {
         id: "attempt-late",
@@ -322,6 +328,7 @@ function createState(): State {
         mime_type: "text/html; charset=utf-8",
         byte_size: 120,
         original_filename: "simulation.html",
+        created_at: "2026-04-20T09:59:30.000Z",
         upload_state: "uploaded", frozen_at: "2026-05-01T12:00:00.000Z",
         simulation_html_viewport_width: SIMULATION_HTML_VIEWPORT.width,
         simulation_html_viewport_height: SIMULATION_HTML_VIEWPORT.height

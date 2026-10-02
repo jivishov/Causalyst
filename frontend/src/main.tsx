@@ -7,6 +7,7 @@ import "./styles.css";
 import "./student-workspace.css";
 import "./account-workspace.css";
 import "./student-layout.css";
+import "./teacher-layout.css";
 
 const base = import.meta.env.BASE_URL || "/";
 

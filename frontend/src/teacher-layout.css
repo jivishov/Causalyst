@@ -1,0 +1,101 @@
+/* Teacher workspace: consistent headers and direct access to student evidence. */
+.teacher-page.account-workspace .content-shell { padding: 18px 22px 30px; }
+.teacher-page.account-workspace .workspace-page-header { min-height: 62px; margin-bottom: 14px; padding-bottom: 12px; gap: 12px; }
+.teacher-page.account-workspace .workspace-eyebrow { display: none; }
+.teacher-page.account-workspace .workspace-page-header h1 { margin: 0; font-size: 1.4rem; line-height: 1.25; letter-spacing: -.025em; }
+.teacher-page.account-workspace .workspace-page-header p { max-width: none; margin: 4px 0 0; font-size: .8rem; line-height: 1.45; }
+.teacher-page.account-workspace .workspace-context { padding: 5px 9px; font-size: .74rem; }
+.teacher-page.account-workspace :is(.teacher-dashboard, .page-stack, .teacher-courses-layout) { gap: 14px; }
+.teacher-page.account-workspace :is(.course-list-panel, .course-editor, .gradebook-page, .safe-preview-panel, .feedback-panel) { padding: 14px; }
+.teacher-page.account-workspace :is(.course-list-header, .safe-preview-header, .gradebook-header) { gap: 10px; margin: 0 0 10px; }
+.teacher-page.account-workspace :is(.course-list-header, .safe-preview-header, .gradebook-header) p { margin: 0; font-size: .78rem; }
+.teacher-page.account-workspace :is(.course-list-panel, .course-editor, .safe-preview-panel, .feedback-panel, .gradebook-header) h2 { margin: 0; font-size: .96rem; line-height: 1.4; font-weight: 650; }
+.teacher-page.account-workspace :is(.primary-button, .secondary-button, .danger-button) { min-height: 34px; padding: 7px 11px; border-radius: 8px; font-size: .78rem; line-height: 1.3; font-weight: 600; text-decoration: none; transition: background .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.teacher-page.account-workspace :is(.primary-button, .secondary-button, .danger-button) svg { flex-shrink: 0; }
+.teacher-page.account-workspace .primary-button { color: #fff; border-color: #246b56; background: linear-gradient(180deg, #2d7962, #246b56); box-shadow: 0 1px 2px #193d3320; }
+.teacher-page.account-workspace .secondary-button { color: #285c4b; background: linear-gradient(180deg, #fff, #f8fbf7); border-color: #cbdacd; box-shadow: 0 1px 2px #193d3308; }
+.teacher-page.account-workspace .secondary-button:hover:not(:disabled) { background: #eef6ef; border-color: #8aad99; box-shadow: 0 2px 4px #193d3310; }
+.teacher-page.account-workspace .danger-button { color: #a13432; background: #fff4f1; border-color: #e4c3ba; }
+.teacher-page.account-workspace :is(.primary-button, .secondary-button, .danger-button):active:not(:disabled) { box-shadow: inset 0 1px 3px #193d3320; }
+.teacher-page.account-workspace button:disabled { opacity: .5; box-shadow: none; }
+.teacher-page.account-workspace .text-button { min-height: 30px; gap: 6px; padding: 5px 8px; border-radius: 6px; color: #285c4b; font-size: .78rem; text-decoration: none; }
+.teacher-page.account-workspace .text-button:hover { background: #eaf3ed; }
+.teacher-page.account-workspace .course-actions { gap: 6px; }
+.teacher-page.account-workspace .roster-table :is(th, td) { padding: 8px 10px; overflow-wrap: normal; word-break: normal; }
+.teacher-page.account-workspace .roster-table td { font-size: .78rem; }
+.teacher-page.account-workspace .teacher-review-list .review-filters { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(160px, 1.4fr) 120px minmax(130px, .85fr) auto; align-items: end; gap: 10px; margin-bottom: 12px; padding: 10px; }
+.teacher-page.account-workspace .teacher-review-list .review-filters > .control-row { grid-column: auto; }
+.teacher-page.account-workspace .review-filters label { gap: 4px; font-size: .73rem; }
+.teacher-page.account-workspace .review-filters :is(input, select) { min-height: 34px; padding: 6px 9px; font-size: .78rem; }
+.review-count { padding: 3px 8px; border-radius: 6px; background: #eef4e9; color: #526b59; font-size: .73rem; font-variant-numeric: tabular-nums; }
+.review-status { display: inline-flex; width: fit-content; padding: 2px 7px; border: 1px solid #d6dfd7; border-radius: 5px; background: #f1f4ef; color: #56665d; font-size: .7rem; line-height: 1.4; text-transform: capitalize; }
+.review-status-submitted { color: #385e82; background: #edf4fb; border-color: #d0dfed; }
+.review-status-graded { color: #246b56; background: #eaf5ee; border-color: #c9e0d2; }
+.review-status-error { color: #a13432; background: #fff0ec; border-color: #edcfc5; }
+.review-timestamp { display: block; color: var(--muted); font-size: .7rem; font-weight: 400; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.review-activity-cell { min-width: 165px; }
+.review-activity-cell > span:first-child { display: block; font-size: .72rem; }
+.review-activity-cell small { color: var(--muted); font-size: .65rem; }
+.teacher-page.account-workspace .review-open-button { min-height: 30px; padding: 5px 8px; gap: 5px; white-space: nowrap; }
+.teacher-page.account-workspace .teacher-attempt-review { gap: 12px; }
+.review-back-button { justify-self: start; width: fit-content; }
+.teacher-page.account-workspace .review-attempt-header .course-list-header { align-items: baseline; }
+.teacher-page.account-workspace .review-attempt-header .course-list-header h2 { flex: 1 1 300px; }
+.teacher-page.account-workspace .review-attempt-header .teacher-attempt-summary-grid { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+.teacher-page.account-workspace .review-attempt-header .attempt-meta-grid p { display: grid; gap: 3px; min-width: 90px; margin: 0; padding: 0; border: 0; background: transparent; border-radius: 0; font-size: .78rem; }
+.teacher-page.account-workspace .review-attempt-header .attempt-meta-grid strong { font-size: .66rem; font-weight: 600; color: var(--muted); }
+.review-work-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 310px); align-items: start; gap: 14px; }
+.review-work-column, .review-grading-column { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; align-content: start; gap: 12px; }
+.teacher-page.account-workspace .teacher-final-grade-panel { display: block; }
+.teacher-page.account-workspace .teacher-final-grade-panel .attempt-meta-grid { gap: 6px; margin-bottom: 10px; }
+.teacher-page.account-workspace .teacher-final-grade-panel .attempt-meta-grid p { padding: 7px 8px; font-size: .74rem; }
+.teacher-page.account-workspace .teacher-final-grade-panel .attempt-meta-grid strong { display: block; margin-bottom: 2px; font-size: .65rem; }
+.teacher-page.account-workspace .teacher-final-grade-form { grid-template-columns: 80px minmax(0, 1fr); gap: 8px; margin: 0; padding: 10px; }
+.teacher-page.account-workspace .teacher-final-grade-form label { gap: 4px; font-size: .7rem; }
+.teacher-page.account-workspace .teacher-final-grade-form input { min-height: 34px; padding: 6px 8px; font-size: .78rem; }
+.teacher-page.account-workspace :is(.teacher-final-grade-actions, .teacher-final-grade-action-row) { gap: 6px; }
+.teacher-page.account-workspace .teacher-final-grade-actions { display: grid; }
+.teacher-page.account-workspace .teacher-final-grade-actions :is(.primary-button, .secondary-button) { min-height: 32px; padding: 6px 8px; font-size: .7rem; }
+.teacher-page.account-workspace .teacher-disclosure-panel { padding: 0; }
+.teacher-page.account-workspace .teacher-disclosure-panel summary { min-height: 40px; padding: 10px 12px; gap: 8px; font-size: .8rem; font-weight: 600; }
+.teacher-page.account-workspace .teacher-disclosure-panel > p { padding: 12px; font-size: .83rem; line-height: 1.6; }
+.teacher-page.account-workspace .review-response-text { white-space: pre-wrap; overflow-wrap: break-word; }
+.teacher-page.account-workspace .review-rubric .feedback-panel { border: 0; border-radius: 0; box-shadow: none; }
+.teacher-page.account-workspace .review-rubric .feedback-header { gap: 8px; }
+.teacher-page.account-workspace .review-rubric .feedback-header p { font-size: .75rem; }
+.teacher-page.account-workspace .review-rubric .criterion-row { padding: 10px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; font-size: .78rem; }
+.teacher-page.account-workspace .review-rubric :is(.criterion-row p, .overall-comment) { font-size: .78rem; line-height: 1.55; }
+.teacher-page.account-workspace .review-rubric .score-dial { width: 48px; height: 48px; font-size: 1.2rem; }
+.teacher-page.account-workspace .review-work-column .sketch-preview-image { max-height: 400px; object-fit: contain; }
+.teacher-page.account-workspace .review-work-column .safe-preview-empty { min-height: 240px; height: auto; }
+.teacher-page.account-workspace .review-evidence-artifacts .course-actions { flex-wrap: nowrap; }
+@media (max-width: 1180px) {
+  .teacher-page.account-workspace .teacher-review-list .review-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .teacher-page.account-workspace .teacher-review-list .review-filters > .control-row { grid-column: 1 / -1; }
+}
+@media (max-width: 1000px) {
+  .review-work-layout { grid-template-columns: minmax(0, 1fr); }
+  .review-grading-column { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+@media (max-width: 760px) {
+  .teacher-page.account-workspace .content-shell { padding: 16px; }
+  .teacher-page.account-workspace .workspace-page-header { align-items: center; }
+  .teacher-page.account-workspace .workspace-page-header h1 { font-size: 1.25rem; }
+  .review-grading-column { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .teacher-page.account-workspace .teacher-review-list .review-filters { grid-template-columns: minmax(0, 1fr); }
+  .teacher-page.account-workspace .review-attempt-header .course-list-header h2 { flex-basis: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .teacher-page.account-workspace :is(.primary-button, .secondary-button, .danger-button) { transition: none; }
+}
+
+.teacher-page.account-workspace .review-artifact-file { min-width: 130px; }
+.review-artifact-file :is(strong, small) { display: block; }
+.review-artifact-file strong { font-weight: 550; }
+.review-artifact-file small { margin-top: 3px; color: var(--muted); font-size: .7rem; }
+
+.review-work-column > *, .review-grading-column > * { min-width: 0; }
+.teacher-page.account-workspace .review-work-column .simulation-preview-frame { min-height: 260px; }
+.teacher-page.account-workspace .review-work-column .simulation-preview-iframe { min-height: 0; }

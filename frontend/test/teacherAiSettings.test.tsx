@@ -45,7 +45,7 @@ it("adds a provider model, assigns it through role dropdowns, and saves effort a
   expect((screen.getByLabelText("Voice grading token limit") as HTMLInputElement).value).toBe("25000");
   expect((screen.getByRole("button", { name: "Remove Classroom model" }) as HTMLButtonElement).disabled).toBe(true);
   fireEvent.click(screen.getAllByRole("button", { name: "Save settings" })[0]);
-  await screen.findByText(/Saved\. New attempts/);
+  await screen.findByText(/Saved\. New previews/);
   const [, options] = vi.mocked(teacherApiFetch).mock.calls.find(([path, options]) => path === "/teacher/ai-settings" && options?.method === "PUT")!;
   const saved = JSON.parse(options!.body as string);
   expect(saved.roleModels.grading).toMatchObject({ id: "synthetic-classroom-model", catalogModelId: addedId, reasoningEffort: "low", maxOutputTokens: 25000 });

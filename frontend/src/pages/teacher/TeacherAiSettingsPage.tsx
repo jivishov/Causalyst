@@ -7,7 +7,7 @@ import { teacherApiFetch } from "../../lib/api";
 const providerNames = { openai: "OpenAI", kimi: "Kimi / Moonshot", zai: "Z.AI" };
 const roleNames: Record<AiModelRole, string> = {
   grading: "Voice grading", visionGrading: "Writing grading", transcription: "Audio transcription",
-  simulationSpec: "Simulation specification", simulationHtml: "Default simulation code", simulationSketchImage: "Simulation sketch image",
+  simulationSpec: "Simulation specification", simulationHtml: "Interactive simulation HTML", simulationSketchImage: "Simulation sketch image",
   simulationReadinessClassifier: "Description readiness check", fidelityReview: "Fidelity review", realtimeVoice: "Live voice conversation"
 };
 const textRoles = new Set(AI_TEXT_MODEL_ROLES);
@@ -104,7 +104,7 @@ export function TeacherAiSettingsPage() {
     try {
       const next = await teacherApiFetch<TeacherAiSettings>("/teacher/ai-settings", { method: "PUT", body: JSON.stringify(updatePayload()) }, 30000);
       setSettings(next); setNewModelId(null); setApiKeys({}); setResetKeys({}); setTestResults({});
-      setMessage("Saved. New attempts will use these settings. Existing attempts keep their original keys and models.");
+      setMessage("Saved. New previews use the current HTML settings, including existing drafts. Running jobs keep their original settings; other changes apply to new attempts.");
     } catch (err) { setError(err instanceof Error ? err.message : "Could not save AI settings"); }
     finally { setSaving(false); }
   }
@@ -124,6 +124,7 @@ export function TeacherAiSettingsPage() {
   if (!settings) return <section className="course-list-panel"><p role={error ? "alert" : "status"}>{error || "Loading AI settings…"}</p>{error && <button type="button" className="secondary-button" onClick={() => void reload()}>Retry</button>}</section>;
   const disabled = saving || testing !== null;
   const models = teacherProviderModels(settings);
+  const htmlModel = settings.codeModels.find(model => model.id === settings.defaultSimulationModelId)!;
   function isAssigned(model: TeacherProviderModel) {
     return settings!.defaultSimulationModelId === model.id || AI_MODEL_ROLES.filter(role => role !== "simulationHtml").some(role => {
       const assigned = settings!.roleModels[role];
@@ -196,22 +197,28 @@ export function TeacherAiSettingsPage() {
       <section className="course-list-panel">
         <h2>Assessment model assignments</h2>
         <p className="panel-description">Choose from your provider model lists. OpenAI supports grading, transcription, images, and live voice; Kimi and Z.AI are available for student simulation code. Each list shows models with the matching capability.</p>
+        <p className="field-help">Interactive simulation HTML controls student previews. Simulation specification is a separate step. HTML reasoning and token limits are shared with the selected model in the provider list.</p>
         <p className="field-help">Token limits for OpenAI text models cover reasoning and the answer together, from {AI_MIN_OUTPUT_TOKENS.toLocaleString()} to {AI_MAX_OUTPUT_TOKENS.toLocaleString()}. Leave blank to use the app default.</p>
-        <div className="ai-model-list">{AI_MODEL_ROLES.filter(role => role !== "simulationHtml").map(role => <div className="ai-role-model-row" key={role}>
+        <div className="ai-model-list">{AI_MODEL_ROLES.map(role => {
+          const isHtml = role === "simulationHtml";
+          const assigned = isHtml ? { id: htmlModel.modelId, catalogModelId: htmlModel.id, reasoningEffort: htmlModel.reasoningEffort, maxOutputTokens: htmlModel.maxOutputTokens } : settings.roleModels[role];
+          return <div className="ai-role-model-row" key={role}>
           <label htmlFor={`ai-role-${role}`}>{roleNames[role]}</label>
-          <select id={`ai-role-${role}`} value={settings.roleModels[role].catalogModelId ?? models.find(model => model.provider === "openai" && model.modelId === settings.roleModels[role].id)?.id ?? ""}
-            onChange={event => assignRoleModel(role, event.target.value)}>
-            <optgroup label="OpenAI">{models.filter(model => model.provider === "openai" && model.capability === modelCapabilityForRole(role)).map(model => <option key={model.id} value={model.id}>{model.label} ({model.modelId})</option>)}</optgroup>
+          <select id={`ai-role-${role}`} value={assigned.catalogModelId ?? models.find(model => model.provider === "openai" && model.modelId === assigned.id)?.id ?? ""}
+            onChange={event => isHtml ? setSettings(current => current && ({ ...current, defaultSimulationModelId: event.target.value as typeof current.defaultSimulationModelId })) : assignRoleModel(role, event.target.value)}>
+            {(isHtml ? AI_PROVIDERS : ["openai"] as const).map(provider => <optgroup key={provider} label={providerNames[provider]}>
+              {models.filter(model => model.provider === provider && model.capability === modelCapabilityForRole(role) && (!isHtml || model.enabled)).map(model => <option key={model.id} value={model.id}>{model.label} ({model.modelId})</option>)}
+            </optgroup>)}
           </select>
-          {textRoles.has(role) ? <>
-            <label>Reasoning effort<select aria-label={`${roleNames[role]} reasoning`} value={settings.roleModels[role].reasoningEffort}
-              onChange={event => editRoleModel(role, { reasoningEffort: event.target.value as AiReasoningEffort })}>
-              {reasoningEffortsForModel(settings.roleModels[role].id).map(effort => <option key={effort} value={effort}>{effort === "none" ? "Provider default" : effort}</option>)}
-            </select></label>
-            <label title="Maximum reasoning and answer tokens combined">Token limit<input aria-label={`${roleNames[role]} token limit`} type="number" min={AI_MIN_OUTPUT_TOKENS} max={AI_MAX_OUTPUT_TOKENS} step={1}
-              value={settings.roleModels[role].maxOutputTokens ?? ""} placeholder="App default" onChange={event => editRoleModel(role, { maxOutputTokens: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>
-          </> : <p className="field-help">Provider default</p>}
-        </div>)}</div>
+          {textRoles.has(role) && (!isHtml || htmlModel.provider === "openai") ?
+            <label>Reasoning effort<select aria-label={`${roleNames[role]} reasoning`} value={assigned.reasoningEffort}
+              onChange={event => isHtml ? editProviderModel(htmlModel.id, { reasoningEffort: event.target.value as AiReasoningEffort }) : editRoleModel(role, { reasoningEffort: event.target.value as AiReasoningEffort })}>
+              {reasoningEffortsForModel(assigned.id).map(effort => <option key={effort} value={effort}>{effort === "none" ? "Provider default" : effort}</option>)}
+            </select></label> : <p className="field-help">Provider default</p>}
+          {textRoles.has(role) && <label title="Maximum reasoning and answer tokens combined">Token limit<input aria-label={`${roleNames[role]} token limit`} type="number" min={AI_MIN_OUTPUT_TOKENS} max={AI_MAX_OUTPUT_TOKENS} step={1}
+              value={assigned.maxOutputTokens ?? ""} placeholder="App default" onChange={event => isHtml ? editProviderModel(htmlModel.id, { maxOutputTokens: event.target.value === "" ? undefined : Number(event.target.value) }) : editRoleModel(role, { maxOutputTokens: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>
+          }
+        </div>})}</div>
       </section>
     </fieldset>
     <div className="ai-settings-actions"><button className="secondary-button" type="button" disabled={disabled} onClick={() => { setApiKeys({}); setResetKeys({}); setMessage(null); void reload(); }}>Reload saved settings</button>

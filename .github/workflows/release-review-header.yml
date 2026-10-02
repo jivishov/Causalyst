@@ -1,0 +1,50 @@
+name: Release response review header
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-review-header.yml]
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: review-header-release
+  cancel-in-progress: false
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify the reviewed frontend and deployed backend
+        env:
+          REVIEWED_SHA: 2ca313e154e113bf6996574d78c828e9f1bad330
+          BACKEND_SHA: 05c2987e97590edd005756ce8907b363fc25d978
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = ".github/workflows/release-review-header.yml"
+          git diff --quiet "$BACKEND_SHA" "$REVIEWED_SHA" -- worker shared supabase package.json package-lock.json scripts .github/workflows/deploy-frontend.yml
+      - name: Verify successful validation and production backend release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37077807992 });
+            const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37072085393 });
+            for (const [run, sha] of [
+              [checked.data, "2ca313e154e113bf6996574d78c828e9f1bad330"],
+              [deployed.data, "05c2987e97590edd005756ce8907b363fc25d978"]
+            ]) {
+              if (run.head_sha !== sha || run.status !== "completed" || run.conclusion !== "success") {
+                throw new Error("The reviewed checks or deployed backend do not match this release.");
+              }
+            }
+
+  deploy-frontend:
+    needs: release-gate
+    uses: ./.github/workflows/deploy-frontend.yml

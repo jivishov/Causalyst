@@ -54,7 +54,8 @@ export class SimulationScheduler {
       const now = Date.now();
       // Do not free a slot solely because a clock expired: its owner must stop first.
       for (const entry of [...state.active, ...state.queue].filter(e => e.expiresAt <= now)) {
-        await managedRequest(simulationOwner(this.env, entry.id), "/expire");
+        const response = await simulationOwner(this.env, entry.id).fetch("https://simulation.internal/expire");
+        if (!response.ok && response.status !== 404) throw new Error("Generation expiry is temporarily unavailable");
         state.active = state.active.filter(e => e.id !== entry.id);
         state.queue = state.queue.filter(e => e.id !== entry.id);
       }

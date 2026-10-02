@@ -18,7 +18,7 @@ import { studentSession } from "../src/routes/student";
 import { reserveSimulationJob } from "../src/lib/simulationJobs";
 import { runRetention } from "../src/lib/retention";
 import * as openai from "../src/lib/openai";
-import { Miniflare, Response as RuntimeResponse } from "miniflare";
+import { Miniflare, convertV4MiniflareOptions, Response as RuntimeResponse, type Request as RuntimeRequest } from "miniflare";
 
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
 const syntheticEnv = { PIN_PEPPER: "disposable-integration-pepper" } as never;
@@ -168,9 +168,9 @@ describe('real Supabase service boundaries', () => {
         output: [{ type: "message", content: [{ type: "output_text", text: html }] }] } }
     ].map(event => `data: ${JSON.stringify(event)}\n\n`).join("");
     const config = localCredentials();
-    const runtime = new Miniflare({ modules: true, scriptPath: fileURLToPath(new URL("../../.worker-build/index.js", import.meta.url)),
+    const runtime = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: fileURLToPath(new URL("../../.worker-build/index.js", import.meta.url)),
       modulesRules: [{ type: "Text", include: ["**/*.txt"] }], compatibilityDate: "2026-04-28",
-      outboundService: async request => {
+      outboundService: async (request: RuntimeRequest) => {
         const target = new URL(request.url);
         if (target.origin === "https://api.openai.com" && target.pathname === "/v1/responses" && request.method === "POST") {
           providerCalls++;
@@ -186,7 +186,7 @@ describe('real Supabase service boundaries', () => {
       bindings: { SUPABASE_URL: config.API_URL, SUPABASE_SERVICE_ROLE_KEY: config.SERVICE_ROLE_KEY, OPENAI_API_KEY: "synthetic", PIN_PEPPER: "disposable-integration-pepper", APP_ENV: "test" },
       durableObjects: { SIMULATION_GENERATIONS: { className: "SimulationGeneration", useSQLite: true },
         SIMULATION_SCHEDULER: { className: "SimulationScheduler", useSQLite: true }, REALTIME_SESSIONS: { className: "RealtimeEvidence", useSQLite: true } }
-    });
+    }));
     try {
       const namespace = await runtime.getDurableObjectNamespace("SIMULATION_GENERATIONS") as unknown as DurableObjectNamespace;
       const owner = namespace.get(namespace.idFromName(reservation.job.id));

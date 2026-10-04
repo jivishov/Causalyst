@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test("student frontpage explains all formats, supports keyboard exploration, and works on small screens", async ({ page }, testInfo) => {
   await page.goto("./");
-  await expect(page.getByRole("heading", { name: "Show your thinking. Build understanding." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Explain your thinking. Build understanding." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Continue with Google", exact: true })).toBeEnabled();
   await expect(page.getByRole("tab")).toHaveCount(4);
   await page.getByRole("tab", { name: /Writing/ }).click();

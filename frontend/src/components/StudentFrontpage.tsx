@@ -37,7 +37,7 @@ export function StudentFrontpage({ children }: { children: ReactNode }) {
         <section className="frontpage-hero" aria-labelledby="frontpage-title">
           <div className="frontpage-intro">
             <span className="frontpage-eyebrow"><span />A workspace for your understanding</span>
-            <h1 id="frontpage-title">Show your thinking.<br /><em>Build understanding.</em></h1>
+            <h1 id="frontpage-title">Explain your thinking.<br /><em>Build understanding.</em></h1>
             <p className="frontpage-lead">Explain ideas, create evidence, and show what you understand through simulations, writing, and voice.</p>
             <a className="frontpage-explore" href="#assessment-formats">Find your way to express an idea <ArrowDown size={16} /></a>
             {children}

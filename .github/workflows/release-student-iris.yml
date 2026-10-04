@@ -1,0 +1,47 @@
+name: Release student iris design
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-student-iris.yml]
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+concurrency:
+  group: student-iris-release
+  cancel-in-progress: false
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify the reviewed frontend and deployed backend
+        env:
+          REVIEWED_SHA: efb5bb9210cb349c6fb794157a93cc4d8e090c4e
+          BACKEND_SHA: 05c2987e97590edd005756ce8907b363fc25d978
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          allowed_paths=".github/workflows/design-proof.yml
+          .github/workflows/release-student-iris.yml"
+          test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = "$allowed_paths"
+          git diff --quiet "$BACKEND_SHA" "$REVIEWED_SHA" -- worker shared supabase package.json package-lock.json scripts .github/workflows/deploy-frontend.yml
+      - name: Verify successful validation and production backend release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37176218604 });
+            const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37072085393 });
+            for (const [run, sha] of [
+              [checked.data, "efb5bb9210cb349c6fb794157a93cc4d8e090c4e"],
+              [deployed.data, "05c2987e97590edd005756ce8907b363fc25d978"]
+            ]) {
+              if (run.head_sha !== sha || run.status !== "completed" || run.conclusion !== "success") {
+                throw new Error("The reviewed checks or deployed backend do not match this release.");
+              }
+            }
+  deploy-frontend:
+    needs: release-gate
+    uses: ./.github/workflows/deploy-frontend.yml

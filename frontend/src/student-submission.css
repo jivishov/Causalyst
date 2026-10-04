@@ -52,7 +52,7 @@
 .app-shell.student-design .submission-grade-score strong { font-size: 30px; line-height: 1.1; letter-spacing: -.6px; font-weight: 650; color: #493661; }
 .app-shell.student-design .submission-grade-summary.is-missing { border-color: #ead5df; background: #f9edf2; }
 .app-shell.student-design .submission-grade-summary.is-missing .submission-grade-score strong { font-size: 20px; color: #9d3e5d; }
-.app-shell.student-design .student-submission-page .feedback-header { display: flex; flex-wrap: nowrap; align-items: flex-start; justify-content: space-between; text-align: left; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #e9e3f1; }
+.app-shell.student-design .student-submission-page .feedback-header { display: flex; flex-direction: row; flex-wrap: nowrap; align-items: flex-start; justify-content: space-between; text-align: left; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #e9e3f1; }
 .app-shell.student-design .student-submission-page .feedback-header > div:first-child { min-width: 0; flex: 1; }
 .app-shell.student-design .student-submission-page .feedback-header p { font-size: 11px; color: #746b84; margin-top: 4px; line-height: 1.55; }
 .app-shell.student-design .student-submission-page .score-dial { flex-shrink: 0; width: 52px; height: 48px; border: 1px solid #e0d6ef; border-radius: 9px; background: #f3eefb; font-size: 22px; font-weight: 650; }

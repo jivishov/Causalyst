@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check, Clock3, FileText, Image, Maximize2, Minimize2, Play, RotateCw } from "lucide-react";
 import type { AttemptResult } from "@alt-assessment/shared";
 import { RubricFeedback } from "../components/RubricFeedback";
+import { AssignmentPrompt } from "../components/AssignmentPrompt";
+import { PublishedGradeSummary, SubmissionHeader, SubmissionPanel, SubmissionTabs, type SubmissionTab } from "../components/SubmissionLayout";
 import { SimulationPreviewFrame } from "../components/SimulationPreviewFrame";
 import { SimulationRenderer } from "../components/SimulationRenderer";
 import { getAttemptResult, getSimulationPreviewUrl } from "../lib/api";
@@ -28,6 +30,25 @@ function AttemptResultWorkspace({ attemptId }: { attemptId: string | undefined }
   const previewRequestIdRef = useRef(0);
   const sketchRequestIdRef = useRef(0);
   const resultRequestIdRef = useRef(0);
+  const panelId = useId();
+  const [activeTab, setActiveTab] = useState<SubmissionTab>("submission");
+  const previewPanelRef = useRef<HTMLElement | null>(null);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+
+  useEffect(() => {
+    const onFullscreenChange = () => setPreviewExpanded(document.fullscreenElement === previewPanelRef.current && previewPanelRef.current !== null);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => { document.removeEventListener("fullscreenchange", onFullscreenChange); };
+  }, []);
+
+  async function togglePreviewExpanded() {
+    try {
+      if (document.fullscreenElement === previewPanelRef.current) await document.exitFullscreen();
+      else await previewPanelRef.current?.requestFullscreen();
+    } catch {
+      setSimulationPreviewError("The preview could not open in full screen. You can continue using it here.");
+    }
+  }
 
   async function reloadResult() {
     if (!attemptId) return;
@@ -170,127 +191,80 @@ function AttemptResultWorkspace({ attemptId }: { attemptId: string | undefined }
 
   if (error) {
     return (
-      <div className="page-stack">
+      <div className="page-stack student-submission-page submission-error">
         <Link className="text-button" to="/"><ArrowLeft size={17} /> Dashboard</Link>
+        <h1>Submission unavailable</h1>
         <p className="field-error">{error}</p>
-        <p className="status-line">Your saved submission has not been changed. Retry loading it below.</p>
+        <p className="submission-feedback-note">Your saved submission has not been changed. Retry loading it below.</p>
         <button className="secondary-button" type="button" onClick={() => { void reloadResult(); }}>Retry loading submission</button>
       </div>
     );
   }
-  if (!result) {
-    return <p className="status-line">Loading result</p>;
-  }
+  if (!result) return <p className="status-line" role="status">Loading result</p>;
 
   return (
-    <div className="page-stack">
-      <Link className="text-button" to="/">
-        <ArrowLeft size={17} /> Dashboard
-      </Link>
-      <header className="page-header">
-        <div>
-          <h1>{result.assessment.title}</h1>
-          <p>Published final-grade status is shown separately from provisional automated feedback.</p>
-        </div>
-      </header>
-      {result.publishedGrade && (
-        <section className="evidence-panel final-grade-panel">
-          <h2>Published Final Grade</h2>
-          <p>
-            Status: <strong>{formatFinalStatus(result.publishedGrade.finalStatus)}</strong>
-            {" · "}
-            Score: <strong>{result.publishedGrade.finalScore ?? "Not scored"}</strong>
-          </p>
-          <p>Published at {new Date(result.publishedGrade.publishedAt).toLocaleString()}</p>
-        </section>
-      )}
-      <section className="evidence-panel">
-        <h2>Assessment Prompt</h2>
-        <p>{result.assessment.prompt}</p>
-      </section>
-      {result.assessment.type === "simulation" && result.status !== "draft" && (
-        <p className="status-line" role="status">Your simulation submission is saved. You can reopen it from the dashboard.</p>
-      )}
-      {result.simulationDescription && (
-        <section className="evidence-panel">
-          <h2>Your Simulation Description</h2>
-          <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{result.simulationDescription}</p>
-        </section>
-      )}
-      {!isApprovedAiPublishedWithFeedback(result) && (
-        <RubricFeedback
-          feedback={result.provisionalFeedback}
-          rubric={result.assessment.rubric}
-          heading="Provisional Automated Feedback"
-          subheading="This score can differ from a teacher-published final grade."
-        />
-      )}
-      {isApprovedAiPublishedWithFeedback(result) && result.publishedGrade?.feedback && (
-        <RubricFeedback
-          feedback={result.publishedGrade.feedback}
-          rubric={result.assessment.rubric}
-          heading="Published Feedback"
-          subheading="This feedback is part of the published final result."
-        />
-      )}
-      {result.transcript && (
-        <section className="evidence-panel">
-          <h2>Transcript</h2>
-          <p>{result.transcript}</p>
-        </section>
-      )}
-      {result.ocrText && (
-        <section className="evidence-panel">
-          <h2>Transcribed Writing</h2>
-          <p>{result.ocrText}</p>
-        </section>
-      )}
-      {result.simulationSpec && <SimulationRenderer spec={result.simulationSpec} />}
-      {result.simulationSketchPreview && (
-        <section className="evidence-panel">
-          <h2>Generated Sketch</h2>
-          <button className="secondary-button" type="button" onClick={() => { void reloadSketchPreview(); }} disabled={sketchPreviewLoading}>
-            {sketchPreviewLoading ? "Reloading sketch" : "Reload sketch"}
-          </button>
-          {sketchPreviewError && <p className="field-error">{sketchPreviewError}</p>}
-          {sketchPreviewUrl ? (
-            <img className="sketch-preview-image" alt="Generated simulation sketch" src={sketchPreviewUrl} />
-          ) : (
-            <p className="status-line">Sketch unavailable.</p>
-          )}
-        </section>
-      )}
-      {result.simulationPreview && (
-        <section className="evidence-panel">
-          <div className="safe-preview-header">
-            <h2>Simulation Preview</h2>
-            <div className="preview-actions">
-              <button className="secondary-button" type="button" onClick={() => { void reloadSimulationPreview(); }} disabled={simulationPreviewLoading}>
-                {simulationPreviewLoading ? "Reloading preview" : "Reload preview"}
-              </button>
-            </div>
+    <div className="page-stack student-submission-page">
+      <SubmissionHeader title={result.assessment.title} type={result.assessment.type} submittedAt={result.submittedAt}
+        context={result.submittedAfterDue ? "Submitted after the due date" : undefined}
+        status={result.publishedGrade ? "Final result published" : result.status === "draft" ? "Draft" : result.status === "error" ? "Needs attention" : result.provisionalFeedback ? "Feedback available" : "Submitted"}
+        attention={result.status === "error" || result.publishedGrade?.finalStatus === "missing"} />
+      <SubmissionTabs id={panelId} value={activeTab} onChange={setActiveTab} tabs={[
+        { value: "submission", label: "Your submission" }, { value: "feedback", label: "Feedback" }, { value: "instructions", label: "Assessment prompt" }
+      ]}>
+        {result.assessment.type === "simulation" && result.status !== "draft" && <p className="submission-save-note" role="status"><Check size={13} aria-hidden="true" />Your simulation submission is saved. You can reopen it from the dashboard.</p>}
+      </SubmissionTabs>
+      <SubmissionPanel id={panelId} tab="submission" active={activeTab}>
+        <div className={`submission-evidence-grid${!result.simulationPreview && !result.simulationSpec ? " without-preview" : ""}`}>
+          <div className="submission-evidence-stack">
+            {result.simulationDescription && <section className="evidence-panel">
+              <div className="submission-card-header"><h2><FileText size={16} aria-hidden="true" />Your Simulation Description</h2><span className="submission-card-label">Saved response</span></div>
+              <p className="submission-response-text">{result.simulationDescription}</p>
+            </section>}
+            {result.transcript && <section className="evidence-panel">
+              <div className="submission-card-header"><h2>Transcript</h2><span className="submission-card-label">Saved response</span></div>
+              <p className="submission-response-text">{result.transcript}</p>
+            </section>}
+            {result.ocrText && <section className="evidence-panel">
+              <div className="submission-card-header"><h2>Transcribed Writing</h2><span className="submission-card-label">Saved response</span></div>
+              <p className="submission-response-text">{result.ocrText}</p>
+            </section>}
+            {!result.simulationDescription && !result.transcript && !result.ocrText && <section className="evidence-panel"><h2>Submission evidence</h2><p className="overall-comment">No saved text is available for this submission.</p></section>}
+            {result.simulationSketchPreview && <details className="submission-sketch">
+              <summary><Image size={15} aria-hidden="true" />Generated Sketch<span className="submission-card-label">View sketch</span></summary>
+              <div className="submission-sketch-body">
+                <button className="secondary-button" type="button" onClick={() => { void reloadSketchPreview(); }} disabled={sketchPreviewLoading}><RotateCw size={14} aria-hidden="true" />{sketchPreviewLoading ? "Reloading sketch" : "Reload sketch"}</button>
+                {sketchPreviewError && <p className="field-error">{sketchPreviewError}</p>}
+                {sketchPreviewUrl ? <img className="sketch-preview-image" alt="Generated simulation sketch" src={sketchPreviewUrl} /> : <p className="status-line">{sketchPreviewLoading ? "Loading sketch…" : "Sketch unavailable."}</p>}
+              </div>
+            </details>}
           </div>
-          {simulationPreviewError && <p className="field-error">{simulationPreviewError}</p>}
-          {simulationPreviewUrl ? (
-            <SimulationPreviewFrame
-              artifactId={result.simulationPreview.artifactId}
-              title="Recovered simulation preview"
-              src={simulationPreviewUrl}
-              viewport={result.simulationPreview.htmlViewport}
-            />
-          ) : (
-            <p className="status-line">Preview unavailable.</p>
-          )}
-        </section>
-      )}
+          {(result.simulationPreview || result.simulationSpec) && <div className="submission-evidence-stack">
+            {result.simulationPreview && <section className="evidence-panel submission-preview-panel" ref={previewPanelRef}>
+              <div className="submission-card-header">
+                <h2><Play size={15} aria-hidden="true" />Simulation Preview</h2>
+                <div className="preview-actions">
+                  <button className="secondary-button" type="button" aria-label={simulationPreviewLoading ? "Reloading preview" : "Reload preview"} title="Reload preview" onClick={() => { void reloadSimulationPreview(); }} disabled={simulationPreviewLoading}><RotateCw size={14} aria-hidden="true" /><span>Reload</span></button>
+                  {document.fullscreenEnabled && <button className="secondary-button" type="button" aria-label={previewExpanded ? "Exit full screen" : "Expand preview"} title={previewExpanded ? "Exit full screen" : "Expand preview"} aria-pressed={previewExpanded} onClick={() => { void togglePreviewExpanded(); }}>{previewExpanded ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />}<span>{previewExpanded ? "Exit" : "Expand"}</span></button>}
+                </div>
+              </div>
+              {simulationPreviewError && <p className="field-error">{simulationPreviewError}</p>}
+              {simulationPreviewUrl ? <SimulationPreviewFrame artifactId={result.simulationPreview.artifactId} title="Recovered simulation preview" src={simulationPreviewUrl} viewport={result.simulationPreview.htmlViewport} /> : <p className="status-line" role="status">{simulationPreviewLoading ? "Loading your saved simulation…" : "Preview unavailable."}</p>}
+            </section>}
+            {result.simulationSpec && (result.simulationPreview ? <details className="submission-sketch"><summary><FileText size={15} aria-hidden="true" />Structured simulation<span className="submission-card-label">View model</span></summary><SimulationRenderer spec={result.simulationSpec} /></details> : <SimulationRenderer spec={result.simulationSpec} />)}
+          </div>}
+        </div>
+      </SubmissionPanel>
+      <SubmissionPanel id={panelId} tab="feedback" active={activeTab}>
+        {result.publishedGrade && <PublishedGradeSummary grade={result.publishedGrade}>{result.assignmentId && <Link className="text-button" to={`/final/${result.assignmentId}`}>View final result</Link>}</PublishedGradeSummary>}
+        {!result.publishedGrade && !result.provisionalFeedback && <div className="submission-feedback-note"><Clock3 size={16} aria-hidden="true" /><div><strong>{result.status === "draft" ? "This is a saved draft" : result.status === "error" ? "Feedback is unavailable" : "Feedback has not been published yet"}</strong>{result.status === "draft" ? "Submit your assignment to receive feedback. The assessment rubric is shown below." : "You can return here to check for feedback. The assessment rubric is shown below."}</div></div>}
+        {!isApprovedAiPublishedWithFeedback(result) && <RubricFeedback feedback={result.provisionalFeedback} rubric={result.assessment.rubric} heading="Provisional Automated Feedback" subheading="This score can differ from a teacher-published final grade." />}
+        {isApprovedAiPublishedWithFeedback(result) && result.publishedGrade?.feedback && <RubricFeedback feedback={result.publishedGrade.feedback} rubric={result.assessment.rubric} heading="Published Feedback" subheading="This feedback is part of the published final result." />}
+      </SubmissionPanel>
+      <SubmissionPanel id={panelId} tab="instructions" active={activeTab}>
+        <section className="evidence-panel"><h2>Assessment Prompt</h2><AssignmentPrompt text={result.assessment.prompt} /></section>
+      </SubmissionPanel>
     </div>
   );
-}
-
-function formatFinalStatus(status: "approved_ai" | "teacher_override" | "missing"): string {
-  if (status === "approved_ai") return "Approved AI";
-  if (status === "teacher_override") return "Teacher Override";
-  return "Missing";
 }
 
 function isApprovedAiPublishedWithFeedback(result: AttemptResult): boolean {

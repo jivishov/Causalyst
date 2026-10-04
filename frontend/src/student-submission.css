@@ -1,0 +1,99 @@
+.app-shell.student-design .student-submission-page { gap: 12px; padding: 0; min-height: 0; }
+.app-shell.student-design .student-submission-page :is(h2, h3, p) { margin: 0; }
+.app-shell.student-design .submission-header { display: flex; align-items: flex-start; gap: 12px; padding: 0; }
+.app-shell.student-design .submission-back { display: grid; place-items: center; flex: 0 0 34px; height: 34px; border: 1px solid #dfd9ec; border-radius: 9px; background: white; color: #6350c8; }
+.app-shell.student-design .submission-back:hover { background: #eeebfa; }
+.app-shell.student-design .submission-heading { min-width: 0; flex: 1; }
+.app-shell.student-design .submission-heading h1 { margin: 0; font-size: 24px; line-height: 1.3; overflow-wrap: break-word; }
+.app-shell.student-design .submission-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 14px; margin-top: 5px; color: #746b84; font-size: 11px; line-height: 1.5; }
+.app-shell.student-design .submission-status { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; padding: 6px 9px; margin-top: 3px; border: 1px solid #dfd6f4; border-radius: 7px; background: #eeebfa; color: #5d4795; font-size: 11px; font-weight: 600; }
+.app-shell.student-design .submission-status.needs-attention { color: #9d3e5d; background: #f9eaf0; border-color: #edd5df; }
+.app-shell.student-design .submission-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 6px 16px; border-bottom: 1px solid #e1dcec; }
+.app-shell.student-design .submission-tabs { display: flex; gap: 18px; min-width: 0; }
+.app-shell.student-design .submission-tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none; padding: 10px 0; color: #746b84; font-size: 12px; font-weight: 600; white-space: nowrap; min-height: 38px; }
+.app-shell.student-design .submission-tabs button[aria-selected="true"] { color: #6350c8; border-bottom-color: #6350c8; }
+.app-shell.student-design .submission-tabs button:hover { color: #443362; }
+.app-shell.student-design .submission-save-note { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #746b84; line-height: 1.5; }
+.app-shell.student-design .submission-save-note svg { flex-shrink: 0; color: #796499; }
+.app-shell.student-design .submission-tab-panel { display: grid; gap: 12px; min-width: 0; }
+.app-shell.student-design .submission-tab-panel[hidden] { display: none; }
+.app-shell.student-design .submission-evidence-grid { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.2fr); gap: 12px; align-items: start; }
+.app-shell.student-design .submission-evidence-grid.without-preview { grid-template-columns: minmax(0, 1fr); }
+.app-shell.student-design .submission-evidence-stack { display: grid; align-content: start; gap: 12px; min-width: 0; }
+.app-shell.student-design .student-submission-page :is(.evidence-panel, .feedback-panel, .simulation-panel) { min-width: 0; padding: 16px 18px; border: 1px solid #e1dcec; border-radius: 11px; background: white; }
+.app-shell.student-design .student-submission-page h2 { font-size: 14px; line-height: 1.4; letter-spacing: -.1px; color: #30283f; }
+.app-shell.student-design .submission-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.app-shell.student-design .submission-card-header h2 { display: flex; align-items: center; gap: 7px; }
+.app-shell.student-design .submission-card-header h2 svg { color: #8c77ad; flex-shrink: 0; }
+.app-shell.student-design .submission-card-label { font-size: 10px; color: #746b84; white-space: nowrap; }
+.app-shell.student-design .submission-response-text { color: #50475e; font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; }
+.app-shell.student-design .student-submission-page .submission-preview-panel { padding: 0; overflow: hidden; }
+.app-shell.student-design .submission-preview-panel .submission-card-header { padding: 9px 13px; margin: 0; min-height: 45px; border-bottom: 1px solid #e9e3f1; }
+.app-shell.student-design .submission-preview-panel .preview-actions { flex: 0 0 auto; display: flex; flex-wrap: nowrap; gap: 5px; }
+.app-shell.student-design .student-submission-page .preview-actions .secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 29px; padding: 4px 7px; font-size: 10px; color: #6350c8; border-color: #e2daf0; box-shadow: none; }
+.app-shell.student-design .student-submission-page .simulation-preview-frame { min-height: 0; border: 0; border-radius: 0; }
+.app-shell.student-design .student-submission-page .simulation-preview-iframe { min-height: 0; }
+.app-shell.student-design .submission-preview-panel > :is(.field-error, .status-line) { margin: 12px 14px; font-size: 12px; }
+.app-shell.student-design .submission-preview-panel:fullscreen { display: flex; flex-direction: column; background: white; border: 0; border-radius: 0; }
+.app-shell.student-design .submission-preview-panel:fullscreen .simulation-preview-frame { flex: 1; height: auto !important; max-height: none !important; }
+.app-shell.student-design .submission-sketch { border: 1px solid #e1dcec; border-radius: 11px; background: white; overflow: hidden; }
+.app-shell.student-design .submission-sketch summary { display: flex; align-items: center; gap: 7px; padding: 11px 14px; cursor: pointer; color: #5f506f; font-size: 12px; font-weight: 600; }
+.app-shell.student-design .submission-sketch summary svg { color: #8c77ad; }
+.app-shell.student-design .submission-sketch .submission-card-label { margin-left: auto; }
+.app-shell.student-design .submission-sketch-body { padding: 0 14px 14px; display: grid; gap: 9px; }
+.app-shell.student-design .submission-sketch-body .secondary-button { justify-self: start; }
+.app-shell.student-design .submission-grade-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border: 1px solid #d8cce9; border-radius: 11px; background: #eee8f7; }
+.app-shell.student-design .submission-grade-copy { min-width: 0; }
+.app-shell.student-design .submission-grade-copy h2 { display: flex; align-items: center; gap: 7px; color: #493661; }
+.app-shell.student-design .submission-grade-copy p { color: #7a688d; font-size: 11px; margin-top: 5px; line-height: 1.6; }
+.app-shell.student-design .submission-grade-copy .text-button { display: inline-flex; align-items: center; gap: 4px; margin-top: 9px; font-size: 12px; color: #6350c8; }
+.app-shell.student-design .submission-grade-score { display: grid; justify-items: end; gap: 3px; flex-shrink: 0; }
+.app-shell.student-design .submission-grade-score span { font-size: 10px; color: #7a688d; }
+.app-shell.student-design .submission-grade-score strong { font-size: 30px; line-height: 1.1; letter-spacing: -.6px; font-weight: 650; color: #493661; }
+.app-shell.student-design .submission-grade-summary.is-missing { border-color: #ead5df; background: #f9edf2; }
+.app-shell.student-design .submission-grade-summary.is-missing .submission-grade-score strong { font-size: 20px; color: #9d3e5d; }
+.app-shell.student-design .student-submission-page .feedback-header { display: flex; flex-direction: row; flex-wrap: nowrap; align-items: flex-start; justify-content: space-between; text-align: left; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #e9e3f1; }
+.app-shell.student-design .student-submission-page .feedback-header > div:first-child { min-width: 0; flex: 1; }
+.app-shell.student-design .student-submission-page .feedback-header p { font-size: 11px; color: #746b84; margin-top: 4px; line-height: 1.55; }
+.app-shell.student-design .student-submission-page .score-dial { flex-shrink: 0; width: 52px; height: 48px; border: 1px solid #e0d6ef; border-radius: 9px; background: #f3eefb; font-size: 22px; font-weight: 650; }
+.app-shell.student-design .student-submission-page .overall-comment { font-size: 13px; line-height: 1.75; color: #50475e; margin: 12px 0; }
+.app-shell.student-design .student-submission-page .criterion-list { gap: 0; margin-top: 8px; }
+.app-shell.student-design .student-submission-page .criterion-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; padding: 11px 0; border: 0; border-bottom: 1px solid #eee9f3; border-radius: 0; background: transparent; }
+.app-shell.student-design .student-submission-page .criterion-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.app-shell.student-design .student-submission-page .criterion-row span { font-size: 12px; font-weight: 600; color: #44364f; }
+.app-shell.student-design .student-submission-page .criterion-row strong { padding: 2px 6px; align-self: start; border-radius: 4px; background: #f0ebf8; color: #6350c8; font-size: 11px; }
+.app-shell.student-design .student-submission-page .criterion-row p { grid-column: 1/-1; color: #746b84; font-size: 12px; line-height: 1.65; }
+.app-shell.student-design .student-submission-page .review-flags { margin-top: 12px; }
+.app-shell.student-design .student-submission-page .review-flags span { font-size: 11px; background: #f9edf2; color: #9d3e5d; }
+.app-shell.student-design .submission-feedback-note { display: flex; align-items: flex-start; gap: 8px; padding: 12px 15px; border: 1px solid #e1dcec; border-radius: 9px; background: #f0ecf8; color: #71617f; font-size: 12px; line-height: 1.6; }
+.app-shell.student-design .submission-feedback-note svg { flex-shrink: 0; margin-top: 2px; }
+.app-shell.student-design .submission-feedback-note strong { display: block; color: #50405f; font-size: 13px; }
+.app-shell.student-design .student-submission-page .assignment-prompt { margin-top: 10px; padding: 0; width: 100%; max-width: none; color: #62576f; font-size: 13px; line-height: 1.75; }
+.app-shell.student-design .student-submission-page .assignment-prompt p { width: 100%; max-width: none; white-space: normal; }
+.app-shell.student-design .student-submission-page .assignment-prompt-list { grid-template-columns: minmax(0, 1fr); gap: 7px; }
+.app-shell.student-design .student-submission-page .assignment-prompt-note { color: #6a527f; background: #f3eef9; border-left-color: #a18abd; }
+.app-shell.student-design .submission-error { justify-items: start; }
+.app-shell.student-design .submission-error .submission-feedback-note { width: 100%; }
+@media (max-width: 1050px) {
+  .app-shell.student-design .submission-evidence-grid { grid-template-columns: minmax(0, 1fr); }
+  .app-shell.student-design .submission-toolbar { flex-wrap: wrap; padding-bottom: 7px; }
+  .app-shell.student-design .submission-save-note { font-size: 10px; }
+}
+@media (max-width: 760px) {
+  .app-shell.student-design .submission-header { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 7px 10px; }
+  .app-shell.student-design .submission-heading h1 { font-size: 20px; }
+  .app-shell.student-design .submission-meta { font-size: 10px; gap: 3px 9px; }
+  .app-shell.student-design .submission-status { grid-column: 2; justify-self: start; margin: 0; font-size: 10px; padding: 4px 7px; }
+  .app-shell.student-design .submission-toolbar { gap: 4px; }
+  .app-shell.student-design .submission-tabs { width: 100%; justify-content: space-between; gap: 10px; }
+  .app-shell.student-design .submission-tabs button { font-size: 11px; padding: 9px 0; }
+  .app-shell.student-design .student-submission-page :is(.evidence-panel, .feedback-panel, .simulation-panel) { padding: 13px 14px; }
+  .app-shell.student-design .student-submission-page .submission-preview-panel { padding: 0; }
+  .app-shell.student-design .submission-card-header { gap: 6px; }
+  .app-shell.student-design .submission-preview-panel h2 { font-size: 12px; }
+  .app-shell.student-design .submission-preview-panel .preview-actions .secondary-button span { display: none; }
+  .app-shell.student-design .submission-response-text { font-size: 12px; line-height: 1.75; }
+  .app-shell.student-design .submission-grade-summary { padding: 13px 14px; }
+  .app-shell.student-design .submission-grade-score strong { font-size: 25px; }
+  .app-shell.student-design .submission-grade-summary.is-missing .submission-grade-score strong { font-size: 16px; }
+}

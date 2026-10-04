@@ -25,6 +25,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SB_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SB_URL: ${{ vars.SUPABASE_URL }}
+          WORKER_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          WORKER_URL: ${{ vars.VITE_WORKER_URL }}
         run: |
           node --input-type=module - <<'NODE'
           const token = process.env.CF_TOKEN;
@@ -94,6 +96,20 @@ jobs:
           if (!pagesResponse.ok) throw new Error("Could not inspect GitHub Pages configuration: HTTP " + pagesResponse.status);
           const pages = await pagesResponse.json();
           console.log("GITHUB_PAGES_CONFIGURATION:", JSON.stringify({ cname: pages.cname, html_url: pages.html_url, build_type: pages.build_type, https_enforced: pages.https_enforced }));
+          const workerSettings = await fetch("https://api.cloudflare.com/client/v4/accounts/" + accountId + "/workers/scripts/alt-assessment-student-api/settings", {
+            headers: { Authorization: "Bearer " + process.env.WORKER_TOKEN }
+          });
+          if (workerSettings.ok) {
+            const workerConfig = await workerSettings.json();
+            console.log("API_ALLOWED_ORIGINS_SETTING:", workerConfig.result?.bindings?.find(binding => binding.name === "ALLOWED_ORIGINS")?.text || "(not available)");
+          }
+          for (const origin of ["https://jivishov.github.io", "https://explain.az", "https://www.explain.az"]) {
+            const response = await fetch(process.env.WORKER_URL + "/api/student/me", {
+              method: "OPTIONS",
+              headers: { Origin: origin, "Access-Control-Request-Method": "GET", "Access-Control-Request-Headers": "authorization,content-type" }
+            });
+            console.log("API_PREFLIGHT:", JSON.stringify({ origin, status: response.status, allowedOrigin: response.headers.get("access-control-allow-origin") }));
+          }
           const callbacks = [
             "https://explain.az/login",
             "https://explain.az/teacher",

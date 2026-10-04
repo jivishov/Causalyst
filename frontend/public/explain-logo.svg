@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="title description">
+  <title id="title">Explain.az</title>
+  <desc id="description">A speech bubble containing connected points that form an E: an explanation becoming a model, with one highlighted point to explore.</desc>
+  <defs>
+    <linearGradient id="bubble" x1="9" y1="5" x2="53" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A88ADB" />
+      <stop offset="1" stop-color="#6850AD" />
+    </linearGradient>
+    <linearGradient id="active-point" x1="40" y1="25" x2="48" y2="34" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE4B7" />
+      <stop offset="1" stop-color="#EAB574" />
+    </linearGradient>
+  </defs>
+  <path d="M19 4H45C54.389 4 60 9.611 60 19V37C60 46.389 54.389 52 45 52H30L17 60V51.9C8.826 51.244 4 45.775 4 37V19C4 9.611 9.611 4 19 4Z" fill="url(#bubble)" />
+  <path d="M19 5H45C53.837 5 59 10.163 59 19V37C59 45.837 53.837 51 45 51H29.717L18 58.21V50.977L17.08 50.903C9.44 50.29 5 45.332 5 37V19C5 10.163 10.163 5 19 5Z" stroke="#F4E9FF" stroke-opacity=".22" />
+  <path d="M22 18V40M22 18H43M22 29H44M22 40H43" stroke="#FCF9FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="22" cy="29" r="4" fill="#FCF9FF" />
+  <circle cx="43" cy="18" r="3.5" fill="#FCF9FF" />
+  <circle cx="43" cy="40" r="3.5" fill="#FCF9FF" />
+  <circle cx="44" cy="29" r="6" fill="#6850AD" />
+  <circle cx="44" cy="29" r="4.5" fill="url(#active-point)" />
+</svg>

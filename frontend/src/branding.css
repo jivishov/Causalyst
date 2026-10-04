@@ -1,0 +1,10 @@
+.explain-logo { display: block; flex-shrink: 0; object-fit: contain; }
+.frontpage-brand { white-space: nowrap; }
+.frontpage-brand > .explain-logo { width: 36px; height: 36px; }
+.frontpage-footer .frontpage-brand > .explain-logo { width: 24px; height: 24px; }
+.account-workspace .brand-lockup > .explain-logo { width: 34px; height: 34px; }
+.teacher-login-design .teacher-mark { width: 44px; height: 44px; padding: 0; background: transparent; border: 0; }
+.teacher-login-design .teacher-brand-name { display: block; margin-bottom: 2px; color: #73568c; font-size: 13px; font-weight: 650; letter-spacing: -.2px; }
+@media (max-width: 760px) {
+  .account-workspace .brand-lockup > .explain-logo { width: 29px; height: 29px; }
+}

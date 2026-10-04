@@ -12,6 +12,7 @@ import "./student-design.css";
 import "./teacher-design.css";
 import "./student-frontpage.css";
 import "./student-submission.css";
+import "./branding.css";
 
 const base = import.meta.env.BASE_URL || "/";
 

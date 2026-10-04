@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, ArrowRight, AudioLines, Check, FileText, FlaskConical, MessageCircle, MousePointer2, Orbit } from "lucide-react";
+import { ArrowDown, ArrowRight, AudioLines, Check, FileText, FlaskConical, MessageCircle, Orbit } from "lucide-react";
 import { Link } from "react-router-dom";
+import { GasExample } from "./GasExample";
 
 const FORMATS = [
   { id: "simulation", label: "Simulation", Icon: Orbit, summary: "Turn an explanation into something you can test.", action: "Describe how a system works, generate a visual model, and refine it to match your reasoning.", evidence: "Your explanation and the simulation you developed.", example: "How does changing the volume of a gas affect its pressure?" },
@@ -37,7 +38,7 @@ export function StudentFrontpage({ children }: { children: ReactNode }) {
         <section className="frontpage-hero" aria-labelledby="frontpage-title">
           <div className="frontpage-intro">
             <span className="frontpage-eyebrow"><span />A workspace for your understanding</span>
-            <h1 id="frontpage-title">Show your thinking.<br /><em>Build understanding.</em></h1>
+            <h1 id="frontpage-title">Explain your thinking.<br /><em>Build understanding.</em></h1>
             <p className="frontpage-lead">Explain ideas, create evidence, and show what you understand through simulations, writing, and voice.</p>
             <a className="frontpage-explore" href="#assessment-formats">Find your way to express an idea <ArrowDown size={16} /></a>
             {children}
@@ -67,34 +68,4 @@ export function StudentFrontpage({ children }: { children: ReactNode }) {
       </div>
     </main>
   );
-}
-
-function GasExample() {
-  const [volume, setVolume] = useState(80);
-  const chamberWidth = 280 * volume / 100;
-  const pressure = 100 / volume;
-  const particles = [[.12,.2],[.36,.15],[.62,.28],[.84,.16],[.2,.56],[.46,.46],[.76,.55],[.13,.81],[.39,.77],[.64,.84],[.86,.78],[.58,.62]];
-
-  return <aside className="frontpage-example" aria-label="Interactive simulation example">
-    <div className="frontpage-example-caption"><span><Orbit size={16} />An idea, made visible</span><span>Try a simulation</span></div>
-    <div className="frontpage-example-card">
-      <div className="frontpage-example-header"><span><span className="frontpage-example-dot" />Simulation preview</span><span>Interactive example</span></div>
-      <div className="frontpage-example-prompt"><span>Your explanation</span><p>“With the same amount of gas at a constant temperature, a smaller volume means higher pressure.”</p></div>
-      <div className="frontpage-gas-model">
-        <div className="frontpage-gas-title"><h2>Give an idea a little room.</h2><span>Then see what changes.</span></div>
-        <svg viewBox="0 0 380 190" role="img" aria-label={`Gas volume is ${volume} percent of the reference volume. Relative pressure is ${pressure.toFixed(2)} times the reference pressure.`}>
-          <defs><pattern id="gas-grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#dedbe8" strokeWidth=".6" /></pattern></defs>
-          <rect x="20" y="4" width="340" height="182" rx="12" fill="url(#gas-grid)" />
-          <path d={`M${48 + chamberWidth} 26H48V162H${48 + chamberWidth}`} fill="#eeebfa" stroke="#6350c8" strokeWidth="2" />
-          <rect x={48 + chamberWidth} y="23" width="9" height="142" rx="3" fill="#6350c8" />
-          <path d={`M${57 + chamberWidth} 94H344`} stroke="#aaa2c0" strokeWidth="6" /><path d="M345 78V110" stroke="#aaa2c0" strokeWidth="5" strokeLinecap="round" />
-          {particles.map(([x,y], index) => <circle className="frontpage-gas-particle" key={index} cx={60 + x * (chamberWidth - 24)} cy={40 + y * 108} r={index % 3 === 0 ? 5 : 4} fill={index % 3 === 0 ? "#c4775e" : "#6350c8"} style={{ animationDelay: `${index * -.31}s` }} />)}
-        </svg>
-        <div className="frontpage-gas-control"><label htmlFor="example-volume">Volume <output htmlFor="example-volume">{volume}%</output></label><input id="example-volume" aria-label="Volume" type="range" min="35" max="100" step="1" value={volume} onChange={event => setVolume(Number(event.target.value))} /><div><span>Compress</span><span>Expand</span></div></div>
-        <div className="frontpage-gas-readout"><span>Relative pressure <strong data-testid="example-pressure">{pressure.toFixed(2)}×</strong></span><span>Same gas · Constant temperature</span></div>
-      </div>
-      <div className="frontpage-example-footer"><MousePointer2 size={15} /><span>Move the slider. What do you notice?</span><span>Sample only</span></div>
-    </div>
-    <p className="frontpage-example-note">In a simulation assessment, you answer by explaining the process. AI helps turn your explanation into a model that you can test and refine.</p>
-  </aside>;
 }

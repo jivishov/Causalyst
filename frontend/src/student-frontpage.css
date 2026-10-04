@@ -20,7 +20,7 @@
 .frontpage-hero {display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:start;gap:54px;padding:22px 0 20px}
 .frontpage-eyebrow {display:flex;align-items:center;gap:8px;color:#7a6a8b;font-size:10px;letter-spacing:1.25px;text-transform:uppercase;font-weight:600}
 .frontpage-eyebrow>span {width:6px;height:6px;border-radius:50%;background:#a481bc}
-.student-frontpage h1 {margin:10px 0 12px;font-size:clamp(40px,4.25vw,58px);letter-spacing:-2.4px;line-height:1.07;font-weight:650}
+.student-frontpage h1 {margin:10px 0 12px;font-size:clamp(40px,4vw,54px);letter-spacing:-2.4px;line-height:1.07;font-weight:650}
 .student-frontpage h1 em {font-family:Georgia,"Times New Roman",serif;font-weight:400;color:#73568c;letter-spacing:-2.2px}
 .frontpage-lead {font-size:16px;line-height:1.6;max-width:455px;color:#71687e}
 .frontpage-explore {display:inline-flex;align-items:center;gap:9px;font-size:12px;font-weight:600;margin-top:12px;color:#6350c8!important}
@@ -39,7 +39,7 @@
 .student-frontpage .google-only-reset-button:hover {color:#6350c8}
 .student-frontpage .google-only-error {color:#984a38!important;background:#fff0e9;border-radius:6px;padding:9px 11px;font-size:11px!important;overflow-wrap:anywhere}
 .student-frontpage .google-only-status {font-size:11px;overflow-wrap:anywhere}
-.frontpage-example {min-width:0;transform:rotate(1deg)}
+.frontpage-example {min-width:0}
 .frontpage-example-caption {display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;padding:0 5px;font-size:10px;color:#796b87}
 .frontpage-example-caption>span:first-child {display:flex;align-items:center;gap:6px;color:#766187;font-weight:600}
 .frontpage-example-card {border:1px solid #ddd5e8;border-radius:13px;overflow:hidden;background:#fff;box-shadow:0 12px 36px #43315e0a,0 2px 7px #43315e06}
@@ -54,8 +54,9 @@
 .frontpage-gas-title h2 {font-size:19px;font-weight:550;letter-spacing:-.5px}
 .frontpage-gas-title>span {font-size:10px;color:#796b87;display:block;margin-top:2px}
 .frontpage-gas-model>svg {width:100%;height:154px;display:block;margin:6px 0}
-.frontpage-gas-particle {animation:gas-drift 2.4s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
-@keyframes gas-drift {from {transform:translate(-3px,-3px)}to {transform:translate(3px,3px)}}
+.frontpage-gas-svg-label {font:10px "Segoe UI",Arial,sans-serif;fill:#796b87}
+.frontpage-gas-assumption {font-size:10px;line-height:1.5;color:#796b87;margin-top:7px!important}
+.frontpage-gas-assumption strong {font-weight:600;color:#6d547e}
 .frontpage-gas-control label {display:flex;justify-content:space-between;color:#7a648b;font-size:11px;font-weight:600}
 .frontpage-gas-control output {color:#6350c8;font-variant-numeric:tabular-nums}
 .frontpage-gas-control input {display:block;width:100%;height:25px;margin:3px 0 0;padding:0;accent-color:#6350c8;background:transparent;border:0;box-shadow:none;cursor:ew-resize}
@@ -99,7 +100,7 @@
 .frontpage-footer {display:flex;align-items:center;gap:18px;border-top:1px solid var(--line);padding:12px 0 14px;font-size:10px;color:#796b87}
 .frontpage-footer .frontpage-brand {font-size:14px;color:#867196;gap:7px;letter-spacing:-.3px}
 .frontpage-footer>a {margin-left:auto;display:flex;align-items:center;gap:6px}
-@media (min-width:1500px) {.student-frontpage h1 {font-size:60px}}
+@media (min-width:1500px) {.student-frontpage h1 {font-size:56px}}
 @media (max-width:1100px) {
   .student-frontpage .frontpage-wrap {padding:0 30px}
   .frontpage-hero {gap:32px}

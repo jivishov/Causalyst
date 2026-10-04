@@ -1,4 +1,4 @@
-name: Release teacher workspace and student frontpage
+name: Release compact student frontpage
 on:
   push:
     branches: [main]
@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
       - name: Verify the validated frontend and deployed backend
         env:
-          REVIEWED_SHA: ee3a2eeb512489d4283153e74e2f4518a63c3f84
+          REVIEWED_SHA: a2753b6f95c0cc7b812c7112bf48183faffc95ac
           BACKEND_SHA: 05c2987e97590edd005756ce8907b363fc25d978
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
@@ -30,10 +30,10 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37207738884 });
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37209173870 });
             const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37072085393 });
             for (const [run, sha] of [
-              [checked.data, "ee3a2eeb512489d4283153e74e2f4518a63c3f84"],
+              [checked.data, "a2753b6f95c0cc7b812c7112bf48183faffc95ac"],
               [deployed.data, "05c2987e97590edd005756ce8907b363fc25d978"]
             ]) {
               if (run.head_sha !== sha || run.status !== "completed" || run.conclusion !== "success") {
@@ -71,10 +71,20 @@ jobs:
               for (const marker of ["teacher-design", "teacher-builder-tabs", "student-frontpage", "frontpage-format-tabs", "student-mobile-signout"]) {
                 if (!css.includes(marker)) throw new Error("Published interface is missing " + marker);
               }
+              if (!/\.frontpage-hero\s*\{[^}]*padding:\s*22px 0 20px/.test(css)) {
+                throw new Error("The compact student frontpage spacing has not updated yet.");
+              }
               const module = html.match(/src=["']([^"']+\.js)["']/)?.[1];
               if (!module) throw new Error("App entry module was not found.");
-              const entry = await fetch(new URL(module, base));
+              const entryUrl = new URL(module, base);
+              const entry = await fetch(entryUrl);
               if (!entry.ok) throw new Error("App entry module returned HTTP " + entry.status);
+              const loginModule = (await entry.text()).match(/\bimport\(["']([^"']*Login-[^"']+\.js)["']\)/)?.[1];
+              if (!loginModule) throw new Error("Student frontpage module was not found.");
+              const frontpage = await fetch(new URL(loginModule, entryUrl));
+              if (!frontpage.ok || !(await frontpage.text()).includes("In a simulation assessment, you answer by explaining the process.")) {
+                throw new Error("The revised simulation explanation has not updated yet.");
+              }
               const fallback = await fetch(base + "404.html?release=" + version);
               if (!fallback.ok || !(await fallback.text()).includes("Show your thinking")) {
                 throw new Error("The app's deep-link fallback has not updated yet.");

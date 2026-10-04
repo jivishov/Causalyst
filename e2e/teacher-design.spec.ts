@@ -83,7 +83,7 @@ test("teacher pages remain usable on mobile and validation opens the field's tab
   await expect(page.getByRole("tab", { name: "Prompt", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByLabel("Title", { exact: true })).toBeFocused();
   await page.getByLabel("Title", { exact: true }).fill("Voice explanation");
-  await page.getByLabel("Prompt", { exact: true }).fill("Explain your scientific reasoning with a specific example.");
+  await page.getByRole("textbox", { name: "Prompt", exact: true }).fill("Explain your scientific reasoning with a specific example.");
   await page.getByRole("tab", { name: "Models & settings", exact: true }).click();
   await page.getByLabel("Max recording seconds", { exact: true }).fill("invalid");
   await page.locator("#builder-panel-settings summary").click();

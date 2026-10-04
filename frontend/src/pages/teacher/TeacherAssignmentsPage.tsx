@@ -1,9 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Archive, CalendarRange, Pencil, RotateCcw } from "lucide-react";
 import type { AssessmentType, TeacherAssignment } from "@alt-assessment/shared";
+import { useSearchParams } from "react-router-dom";
 import { useTeacherWorkspaceData } from "./TeacherWorkspaceData";
 
 export function TeacherAssignmentsPage() {
+  const [searchParams] = useSearchParams();
+  const requestedAssessmentId = searchParams.get("assessment");
   const {
     courses,
     selectedCourseId,
@@ -35,9 +38,9 @@ export function TeacherAssignmentsPage() {
     }
     const activeIds = new Set(activeAssessments.map((item) => item.id));
     if (!assignmentAssessmentId || !activeIds.has(assignmentAssessmentId)) {
-      setAssignmentAssessmentId(activeAssessments[0].id);
+      setAssignmentAssessmentId(activeAssessments.find(item => item.id === requestedAssessmentId)?.id ?? activeAssessments[0].id);
     }
-  }, [assignmentAssessmentId, activeAssessments]);
+  }, [assignmentAssessmentId, activeAssessments, requestedAssessmentId]);
 
   useEffect(() => {
     if (courses.length === 0) {
@@ -131,7 +134,7 @@ export function TeacherAssignmentsPage() {
       <form className="assignment-form" onSubmit={submitAssignment}>
         <label>
           Assessment
-          <select value={assignmentAssessmentId} onChange={(event) => setAssignmentAssessmentId(event.target.value)} required>
+          <select aria-label="Assessment" value={assignmentAssessmentId} onChange={(event) => setAssignmentAssessmentId(event.target.value)} required>
             {activeAssessments.length === 0 ? (
               <option value="">Create an assessment first</option>
             ) : (
@@ -145,7 +148,7 @@ export function TeacherAssignmentsPage() {
         </label>
         <label>
           Course
-          <select value={assignmentCourseId} onChange={(event) => setAssignmentCourseId(event.target.value)} required>
+          <select aria-label="Course" value={assignmentCourseId} onChange={(event) => setAssignmentCourseId(event.target.value)} required>
             {courses.length === 0 ? (
               <option value="">Create a course first</option>
             ) : (

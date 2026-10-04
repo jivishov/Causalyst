@@ -1,0 +1,220 @@
+/* The approved iris design, applied to the data-backed teacher workspace. */
+.teacher-page.account-workspace.teacher-design {
+  --ink:#242137; --muted:#696579; --paper:#f5f4f9; --surface:#fff; --panel:#fff;
+  --line:#e2dfeb; --accent:#6350c8; --accent-strong:#4e3bab; --accent-soft:#eeebfa;
+  --focus:#9c6fca; --amber:#984a38; --green:#6350c8; --shadow:0 2px 9px #25213904;
+  --teacher-bg:var(--paper); --teacher-surface:#fff; --teacher-soft:#f6f4fb;
+  --teacher-line:var(--line); --teacher-ink:var(--ink); --teacher-muted:var(--muted);
+  --teacher-primary:var(--accent); --teacher-primary-hover:var(--accent-strong); --teacher-shadow:var(--shadow);
+  grid-template-columns:218px minmax(0,1fr); font:14px/1.5 "Segoe UI Variable Text","Segoe UI",Arial,sans-serif;
+}
+.teacher-page.account-workspace.teacher-design.sidebar-collapsed {grid-template-columns:76px minmax(0,1fr)}
+.teacher-design .teacher-main-shell {min-width:0}
+.teacher-page.account-workspace.teacher-design .side-rail {padding:19px 13px 15px;background:#252139;color:#eee9ff}
+.teacher-page.account-workspace.teacher-design .brand-mark {width:32px;height:34px;flex-basis:32px;border-radius:9px;background:#443a63;color:#e3d7ff}
+.teacher-page.account-workspace.teacher-design .brand-copy strong {font-size:19px;letter-spacing:-.6px;color:#fff}
+.teacher-page.account-workspace.teacher-design .brand-copy small {font-size:10px;color:#b7aecb}
+.teacher-page.account-workspace.teacher-design .nav-section-label {margin-top:27px;color:#a69abb;font-size:9px;letter-spacing:1.2px}
+.teacher-page.account-workspace.teacher-design .side-nav {gap:4px;margin-top:9px}
+.teacher-page.account-workspace.teacher-design .side-nav a {min-height:39px;padding:9px 11px;color:#c9bfd9;font-size:12px;border-radius:7px}
+.teacher-page.account-workspace.teacher-design .side-nav a:hover {background:#393049;color:#fff}
+.teacher-page.account-workspace.teacher-design .side-nav a.active {background:#e9e1fa;color:#4d386c;border-color:transparent}
+.teacher-page.account-workspace.teacher-design .side-rail .icon-button {color:#bfb2d3}
+.teacher-page.account-workspace.teacher-design .side-rail .icon-button:hover {background:#3d3353;color:#fff}
+.teacher-page.account-workspace.teacher-design .rail-account {border-color:#49405b}
+.teacher-page.account-workspace.teacher-design .account-avatar {background:#514468;color:#eadcff}
+.teacher-page.account-workspace.teacher-design .rail-account-copy strong {color:#f3edff}
+.teacher-page.account-workspace.teacher-design .rail-account-copy small {color:#b7a9cb}
+.teacher-design .teacher-topbar {min-height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 26px;border-bottom:1px solid var(--line);background:#fff;font-size:11px;color:var(--muted)}
+.teacher-design .teacher-topbar>div {display:flex;align-items:center;gap:10px;min-width:0}
+.teacher-design .teacher-topbar a {color:var(--muted);text-decoration:none}
+.teacher-design .teacher-topbar>div>span:last-child {color:var(--ink)}
+.teacher-page.account-workspace.teacher-design .workspace-context {padding:0;background:transparent;border:0;border-radius:0;font-size:11px;color:var(--muted)}
+.teacher-design .teacher-mobile-signout {display:none}
+.teacher-page.account-workspace.teacher-design .content-shell {max-width:1600px;padding:18px 26px 28px}
+.teacher-design .skip-link {width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.teacher-design .skip-link:focus {width:auto;height:auto;clip-path:none}
+.teacher-page.account-workspace.teacher-design .workspace-page-header {min-height:37px;padding:0;border:0;margin-bottom:16px;gap:12px;align-items:center}
+.teacher-page.account-workspace.teacher-design .workspace-page-header h1 {font-size:26px;font-weight:650;letter-spacing:-.7px;line-height:1.2}
+.teacher-page.account-workspace.teacher-design .workspace-header-actions {gap:10px;min-width:0;flex-wrap:wrap}
+.teacher-design .teacher-page-tools {display:flex;align-items:center;gap:16px}
+.teacher-page.account-workspace.teacher-design .teacher-page-tools .checkbox-row {font-size:11px;color:var(--muted);font-weight:500;gap:6px;white-space:nowrap}
+.teacher-page.account-workspace.teacher-design :is(.teacher-dashboard,.page-stack,.teacher-courses-layout) {gap:16px}
+.teacher-page.account-workspace.teacher-design :is(.course-list-panel,.course-editor,.gradebook-page,.safe-preview-panel,.feedback-panel) {padding:15px;border-color:var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow)}
+.teacher-page.account-workspace.teacher-design :is(.course-list-header,.safe-preview-header,.gradebook-header) {margin-bottom:12px;align-items:center;flex-direction:row;flex-wrap:wrap;gap:10px}
+.teacher-page.account-workspace.teacher-design :is(.course-list-panel,.course-editor,.safe-preview-panel,.feedback-panel,.gradebook-header) h2 {font-size:14px;line-height:1.4;font-weight:650}
+.teacher-page.account-workspace.teacher-design :is(.primary-button,.secondary-button,.danger-button) {min-height:34px;padding:7px 11px;border-radius:7px;font-size:12px;line-height:1.3;box-shadow:none}
+.teacher-page.account-workspace.teacher-design .primary-button {background:#6350c8;border-color:#6350c8;color:#fff}
+.teacher-page.account-workspace.teacher-design .primary-button:hover:not(:disabled) {background:#4e3bab;border-color:#4e3bab}
+.teacher-page.account-workspace.teacher-design .secondary-button {background:#fff;color:#554866;border-color:#ddd5ea}
+.teacher-page.account-workspace.teacher-design .secondary-button:hover:not(:disabled) {background:#f5f0fb;border-color:#bdaed3;box-shadow:none}
+.teacher-page.account-workspace.teacher-design .danger-button {background:#fff0e9;color:#984a38;border-color:#eed3c6}
+.teacher-page.account-workspace.teacher-design .text-button {color:var(--accent);background:transparent}
+.teacher-page.account-workspace.teacher-design .text-button:hover {background:var(--accent-soft)}
+.teacher-page.account-workspace.teacher-design :is(input,textarea,select) {border-color:#dcd5e7;background:#fff;color:var(--ink);accent-color:#6350c8;border-radius:6px}
+.teacher-page.account-workspace.teacher-design :is(input,textarea,select):focus {border-color:#9582ca;box-shadow:0 0 0 3px #6350c80d}
+.teacher-page.account-workspace.teacher-design :is(input,textarea,select)::placeholder {color:#928b9e}
+.teacher-page.account-workspace.teacher-design :is(.review-filters,.gradebook-toolbar,.ai-student-policy,.assignment-form) {background:#faf8fd;border-color:var(--line);border-radius:8px}
+.teacher-page.account-workspace.teacher-design .course-row {border-color:var(--line);background:#fff;border-radius:8px;gap:10px;padding:12px;box-shadow:none}
+.teacher-page.account-workspace.teacher-design .course-row.selected-course {background:#f5f1fb;border-color:#c6b8df;box-shadow:inset 3px 0 #9380b4}
+.teacher-page.account-workspace.teacher-design .course-row strong {font-size:13px;overflow-wrap:break-word}
+.teacher-page.account-workspace.teacher-design .course-row p {font-size:11px;color:var(--muted)}
+.teacher-page.account-workspace.teacher-design .course-actions .secondary-button[aria-pressed=true] {background:#eeebfa;color:#5941a0;border-color:#c9bae4}
+.teacher-page.account-workspace.teacher-design :is(.archive-badge,.review-count,.review-status,.gradebook-summary>span,.ai-model-assignment) {background:#f0ebf8;color:#6d548a;border-color:#e2d6ef}
+.teacher-page.account-workspace.teacher-design .review-status-submitted {background:#edf0ff;color:#5362a5;border-color:#d4dbf3}
+.teacher-page.account-workspace.teacher-design .review-status-error {background:#fff0e9;color:#984a38;border-color:#ead0c1}
+.teacher-page.account-workspace.teacher-design :is(.roster-table,.gradebook-table) {border-color:var(--line);border-radius:8px}
+.teacher-page.account-workspace.teacher-design :is(.roster-table,.gradebook-table) th {background:#f8f5fc;color:#756687;border-color:var(--line);font-size:10px;font-weight:600;letter-spacing:.3px}
+.teacher-page.account-workspace.teacher-design :is(.roster-table,.gradebook-table) td {border-color:#eee8f4;font-size:12px}
+.teacher-page.account-workspace.teacher-design :is(.roster-table,.gradebook-table) tbody tr:nth-child(even) {background:#fdfbff}
+.teacher-page.account-workspace.teacher-design :is(.roster-table,.gradebook-table) tbody tr:hover {background:#f6f1fb}
+.teacher-page.account-workspace.teacher-design .workspace-disclosure {padding:0}
+.teacher-page.account-workspace.teacher-design .workspace-disclosure>summary {min-height:44px;padding:11px 15px;border-radius:10px;font-size:12px}
+.teacher-page.account-workspace.teacher-design .workspace-disclosure>summary>span {font-size:12px}
+.teacher-page.account-workspace.teacher-design .workspace-disclosure[open]>summary {margin-bottom:12px;border-color:var(--line)}
+.teacher-page.account-workspace.teacher-design :is(.workspace-disclosure,.teacher-disclosure-panel)>:not(summary) {border-color:var(--line)}
+.teacher-page.account-workspace.teacher-design .teacher-disclosure-panel {padding:0}
+.teacher-page.account-workspace.teacher-design .teacher-disclosure-panel summary {min-height:42px;padding:11px 14px;font-size:12px}
+.teacher-page.account-workspace.teacher-design :is(.attempt-meta-grid p,.teacher-final-grade-form,.ai-key-card,.ai-provider-model-card) {background:#faf8fd;border-color:var(--line)}
+.teacher-page.account-workspace.teacher-design .ai-provider-model-card.is-new {background:#f4effb;border-color:#b8a5d6;box-shadow:inset 3px 0 #6350c8}
+.teacher-page.account-workspace.teacher-design .ai-settings-page :is(input,select):not([type=checkbox]):not([type=radio]) {min-height:36px;padding:6px 9px}
+.teacher-page.account-workspace.teacher-design .ai-settings-intro {gap:16px;background:#f7f4fc}
+.teacher-page.account-workspace.teacher-design .ai-settings-intro p {margin:4px 0 0;font-size:12px;line-height:1.5}
+.teacher-page.account-workspace.teacher-design .teacher-final-grade-form {padding:12px}
+.teacher-page.account-workspace.teacher-design .assessment-library-layout {grid-template-columns:minmax(280px,.68fr) minmax(0,1.12fr);gap:18px;align-items:start}
+.teacher-page.account-workspace.teacher-design .assessment-library-panel {position:sticky;top:16px;max-height:calc(100dvh - 128px);padding:0;gap:0;overflow:hidden}
+.teacher-page.account-workspace.teacher-design .assessment-library-header {display:flex;justify-content:space-between;align-items:center;min-height:44px;padding:0 15px;margin:0;border-bottom:1px solid var(--line)}
+.teacher-page.account-workspace.teacher-design .assessment-library-header h2 {display:flex;align-items:center;gap:8px;font-size:13px}
+.teacher-design .teacher-library-count {font-size:10px;border-radius:5px;background:#f2eef7;padding:2px 6px;color:#766484}
+.teacher-design .teacher-library-search {display:flex;align-items:center;gap:8px;padding:12px 13px}
+.teacher-design .teacher-library-search label {display:flex;align-items:center;gap:6px;flex:1;min-width:0;border:1px solid #ded7e8;border-radius:6px;padding-left:9px;color:#92839f;background:#fbf9fd}
+.teacher-page.account-workspace.teacher-design .teacher-library-search input {width:100%;min-width:0;min-height:32px;border:0;background:transparent;padding:6px 5px;font-size:11px}
+.teacher-page.account-workspace.teacher-design .teacher-library-search select {width:104px;min-height:34px;padding:6px;font-size:11px}
+.teacher-page.account-workspace.teacher-design .assessment-template-panel {display:block;margin:0 13px 10px;padding:0;background:#f8f5fc;border:1px solid var(--line);border-radius:7px}
+.teacher-design .assessment-template-panel summary {padding:8px 10px;font-size:11px;font-weight:600;cursor:pointer}
+.teacher-page.account-workspace.teacher-design .assessment-template-panel>div {padding:0 10px 8px}
+.teacher-page.account-workspace.teacher-design .assessment-template-panel>button {margin:0 10px 10px}
+.teacher-page.account-workspace.teacher-design .assessment-library-items {gap:0;padding:0;max-height:none}
+.teacher-page.account-workspace.teacher-design .assessment-library-item {padding:13px 14px;border:0;border-top:1px solid #eee8f5;border-radius:0;gap:8px;box-shadow:none}
+.teacher-page.account-workspace.teacher-design .assessment-library-item.selected-assessment {background:#f5f1fb;box-shadow:inset 3px 0 #9480b8}
+.teacher-design .teacher-library-item-heading {display:flex;align-items:center;gap:10px}
+.teacher-design .teacher-library-item-heading>div {min-width:0}
+.teacher-design .teacher-format-mark {display:grid;place-items:center;flex:0 0 34px;height:36px;border-radius:8px;background:#eee8fa;color:#8970b1}
+.teacher-design .teacher-format-writing {background:#f9eaf2;color:#ad6b91}
+.teacher-design .teacher-format-voice {background:#fff0e6;color:#bf906c}
+.teacher-design .teacher-format-voice_realtime {background:#e9eef9;color:#768dc0}
+.teacher-page.account-workspace.teacher-design .assessment-library-item strong {font-size:12px;line-height:1.4}
+.teacher-page.account-workspace.teacher-design .assessment-library-item p {font-size:10px;margin-top:4px}
+.teacher-page.account-workspace.teacher-design .assessment-library-item .secondary-button {min-height:28px;padding:4px 7px;font-size:10px}
+.teacher-page.account-workspace.teacher-design .assessment-builder-panel {padding:0;overflow:hidden}
+.teacher-page.account-workspace.teacher-design .assessment-builder-panel>.teacher-builder-header {display:flex;align-items:center;min-height:44px;margin:0;padding:0 14px;border-bottom:1px solid var(--line);gap:12px}
+.teacher-page.account-workspace.teacher-design .teacher-builder-header>div:first-child {flex:0 1 auto;min-width:0}
+.teacher-page.account-workspace.teacher-design .teacher-builder-header h2 {font-size:13px;white-space:nowrap}
+.teacher-design .teacher-builder-tabs {display:flex;align-items:center;gap:13px;margin-left:auto;min-width:0}
+.teacher-design .teacher-builder-tabs button {border:0;border-bottom:2px solid transparent;background:transparent;border-radius:0;min-height:44px;padding:0 0 1px;font-size:10px;white-space:nowrap;color:#8a7b99;font-weight:500;box-shadow:none}
+.teacher-design .teacher-builder-tabs button[aria-selected=true] {color:#705293;border-bottom-color:#9972bd;font-weight:650}
+.teacher-page.account-workspace.teacher-design .assessment-builder-close {padding:3px;flex-basis:24px;min-height:26px;width:24px;border:0;background:transparent;color:#8b7c9b}
+.teacher-page.account-workspace.teacher-design .compact-assessment-builder {padding:15px;gap:13px}
+.teacher-page.account-workspace.teacher-design .assessment-basics-fields {grid-template-columns:135px minmax(0,1fr);gap:12px}
+.teacher-page.account-workspace.teacher-design .assessment-builder-section+.assessment-builder-section {border:0;padding-top:0}
+.teacher-page.account-workspace.teacher-design .assessment-prompt-fields {grid-template-columns:minmax(0,1fr);gap:12px}
+.teacher-page.account-workspace.teacher-design .assessment-builder-panel :is(input,select):not([type=checkbox]) {min-height:35px;font-size:12px}
+.teacher-page.account-workspace.teacher-design .assessment-builder-panel label {font-size:11px;color:#685773}
+.teacher-page.account-workspace.teacher-design .assessment-builder-panel textarea {padding:10px 12px;line-height:1.7;font-size:12px;color:var(--ink);min-height:70px}
+.teacher-page.account-workspace.teacher-design .assessment-prompt-fields label:first-child textarea {min-height:230px}
+.teacher-page.account-workspace.teacher-design .assessment-prompt-fields label:last-child textarea {min-height:74px}
+.teacher-page.account-workspace.teacher-design .rubric-editor-row {padding:12px;background:#faf7fd;border-color:var(--line)}
+.teacher-page.account-workspace.teacher-design .assessment-builder-options {background:#faf8fd;border-color:var(--line);margin-top:12px}
+.teacher-page.account-workspace.teacher-design .assessment-builder-options summary {min-height:40px;padding:9px 12px;font-size:11px}
+.teacher-page.account-workspace.teacher-design .assessment-builder-save {position:static;display:flex;flex-wrap:wrap;gap:7px;padding-top:13px;border-color:var(--line)}
+.teacher-page.account-workspace.teacher-design .assessment-builder-save>.primary-button {margin-left:auto}
+.teacher-page.account-workspace.teacher-design .teacher-builder-tabpanel[hidden] {display:none!important}
+.teacher-design .teacher-model-settings-note {font-size:11px;line-height:1.7;color:var(--muted);margin:14px 0 0}
+.teacher-design .teacher-model-settings-note a {color:var(--accent)}
+.teacher-design .teacher-student-preview {padding:0;color:var(--ink);border:1px solid var(--line);border-radius:12px;width:660px;max-width:calc(100vw - 30px);max-height:calc(100dvh - 40px);overflow:auto;background:#fff;box-shadow:0 22px 80px #211b3833}
+.teacher-design .teacher-student-preview::backdrop {background:#211b3866;backdrop-filter:blur(3px)}
+.teacher-design .teacher-student-preview header {padding:18px 20px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.teacher-design .teacher-student-preview header span {font-size:11px;color:var(--muted)}
+.teacher-design .teacher-student-preview h2 {margin:4px 0 0;font-size:21px}
+.teacher-design .teacher-student-preview section {padding:0 20px 18px}
+.teacher-design .teacher-student-preview h3 {font-size:12px;margin:14px 0 7px}
+.teacher-design .teacher-preview-prompt {white-space:pre-wrap;overflow-wrap:anywhere;padding:13px;background:#f7f3fc;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.75}
+.teacher-design .teacher-student-preview ul {list-style:none;margin:0;padding:0}
+.teacher-design .teacher-student-preview li {border-top:1px solid var(--line);padding:10px 0;font-size:12px}
+.teacher-design .teacher-student-preview li>span {float:right;color:var(--muted)}
+.teacher-design .teacher-student-preview li p {margin:4px 0 0;color:var(--muted)}
+.teacher-design .teacher-preview-note {font-size:11px;color:var(--muted);margin-top:15px}
+.teacher-design .teacher-student-preview footer {display:flex;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--line);background:#faf8fd}
+.teacher-login-design {--ink:#242137;--muted:#696579;--line:#e2dfeb;--accent:#6350c8;--accent-strong:#4e3bab;--panel:#fff;--focus:#9c6fca;background:#f5f4f9;font-family:"Segoe UI Variable Text","Segoe UI",Arial,sans-serif}
+.teacher-login-design .teacher-card {border:1px solid #e2dfeb;border-radius:14px;background:#fff;box-shadow:0 12px 50px #25213909;padding:28px;max-width:480px}
+.teacher-login-design .teacher-student-return {display:inline-flex;align-items:center;gap:6px;color:#7b718a;font-size:12px;text-decoration:none;margin-bottom:20px}
+.teacher-login-design .teacher-mark {background:#eeebfa;color:#6350c8}
+.teacher-login-design .teacher-page-header {margin-bottom:18px}
+.teacher-login-design .teacher-page-header h1 {font-size:23px;letter-spacing:-.6px}
+.teacher-login-design .teacher-page-header p {font-size:13px;color:#696579}
+.teacher-login-design .primary-button {background:#6350c8;border-color:#6350c8;box-shadow:none}
+.teacher-login-design .primary-button:hover {background:#4e3bab}
+.teacher-login-design .text-button {color:#6350c8}
+.teacher-login-design .login-form {background:transparent}
+.teacher-login-design :is(input,select) {background:#fff;border-color:#ded7e8;color:#242137}
+@media (max-width:1180px) {
+  .teacher-page.account-workspace.teacher-design .content-shell {padding:18px 20px 26px}
+  .teacher-design .teacher-topbar {padding:0 20px}
+  .teacher-design .teacher-builder-tabs {gap:10px}
+  .teacher-page.account-workspace.teacher-design .teacher-builder-header {gap:8px}
+}
+@media (max-width:980px) {
+  .teacher-page.account-workspace.teacher-design .assessment-library-layout {grid-template-columns:minmax(0,1fr);gap:15px}
+  .teacher-page.account-workspace.teacher-design .assessment-builder-panel,.teacher-page.account-workspace.teacher-design .assessment-builder-empty {order:0}
+  .teacher-page.account-workspace.teacher-design .assessment-library-panel {order:1;position:static;max-height:none}
+  .teacher-page.account-workspace.teacher-design .assessment-library-items {max-height:400px}
+}
+@media (max-width:760px) {
+  .teacher-page.account-workspace.teacher-design,.teacher-page.account-workspace.teacher-design.sidebar-collapsed {display:block}
+  .teacher-page.account-workspace.teacher-design .side-rail {position:relative;height:auto;display:flex;flex-direction:row;align-items:center;padding:9px 14px;gap:12px;overflow:visible}
+  .teacher-page.account-workspace.teacher-design .rail-top {flex-direction:row;flex:0 0 auto}
+  .teacher-page.account-workspace.teacher-design .brand-copy {display:block}
+  .teacher-page.account-workspace.teacher-design :is(.brand-copy small,.nav-section-label,.rail-toggle,.rail-account) {display:none}
+  .teacher-page.account-workspace.teacher-design .brand-copy strong {font-size:16px}
+  .teacher-page.account-workspace.teacher-design .brand-mark {width:27px;height:29px;flex-basis:27px}
+.teacher-page.account-workspace.teacher-design .side-nav {display:flex;flex-wrap:nowrap;flex:1 1 auto;width:auto;gap:2px;overflow-x:auto;margin:0 0 0 auto;min-width:0;scrollbar-width:none}
+  .teacher-page.account-workspace.teacher-design .side-nav a {min-height:36px;padding:8px;flex:0 0 34px;justify-content:center}
+  .teacher-page.account-workspace.teacher-design .side-nav a span {display:none}
+  .teacher-design .teacher-topbar {min-height:40px;padding:0 14px;gap:8px;font-size:10px}
+  .teacher-design .teacher-topbar>div {gap:6px}
+  .teacher-design .teacher-topbar-identity {display:none}
+  .teacher-design .teacher-mobile-signout {display:inline-flex;align-items:center;justify-content:center;min-height:32px;width:30px;padding:5px;background:transparent;border:0;color:#746781;box-shadow:none}
+  .teacher-page.account-workspace.teacher-design .workspace-context {font-size:10px}
+  .teacher-page.account-workspace.teacher-design .content-shell {padding:15px 14px 24px}
+  .teacher-page.account-workspace.teacher-design .workspace-page-header {flex-wrap:wrap;gap:9px;margin-bottom:13px}
+  .teacher-page.account-workspace.teacher-design .workspace-page-header h1 {font-size:23px}
+  .teacher-page.account-workspace.teacher-design .workspace-header-actions {flex:1 1 auto}
+  .teacher-design .teacher-page-tools {gap:10px;margin-left:auto;flex-wrap:wrap}
+  .teacher-page.account-workspace.teacher-design .teacher-page-tools .checkbox-row {font-size:10px}
+  .teacher-page.account-workspace.teacher-design .teacher-page-tools .primary-button {font-size:11px}
+  .teacher-page.account-workspace.teacher-design .compact-assessment-builder {padding:12px}
+  .teacher-page.account-workspace.teacher-design .assessment-basics-fields {grid-template-columns:125px minmax(0,1fr);gap:9px}
+  .teacher-page.account-workspace.teacher-design .assessment-builder-panel>.teacher-builder-header {flex-wrap:wrap;gap:0 10px;padding:0 12px}
+  .teacher-page.account-workspace.teacher-design .teacher-builder-header h2 {font-size:12px}
+  .teacher-design .teacher-builder-tabs {gap:10px}
+  .teacher-design .teacher-builder-tabs button {font-size:10px;min-height:40px}
+  .teacher-page.account-workspace.teacher-design .assessment-builder-panel>.teacher-builder-header>div:first-child {min-height:34px;display:flex;align-items:center}
+  .teacher-page.account-workspace.teacher-design .assessment-builder-close {margin-left:auto}
+  .teacher-page.account-workspace.teacher-design .assessment-builder-save :is(.primary-button,.secondary-button) {font-size:11px;padding:7px 9px}
+}
+@media (max-width:480px) {
+  .teacher-page.account-workspace.teacher-design .teacher-page-tools {width:100%;justify-content:space-between;margin-left:0}
+  .teacher-page.account-workspace.teacher-design .workspace-header-actions {width:100%}
+  .teacher-page.account-workspace.teacher-design .assessment-builder-panel>.teacher-builder-header {display:grid;grid-template-columns:minmax(0,1fr) 24px;gap:0 10px}
+  .teacher-page.account-workspace.teacher-design .teacher-builder-header>div:first-child {grid-column:1;grid-row:1}
+  .teacher-design .teacher-builder-tabs {grid-column:1/-1;grid-row:2;order:2;margin-left:0;width:100%;justify-content:flex-start}
+  .teacher-page.account-workspace.teacher-design .assessment-builder-close {grid-column:2;grid-row:1;margin:0}
+  .teacher-page.account-workspace.teacher-design .assessment-builder-panel .compact-settings-grid {grid-template-columns:minmax(0,1fr)}
+  .teacher-page.account-workspace.teacher-design .assessment-basics-fields {grid-template-columns:minmax(0,1fr)}
+  .teacher-page.account-workspace.teacher-design .assessment-builder-save>.primary-button {margin-left:0}
+  .teacher-design .teacher-library-search {flex-wrap:wrap}
+  .teacher-login-design .teacher-card {padding:22px}
+}
+@media (prefers-reduced-motion:reduce) {.teacher-design * {transition:none!important;scroll-behavior:auto!important}}
+
+.teacher-page.account-workspace.teacher-design :is(h1,h2,h3,h4) {font-family:inherit}

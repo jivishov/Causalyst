@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FlaskConical } from "lucide-react";
+import { StudentFrontpage } from "../components/StudentFrontpage";
 import { getCanonicalLocalUrl, getLocalAuthOriginIssue } from "../lib/localAuthOrigin";
 import { useSession, type StudentAuthStep } from "../state/session";
 
@@ -71,11 +71,10 @@ export function Login() {
       : null;
 
   return (
-    <main className="google-only-login-page">
-      <section className="google-only-login-panel" aria-busy={submitting}>
-        <div className="google-only-login-mark"><FlaskConical size={24} /></div>
-        <h1>Student Assessment Workspace</h1>
-        <p>Use your school Google account.</p>
+    <StudentFrontpage>
+      <section className="frontpage-signin-panel" id="student-sign-in" aria-busy={submitting}>
+        <div className="frontpage-signin-heading"><h2>Student Assessment Workspace</h2><span>Start here</span></div>
+        <p>Use your school Google account to find your class assignments.</p>
         <div className="google-oauth-button-slot">
           <button
             type="button"
@@ -87,18 +86,15 @@ export function Login() {
             <span>{submitting ? "Starting Google sign-in" : "Continue with Google"}</span>
           </button>
         </div>
-        {(error || authError) && <p className="field-error google-only-error">{error ?? authError}</p>}
-        {statusMessage && <p className="google-only-status">{statusMessage}</p>}
-        {status === "signed_out" && !error && !authError && !statusMessage && (
-          <p className="google-only-status">No active student session in this browser.</p>
-        )}
+        {(error || authError) && <p className="field-error google-only-error" role="alert">{error ?? authError}</p>}
+        {statusMessage && <p className="google-only-status" role="status">{statusMessage}</p>}
         {status === "needs_enrollment" && authEmail && (
-          <p className="google-only-status">Signed in as {authEmail}. No course profile was found for this Google account.</p>
+          <p className="google-only-status" role="status">Signed in as {authEmail}. No course profile was found for this Google account. Ask your teacher to add this account to the class roster.</p>
         )}
         <button type="button" className="text-button google-only-reset-button" onClick={resetSignIn} disabled={submitting}>
           Reset sign-in
         </button>
       </section>
-    </main>
+    </StudentFrontpage>
   );
 }

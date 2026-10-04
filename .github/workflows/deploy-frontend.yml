@@ -24,10 +24,20 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Resolve the GitHub Pages application base path
+        id: pages-config
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { data } = await github.rest.repos.getPages(context.repo);
+            const path = new URL(data.html_url).pathname;
+            const basePath = path.endsWith("/") ? path : path + "/";
+            core.setOutput("base-path", basePath);
+            core.info("Building for Pages path: " + basePath);
       - name: Validate deployment configuration
         run: node scripts/validate-deploy-env.mjs frontend
         env:
-          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/Causalyst/' }}
+          VITE_BASE_PATH: ${{ steps.pages-config.outputs.base-path }}
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           VITE_WORKER_URL: ${{ vars.VITE_WORKER_URL }}
@@ -35,7 +45,7 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/Causalyst/' }}
+          VITE_BASE_PATH: ${{ steps.pages-config.outputs.base-path }}
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           VITE_WORKER_URL: ${{ vars.VITE_WORKER_URL }}

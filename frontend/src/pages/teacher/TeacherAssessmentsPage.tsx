@@ -376,7 +376,7 @@ export function TeacherAssessmentsPage() {
               <div className="assessment-builder-section-grid assessment-basics-fields">
                 <label>
                   Type
-                  <select value={assessmentType} onChange={(event) => setAssessmentType(event.target.value as AssessmentType)}>
+                  <select aria-label="Type" value={assessmentType} onChange={(event) => setAssessmentType(event.target.value as AssessmentType)}>
                     <option value="voice">Voice Message</option>
                     <option value="voice_realtime">Live Voice Assessment</option>
                     <option value="writing">Writing</option>
@@ -525,6 +525,7 @@ export function TeacherAssessmentsPage() {
                     <label>
                       Code model
                       <select
+                        aria-label="Code model"
                         value={simulationCodeModelId}
                         onChange={(event) => {
                           const nextModelId = event.target.value;

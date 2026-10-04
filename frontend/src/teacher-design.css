@@ -75,7 +75,7 @@
 .teacher-page.account-workspace.teacher-design .teacher-disclosure-panel summary {min-height:42px;padding:11px 14px;font-size:12px}
 .teacher-page.account-workspace.teacher-design :is(.attempt-meta-grid p,.teacher-final-grade-form,.ai-key-card,.ai-provider-model-card) {background:#faf8fd;border-color:var(--line)}
 .teacher-page.account-workspace.teacher-design .ai-provider-model-card.is-new {background:#f4effb;border-color:#b8a5d6;box-shadow:inset 3px 0 #6350c8}
-.teacher-page.account-workspace.teacher-design .ai-settings-page :is(input,select):not([type=checkbox]):not([type=radio]) {min-height:34px;padding:6px 9px}
+.teacher-page.account-workspace.teacher-design .ai-settings-page :is(input,select):not([type=checkbox]):not([type=radio]) {min-height:36px;padding:6px 9px}
 .teacher-page.account-workspace.teacher-design .ai-settings-intro {gap:16px;background:#f7f4fc}
 .teacher-page.account-workspace.teacher-design .ai-settings-intro p {margin:4px 0 0;font-size:12px;line-height:1.5}
 .teacher-page.account-workspace.teacher-design .teacher-final-grade-form {padding:12px}

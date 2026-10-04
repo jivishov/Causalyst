@@ -134,7 +134,7 @@ export function TeacherAssignmentsPage() {
       <form className="assignment-form" onSubmit={submitAssignment}>
         <label>
           Assessment
-          <select value={assignmentAssessmentId} onChange={(event) => setAssignmentAssessmentId(event.target.value)} required>
+          <select aria-label="Assessment" value={assignmentAssessmentId} onChange={(event) => setAssignmentAssessmentId(event.target.value)} required>
             {activeAssessments.length === 0 ? (
               <option value="">Create an assessment first</option>
             ) : (
@@ -148,7 +148,7 @@ export function TeacherAssignmentsPage() {
         </label>
         <label>
           Course
-          <select value={assignmentCourseId} onChange={(event) => setAssignmentCourseId(event.target.value)} required>
+          <select aria-label="Course" value={assignmentCourseId} onChange={(event) => setAssignmentCourseId(event.target.value)} required>
             {courses.length === 0 ? (
               <option value="">Create a course first</option>
             ) : (

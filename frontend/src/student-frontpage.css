@@ -1,0 +1,169 @@
+.student-frontpage {
+  --ink:#252139;--muted:#696579;--accent:#6350c8;--accent-strong:#4e3bab;--line:#e2dfeb;--focus:#a27ed2;
+  min-height:100dvh;background:#f5f4f9;color:var(--ink);font:14px/1.5 "Segoe UI Variable Text","Segoe UI",Arial,sans-serif;
+}
+.student-frontpage :is(h1,h2,h3,p) {margin:0}
+.student-frontpage :is(h1,h2,h3) {font-family:inherit}
+.student-frontpage a {color:inherit;text-decoration:none}
+.student-frontpage :is(a,button,input,[tabindex]):focus-visible {outline:3px solid var(--focus);outline-offset:4px}
+.student-frontpage button {cursor:pointer;font:inherit}
+.student-frontpage svg {flex-shrink:0}
+.student-frontpage .frontpage-wrap {max-width:1260px;margin:0 auto;padding:0 46px}
+.frontpage-skip {position:absolute;z-index:100;left:20px;top:-100px;background:#fff;padding:12px;border-radius:8px}
+.frontpage-skip:focus {top:12px}
+.frontpage-nav {display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:76px;border-bottom:1px solid var(--line)}
+.frontpage-brand {display:inline-flex;align-items:center;gap:9px;font-size:21px;font-weight:700;letter-spacing:-.75px}
+.frontpage-brand>span {width:34px;height:35px;border-radius:9px;background:#252139;color:#ede3ff;display:grid;place-items:center}
+.frontpage-nav nav {display:flex;align-items:center;gap:27px;font-size:12px;color:#756b86}
+.frontpage-nav nav>a:hover {color:var(--accent)}
+.frontpage-nav .frontpage-teacher-link {display:flex;align-items:center;gap:7px;border:1px solid #ded7e8;border-radius:7px;padding:8px 12px;background:#fff;color:#5d4c71}
+.frontpage-hero {display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:center;gap:54px;padding:51px 0 44px}
+.frontpage-eyebrow {display:flex;align-items:center;gap:8px;color:#7a6a8b;font-size:10px;letter-spacing:1.25px;text-transform:uppercase;font-weight:600}
+.frontpage-eyebrow>span {width:6px;height:6px;border-radius:50%;background:#a481bc}
+.student-frontpage h1 {margin:17px 0 19px;font-size:clamp(40px,4.25vw,58px);letter-spacing:-2.4px;line-height:1.07;font-weight:650}
+.student-frontpage h1 em {font-family:Georgia,"Times New Roman",serif;font-weight:400;color:#73568c;letter-spacing:-2.2px}
+.frontpage-lead {font-size:16px;line-height:1.75;max-width:455px;color:#71687e}
+.frontpage-explore {display:inline-flex;align-items:center;gap:9px;font-size:12px;font-weight:600;margin-top:20px;color:#6350c8!important}
+.frontpage-explore:hover {gap:13px}
+.frontpage-signin-panel {margin-top:28px;padding:19px 20px 13px;border:1px solid #dfd7e9;border-radius:11px;max-width:433px;background:#fff;box-shadow:0 3px 12px #25213903}
+.frontpage-signin-heading {display:flex;justify-content:space-between;align-items:center;gap:12px}
+.frontpage-signin-heading h2 {font-size:13px;font-weight:650;letter-spacing:-.1px}
+.frontpage-signin-heading>span {font-size:9px;background:#f0ebf8;color:#8a719f;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.frontpage-signin-panel>p {font-size:11px;line-height:1.65;color:var(--muted);margin-top:6px}
+.student-frontpage .google-oauth-button-slot {margin-top:13px}
+.student-frontpage .google-oauth-button {width:100%;max-width:none;min-height:44px;padding:10px 16px;display:flex;justify-content:center;align-items:center;gap:12px;border:1px solid #dad4e3;border-radius:7px;background:#fff;color:#3c324b;font-size:12px;font-weight:600;box-shadow:0 1px 2px #25213904}
+.student-frontpage .google-oauth-button:hover:not(:disabled) {background:#f8f5fd;border-color:#bfb0d8}
+.student-frontpage .google-oauth-button:disabled {opacity:.6;cursor:wait}
+.student-frontpage .google-oauth-icon {display:grid;place-items:center;width:20px;height:20px;font:700 19px Arial,sans-serif;color:#4285f4}
+.student-frontpage .google-only-reset-button {display:block;min-height:28px;width:fit-content;padding:5px 2px;margin:7px auto 0;color:#796b87;font-size:10px;text-decoration:none;background:transparent;border:0}
+.student-frontpage .google-only-reset-button:hover {color:#6350c8}
+.student-frontpage .google-only-error {color:#984a38!important;background:#fff0e9;border-radius:6px;padding:9px 11px;font-size:11px!important;overflow-wrap:anywhere}
+.student-frontpage .google-only-status {font-size:11px;overflow-wrap:anywhere}
+.frontpage-example {min-width:0;transform:rotate(1deg);padding-top:7px}
+.frontpage-example-caption {display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;padding:0 5px;font-size:10px;color:#796b87}
+.frontpage-example-caption>span:first-child {display:flex;align-items:center;gap:6px;color:#766187;font-weight:600}
+.frontpage-example-card {border:1px solid #ddd5e8;border-radius:13px;overflow:hidden;background:#fff;box-shadow:0 12px 36px #43315e0a,0 2px 7px #43315e06}
+.frontpage-example-header {min-height:43px;background:#252139;color:#ddd3ed;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0 16px;font-size:10px}
+.frontpage-example-header>span:first-child {display:flex;align-items:center;gap:7px;color:#f5eeff;font-weight:600}
+.frontpage-example-header>span:last-child {font-size:9px;color:#b1a4c5}
+.frontpage-example-dot {width:6px;height:6px;border-radius:50%;background:#b7a2e1}
+.frontpage-example-prompt {padding:16px 19px 15px;border-bottom:1px solid #ede7f5;background:#fbf9fd}
+.frontpage-example-prompt>span {font-size:9px;font-weight:600;color:#937ca3;letter-spacing:.8px;text-transform:uppercase}
+.frontpage-example-prompt p {font-size:12px;color:#70607f;line-height:1.85;margin-top:5px}
+.frontpage-gas-model {padding:18px 23px 15px}
+.frontpage-gas-title h2 {font-size:19px;font-weight:550;letter-spacing:-.5px}
+.frontpage-gas-title>span {font-size:10px;color:#796b87;display:block;margin-top:2px}
+.frontpage-gas-model>svg {width:100%;height:194px;display:block;margin:11px 0 9px}
+.frontpage-gas-particle {animation:gas-drift 2.4s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
+@keyframes gas-drift {from {transform:translate(-3px,-3px)}to {transform:translate(3px,3px)}}
+.frontpage-gas-control label {display:flex;justify-content:space-between;color:#7a648b;font-size:11px;font-weight:600}
+.frontpage-gas-control output {color:#6350c8;font-variant-numeric:tabular-nums}
+.frontpage-gas-control input {display:block;width:100%;height:25px;margin:5px 0 0;padding:0;accent-color:#6350c8;background:transparent;border:0;box-shadow:none;cursor:ew-resize}
+.frontpage-gas-control>div {display:flex;justify-content:space-between;font-size:9px;color:#796b87;margin-top:-2px}
+.frontpage-gas-readout {margin-top:14px;padding:11px 12px;border:1px solid #e6deef;border-radius:7px;background:#f7f3fc;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:9px;color:#796b87}
+.frontpage-gas-readout>span:first-child {display:flex;align-items:center;gap:10px;font-size:10px}
+.frontpage-gas-readout strong {font-size:20px;color:#776098;line-height:1;letter-spacing:-.7px;font-weight:600;font-variant-numeric:tabular-nums}
+.frontpage-example-footer {display:flex;align-items:center;gap:7px;padding:10px 16px;border-top:1px solid #ece6f4;font-size:10px;color:#8c7b9c}
+.frontpage-example-footer>span:last-child {margin-left:auto;font-size:9px;color:#796b87}
+.frontpage-example-note {font-size:11px;line-height:1.75;color:#796b87;text-align:center;max-width:410px;margin:14px auto 0!important;padding:0 10px}
+.frontpage-formats {border-top:1px solid var(--line);padding:31px 0}
+.frontpage-section-heading {display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:19px}
+.frontpage-section-heading h2 {font-size:23px;line-height:1.35;letter-spacing:-.7px;font-weight:600;margin-top:6px}
+.frontpage-section-note {color:#796b87;font-size:10px;white-space:nowrap;padding-bottom:3px}
+.frontpage-format-tabs {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.frontpage-format-tabs button {position:relative;display:grid;justify-items:start;align-content:start;text-align:left;gap:7px;border:1px solid #e3dbea;border-radius:9px;background:#fff;padding:16px 17px;min-height:146px;color:#6a5979;box-shadow:none}
+.frontpage-format-tabs button[aria-selected=true] {border-color:#b6a3d5;background:#f4effb;box-shadow:inset 0 -2px #9b7bc2}
+.frontpage-format-tabs button:hover {border-color:#bdadcf;background:#faf7ff}
+.frontpage-format-tabs strong {font-size:13px;font-weight:650;color:#44334f}
+.frontpage-format-tabs button>span:not(.frontpage-format-icon) {font-size:11px;line-height:1.7;color:#796b87;max-width:190px}
+.frontpage-format-icon {display:grid;place-items:center;width:34px;height:35px;border-radius:8px;background:#ece5f8;color:#9475b4;margin-bottom:3px}
+.frontpage-format-icon.format-icon-writing {background:#f9eaf2;color:#b8789b}
+.frontpage-format-icon.format-icon-voice {background:#fbefe7;color:#c19575}
+.frontpage-format-icon.format-icon-live {background:#eaf0fb;color:#8a9ac2}
+.frontpage-format-arrow {position:absolute;right:15px;top:23px;color:#b5a3c6}
+.frontpage-format-detail {display:grid;grid-template-columns:1fr 1fr 1.03fr;gap:28px;padding:19px 17px 5px}
+.frontpage-format-detail h3 {font-size:10px;font-weight:650;color:#7d668d;margin-bottom:6px}
+.frontpage-format-detail p {font-size:11px;color:#796b87;line-height:1.75}
+.frontpage-format-detail blockquote {font:italic 14px/1.65 Georgia,serif;border-left:2px solid #dfd1ec;margin:0;padding:0 0 0 19px;color:#7d648e}
+.frontpage-format-detail blockquote>span {display:block;font:600 9px/1.4 "Segoe UI",Arial,sans-serif;text-transform:uppercase;letter-spacing:.8px;color:#796b87;margin-bottom:6px}
+.frontpage-process {border-top:1px solid var(--line);padding:28px 0 27px}
+.frontpage-section-heading>a {display:flex;align-items:center;gap:7px;color:#7d5c99;font-size:11px;font-weight:600;padding-bottom:3px}
+.frontpage-process ol {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px;list-style:none;margin:0;padding:0}
+.frontpage-process li {display:flex;align-items:flex-start;gap:12px}
+.frontpage-process li>span {font-size:10px;color:#ab91bd;font-variant-numeric:tabular-nums;font-weight:650;border:1px solid #e2d8eb;border-radius:50%;width:27px;height:27px;flex:0 0 27px;display:grid;place-items:center;margin-top:1px;background:#fff}
+.frontpage-process li h3 {font-size:12px;color:#6d547e;font-weight:650;margin:3px 0 5px}
+.frontpage-process li p {font-size:11px;line-height:1.8;color:#796b87}
+.frontpage-review-note {display:flex;align-items:center;gap:9px;margin-top:24px;background:#eeebf6;border-radius:7px;padding:11px 14px;color:#9580a7}
+.frontpage-review-note p {font-size:10px;line-height:1.7;color:#6f5f7d}
+.frontpage-review-note strong {font-weight:600;color:#79618b}
+.frontpage-footer {display:flex;align-items:center;gap:18px;border-top:1px solid var(--line);padding:19px 0 23px;font-size:10px;color:#796b87}
+.frontpage-footer .frontpage-brand {font-size:14px;color:#867196;gap:7px;letter-spacing:-.3px}
+.frontpage-footer>a {margin-left:auto;display:flex;align-items:center;gap:6px}
+@media (min-width:1500px) {.frontpage-hero {padding-top:65px;padding-bottom:54px}.student-frontpage h1 {font-size:60px}}
+@media (max-width:1100px) {
+  .student-frontpage .frontpage-wrap {padding:0 30px}
+  .frontpage-hero {gap:32px;padding:40px 0 34px}
+  .student-frontpage h1 {font-size:46px;letter-spacing:-2px}
+  .student-frontpage h1 em {letter-spacing:-1.9px}
+  .frontpage-lead {font-size:14px}
+  .frontpage-gas-readout {flex-wrap:wrap;gap:5px}
+  .frontpage-gas-readout>span:last-child {margin-left:auto}
+  .frontpage-format-tabs button {padding:14px}
+  .frontpage-section-note {display:none}
+}
+@media (max-width:800px) {
+  .student-frontpage .frontpage-wrap {padding:0 23px}
+  .frontpage-nav {min-height:65px}
+  .frontpage-nav nav {gap:17px}
+  .frontpage-nav nav>a:first-child,.frontpage-nav nav>a:nth-child(2) {display:none}
+  .frontpage-hero {grid-template-columns:minmax(0,1fr);gap:32px;max-width:580px;margin:0 auto;padding:36px 0 31px}
+  .student-frontpage h1 {font-size:52px;letter-spacing:-2px}
+  .frontpage-signin-panel {max-width:none}
+  .frontpage-lead {max-width:480px;font-size:15px}
+  .frontpage-example {transform:none;padding:0}
+  .frontpage-gas-model {padding:18px 24px}
+  .frontpage-gas-model>svg {max-height:205px}
+  .frontpage-format-tabs {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .frontpage-format-tabs button {min-height:135px}
+  .frontpage-format-detail {grid-template-columns:1fr 1fr;gap:18px;padding:18px 4px 0}
+  .frontpage-format-detail blockquote {grid-column:1/-1}
+  .frontpage-process ol {gap:15px}
+  .frontpage-process li {gap:8px}
+}
+@media (max-width:480px) {
+  .student-frontpage .frontpage-wrap {padding:0 19px}
+  .frontpage-brand {font-size:20px}
+  .frontpage-nav .frontpage-teacher-link {font-size:11px;padding:7px 9px}
+  .frontpage-hero {padding-top:29px;gap:25px}
+  .frontpage-eyebrow {font-size:9px;letter-spacing:.75px}
+  .student-frontpage h1 {font-size:39px;line-height:1.12;letter-spacing:-1.7px;margin:15px 0 15px}
+  .student-frontpage h1 em {letter-spacing:-1.5px}
+  .frontpage-lead {font-size:14px;line-height:1.75}
+  .frontpage-explore {font-size:11px;margin-top:16px}
+  .frontpage-signin-panel {padding:16px 15px 11px;margin-top:22px}
+  .frontpage-signin-heading {gap:6px}
+  .frontpage-signin-heading h2 {font-size:12px}
+  .frontpage-signin-heading>span {font-size:8px;padding:2px 4px}
+  .frontpage-example-caption {font-size:9px}
+  .frontpage-example-prompt {padding:14px 16px}
+  .frontpage-gas-model {padding:16px}
+  .frontpage-gas-title h2 {font-size:18px}
+  .frontpage-gas-readout>span:last-child {font-size:8px}
+  .frontpage-example-header {padding:0 14px}
+  .frontpage-example-footer {padding:10px 12px;font-size:9px}
+  .frontpage-example-footer>span:last-child {font-size:8px}
+  .frontpage-section-heading {align-items:flex-start;gap:12px}
+  .frontpage-section-heading h2 {font-size:21px;letter-spacing:-.5px}
+  .frontpage-format-tabs button {padding:14px 12px;min-height:159px}
+  .frontpage-format-tabs strong {font-size:12px}
+  .frontpage-format-tabs button>span:not(.frontpage-format-icon) {font-size:10px}
+  .frontpage-format-detail {grid-template-columns:1fr;gap:15px}
+  .frontpage-process ol {grid-template-columns:1fr;gap:20px}
+  .frontpage-process .frontpage-section-heading>a {display:none}
+  .frontpage-process li {gap:12px}
+  .frontpage-review-note {align-items:flex-start}
+  .frontpage-footer {gap:10px;font-size:9px}
+  .frontpage-footer>span:nth-child(2) {display:none}
+}
+@media (max-width:350px) {.student-frontpage h1 {font-size:34px}.frontpage-signin-heading>span {display:none}.frontpage-gas-readout>span:last-child {margin-left:0}}
+@media (prefers-reduced-motion:reduce) {.student-frontpage * {animation:none!important;transition:none!important;scroll-behavior:auto!important}}

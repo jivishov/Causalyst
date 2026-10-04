@@ -1,5 +1,6 @@
-import { FormEvent, useEffect, useState } from "react";
-import { Archive, ClipboardList, Pencil, Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { Archive, AudioLines, ClipboardList, Eye, FileText, MessageCircle, Orbit, Pencil, Plus, RotateCcw, Save, Search, Trash2, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   DEFAULT_REALTIME_VOICE_MAX_SESSION_SEC,
   DEFAULT_SIMULATION_CODE_MODEL_ID,
@@ -20,8 +21,10 @@ import {
 } from "@alt-assessment/shared";
 import { useTeacherWorkspaceData } from "./TeacherWorkspaceData";
 import { teacherApiFetch } from "../../lib/api";
+import { TeacherPageToolbar } from "./TeacherPageToolbar";
 
 type AssessmentEditorMode = "create" | "edit";
+type BuilderTab = "prompt" | "rubric" | "settings";
 
 interface RubricDraftRow {
   id?: string;
@@ -69,6 +72,11 @@ export function TeacherAssessmentsPage() {
   const [simulationCodeModelId, setSimulationCodeModelId] = useState<SimulationCodeModelId>(DEFAULT_SIMULATION_CODE_MODEL_ID);
   const [assessmentSaving, setAssessmentSaving] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(true);
+  const [builderTab, setBuilderTab] = useState<BuilderTab>("prompt");
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const previewDialog = useRef<HTMLDialogElement>(null);
+  const filteredAssessments = assessments.filter(assessment => (!typeFilter || assessment.type === typeFilter) && `${assessment.title} ${assessment.prompt}`.toLowerCase().includes(search.trim().toLowerCase()));
 
   useEffect(() => {
     if (!aiSettings) return;
@@ -82,6 +90,7 @@ export function TeacherAssessmentsPage() {
   }, [assessments.length, loadingAssessments]);
 
   function resetAssessmentForm() {
+    setBuilderTab("prompt");
     setAssessmentMode("create");
     setEditingAssessmentId(null);
     setAssessmentType("voice");
@@ -100,6 +109,7 @@ export function TeacherAssessmentsPage() {
   }
 
   function applyAssessmentTemplate(template: AssessmentTemplate) {
+    setBuilderTab("prompt");
     setAssessmentMode("create");
     setEditingAssessmentId(null);
     setBuilderOpen(true);
@@ -129,6 +139,7 @@ export function TeacherAssessmentsPage() {
   }
 
   function beginEditAssessment(assessment: TeacherAssessment) {
+    setBuilderTab("prompt");
     setAssessmentMode("edit");
     setEditingAssessmentId(assessment.id);
     setBuilderOpen(true);
@@ -225,11 +236,20 @@ export function TeacherAssessmentsPage() {
 
   async function submitAssessment(event: FormEvent) {
     event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
+    const invalid = [...form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input, textarea, select")].find(control => !control.checkValidity());
+    if (invalid || !assessmentTitle.trim() || !assessmentPrompt.trim()) {
+      setBuilderTab((invalid?.closest<HTMLElement>("[data-builder-tab]")?.dataset.builderTab as BuilderTab | undefined) ?? "prompt");
+      setError("Complete the highlighted assessment field before saving.");
+      requestAnimationFrame(() => { invalid?.focus(); form.reportValidity(); });
+      return;
+    }
     setAssessmentSaving(true);
     setError(null);
     try {
       const rubric = buildRubricPayload();
       if (rubric.length === 0) {
+        setBuilderTab("rubric");
         throw new Error("Add at least one complete rubric row before saving.");
       }
       const payload = {
@@ -267,36 +287,21 @@ export function TeacherAssessmentsPage() {
 
   return (
     <div className="teacher-assessment-page assessment-library-layout">
+      <TeacherPageToolbar>
+        <label className="checkbox-row"><input type="checkbox" checked={includeArchivedAssessments} onChange={event => setIncludeArchivedAssessments(event.target.checked)} />Show archived</label>
+        <button className="primary-button" type="button" onClick={() => { resetAssessmentForm(); setBuilderOpen(true); }}><Plus size={15} />New assessment</button>
+      </TeacherPageToolbar>
       <section className="course-list-panel assessment-library-panel" aria-label="Assessment library">
         <div className="course-list-header assessment-library-header">
           <div>
-            <h2>Assessment Library</h2>
-            <p>Reusable prompts and assessment templates.</p>
+            <h2><ClipboardList size={16} aria-hidden="true" />Assessment Library</h2>
           </div>
-          <div className="course-actions assessment-library-toolbar">
-            <label className="checkbox-row">
-              <input
-                type="checkbox"
-                checked={includeArchivedAssessments}
-                onChange={(event) => setIncludeArchivedAssessments(event.target.checked)}
-              />
-              Show archived
-            </label>
-            <button
-              className="primary-button"
-              type="button"
-              onClick={() => {
-                resetAssessmentForm();
-                setBuilderOpen(true);
-              }}
-            >
-              <Plus size={15} /> New assessment
-            </button>
-          </div>
+          <span className="teacher-library-count">{filteredAssessments.length}</span>
         </div>
-        <div className="assessment-template-panel">
+        <div className="teacher-library-search"><label><Search size={15} aria-hidden="true" /><input aria-label="Search assessment library" placeholder="Search library" value={search} onChange={event => setSearch(event.target.value)} /></label><select aria-label="Filter assessment type" value={typeFilter} onChange={event => setTypeFilter(event.target.value)}><option value="">All types</option><option value="simulation">Simulation</option><option value="writing">Writing</option><option value="voice">Voice message</option><option value="voice_realtime">Live voice</option></select></div>
+        <details className="assessment-template-panel">
+          <summary>Start from a template</summary>
           <div>
-            <strong>Start from a template</strong>
             <p>Writing prompt, answer key, rubric, and upload settings.</p>
           </div>
           <button
@@ -306,7 +311,7 @@ export function TeacherAssessmentsPage() {
           >
             <ClipboardList size={15} /> Finding-to-Question
           </button>
-        </div>
+        </details>
 
         {loadingAssessments ? (
           <p className="status-line">Loading assessments</p>
@@ -319,12 +324,16 @@ export function TeacherAssessmentsPage() {
           </div>
         ) : (
           <div className="course-list assessment-library-items">
-            {assessments.map((assessment) => (
+            {filteredAssessments.length === 0 && <p className="status-line">No assessments match. Try another search or type.</p>}
+            {filteredAssessments.map((assessment) => (
               <article key={assessment.id} className={`course-row assessment-library-item ${editingAssessmentId === assessment.id && builderOpen ? "selected-assessment" : ""}`} aria-label={assessment.title}>
-                <div>
+                <div className="teacher-library-item-heading">
+                  <span className={`teacher-format-mark teacher-format-${assessment.type}`} aria-hidden="true">{assessment.type === "simulation" ? <Orbit size={19} /> : assessment.type === "writing" ? <FileText size={19} /> : assessment.type === "voice" ? <AudioLines size={19} /> : <MessageCircle size={19} />}</span>
+                  <div>
                   <strong>{assessment.title}</strong>
                   <p>{formatAssessmentTypeLabel(assessment.type)} · {assessment.rubric.length} rubric criteria</p>
                   {assessment.archivedAt && <span className="archive-badge">Archived</span>}
+                  </div>
                 </div>
                 <div className="course-actions">
                   <button className="secondary-button" type="button" aria-pressed={editingAssessmentId === assessment.id && builderOpen} onClick={() => beginEditAssessment(assessment)}>
@@ -349,19 +358,21 @@ export function TeacherAssessmentsPage() {
 
       {builderOpen ? (
         <section className="course-list-panel assessment-builder-panel" aria-label="Assessment builder">
-          <div className="course-list-header">
+          <div className="course-list-header teacher-builder-header">
             <div>
               <h2>{assessmentMode === "edit" ? "Edit Assessment" : "Assessment Builder"}</h2>
-              <p>{assessmentMode === "edit" ? assessmentTitle || "Untitled assessment" : "Create a prompt, answer key, and rubric."}</p>
             </div>
+            <div className="teacher-builder-tabs" role="tablist" aria-label="Assessment builder sections">{(["prompt", "rubric", "settings"] as const).map((tab, index, tabs) => <button type="button" key={tab} role="tab" id={`builder-tab-${tab}`} aria-controls={`builder-panel-${tab}`} aria-selected={builderTab === tab} tabIndex={builderTab === tab ? 0 : -1} onClick={() => setBuilderTab(tab)} onKeyDown={event => {
+              const next = event.key === "ArrowRight" ? tabs[(index + 1) % tabs.length] : event.key === "ArrowLeft" ? tabs[(index + tabs.length - 1) % tabs.length] : event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[tabs.length - 1] : null;
+              if (next) { event.preventDefault(); setBuilderTab(next); document.getElementById(`builder-tab-${next}`)?.focus(); }
+            }}>{tab === "prompt" ? "Prompt" : tab === "rubric" ? "Rubric" : "Models & settings"}</button>)}</div>
             <button className="secondary-button assessment-builder-close" type="button" aria-label="Close assessment builder" title="Close builder" onClick={() => {
               resetAssessmentForm();
               setBuilderOpen(false);
             }}><X size={16} /></button>
           </div>
-          <form className="assessment-builder-form compact-assessment-builder" onSubmit={submitAssessment}>
+          <form className="assessment-builder-form compact-assessment-builder" onSubmit={submitAssessment} noValidate>
             <section className="assessment-builder-section assessment-span-full">
-              <h4>Basics</h4>
               <div className="assessment-builder-section-grid assessment-basics-fields">
                 <label>
                   Type
@@ -379,8 +390,7 @@ export function TeacherAssessmentsPage() {
               </div>
             </section>
 
-            <section className="assessment-builder-section assessment-span-full">
-              <h4>Prompt</h4>
+            <section className="assessment-builder-section assessment-span-full teacher-builder-tabpanel" id="builder-panel-prompt" role="tabpanel" aria-labelledby="builder-tab-prompt" data-builder-tab="prompt" hidden={builderTab !== "prompt"}>
               <div className="assessment-builder-section-grid assessment-prompt-fields">
                 <label>
                   Prompt
@@ -393,6 +403,7 @@ export function TeacherAssessmentsPage() {
               </div>
             </section>
 
+            <div className="teacher-builder-tabpanel" id="builder-panel-rubric" role="tabpanel" aria-labelledby="builder-tab-rubric" data-builder-tab="rubric" hidden={builderTab !== "rubric"}>
             <section className="assessment-builder-section assessment-span-full">
               <div className="assessment-section-heading"><h4>Rubric</h4><span>{rubricRows.length} {rubricRows.length === 1 ? "criterion" : "criteria"}</span></div>
               <div className="rubric-editor">
@@ -461,7 +472,9 @@ export function TeacherAssessmentsPage() {
                 </>}
               </div>
             </details>
-            <details className="assessment-builder-section assessment-builder-options assessment-span-full">
+            </div>
+            <div className="teacher-builder-tabpanel" id="builder-panel-settings" role="tabpanel" aria-labelledby="builder-tab-settings" data-builder-tab="settings" hidden={builderTab !== "settings"}>
+            <details className="assessment-builder-section assessment-builder-options assessment-span-full" open>
               <summary>Type settings<span>{formatAssessmentTypeLabel(assessmentType)}</span></summary>
               <div className="assessment-builder-section-grid compact-settings-grid">
                 {assessmentType === "voice" && (
@@ -530,8 +543,11 @@ export function TeacherAssessmentsPage() {
                 )}
               </div>
             </details>
+            <p className="teacher-model-settings-note"><Link to="/teacher/ai-settings">Open classroom AI settings</Link> to manage provider keys, model assignments, reasoning, token limits, and Fast mode.</p>
+            </div>
 
             <div className="control-row assessment-span-full assessment-builder-save">
+              <button className="secondary-button" type="button" onClick={() => previewDialog.current?.showModal()}><Eye size={15} />Student preview</button>
               <button className="primary-button" type="submit" disabled={assessmentSaving}>
                 <Save size={16} /> {assessmentSaving ? "Saving" : assessmentMode === "edit" ? "Save assessment" : "Create assessment"}
               </button>
@@ -540,6 +556,7 @@ export function TeacherAssessmentsPage() {
                   Cancel edit
                 </button>
               )}
+              {assessmentMode === "edit" && editingAssessmentId && <Link className="secondary-button" to={`/teacher/assignments?assessment=${encodeURIComponent(editingAssessmentId)}`}>Assign to a class</Link>}
             </div>
           </form>
         </section>
@@ -551,6 +568,11 @@ export function TeacherAssessmentsPage() {
           <button className="primary-button" type="button" onClick={() => { resetAssessmentForm(); setBuilderOpen(true); }}><Plus size={15} /> New assessment</button>
         </section>
       )}
+      <dialog className="teacher-student-preview" ref={previewDialog} aria-labelledby="student-preview-heading">
+        <header><div><span>{formatAssessmentTypeLabel(assessmentType)} · Student preview</span><h2 id="student-preview-heading">{assessmentTitle || "Untitled assessment"}</h2></div><button className="secondary-button" type="button" aria-label="Close student preview" onClick={() => previewDialog.current?.close()}><X size={17} /></button></header>
+        <section><h3>The assignment</h3><p className="teacher-preview-prompt">{assessmentPrompt || "Add your student instructions to preview them here."}</p><h3>Success criteria</h3><ul>{buildRubricPayload().map((criterion, index) => <li key={index}><strong>{criterion.name}</strong><span>{criterion.maxPoints} points</span><p>{criterion.description}</p></li>)}</ul><p className="teacher-preview-note">Preview of your current draft. Students receive the saved assessment when you assign it to a class.</p></section>
+        <footer><button className="primary-button" type="button" onClick={() => previewDialog.current?.close()}>Back to editing</button></footer>
+      </dialog>
     </div>
   );
 }

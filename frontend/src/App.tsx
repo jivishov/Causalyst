@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactElement } from "react";
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 const AssessmentPage = lazy(() => import("./pages/AssessmentPage").then((module) => ({ default: module.AssessmentPage })));
 const AttemptResultPage = lazy(() => import("./pages/AttemptResultPage").then((module) => ({ default: module.AttemptResultPage })));
@@ -84,6 +84,11 @@ function StudentApplication() {
 
 function StudentProtectedLayout() {
   const { status } = useSession();
+  const { pathname } = useLocation();
+
+  if (pathname === "/" && status !== "authenticated") {
+    return <Login />;
+  }
 
   if (status === "checking") {
     return (

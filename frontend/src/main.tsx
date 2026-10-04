@@ -9,6 +9,8 @@ import "./account-workspace.css";
 import "./student-layout.css";
 import "./teacher-layout.css";
 import "./student-design.css";
+import "./teacher-design.css";
+import "./student-frontpage.css";
 
 const base = import.meta.env.BASE_URL || "/";
 

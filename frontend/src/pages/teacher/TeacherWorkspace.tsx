@@ -142,8 +142,9 @@ export function TeacherWorkspace() {
   }
 
   return (
-    <main className="login-page">
+    <main className="login-page teacher-login-design">
       <section className="login-card teacher-card">
+        <Link className="teacher-student-return" to="/"><ArrowLeft size={15} /> Student frontpage</Link>
         <header className="teacher-page-header">
           <div className="teacher-page-header-main">
             <span className="login-mark teacher-mark"><KeyRound size={24} /></span>
@@ -249,7 +250,7 @@ function TeacherWorkspaceShell({ profile, onSignOut }: { profile: TeacherProfile
   const isAttemptReview = /^\/teacher\/review\/[^/]+\/?$/.test(location.pathname);
 
   return (
-    <div className={`teacher-page account-workspace ${collapsed ? "sidebar-collapsed" : ""}`}>
+    <div className={`teacher-page account-workspace teacher-design ${collapsed ? "sidebar-collapsed" : ""}`}>
       <a className="skip-link" href="#teacher-content">Skip to content</a>
       <aside className="side-rail" aria-label="Teacher navigation">
         <div className="rail-top">
@@ -278,12 +279,17 @@ function TeacherWorkspaceShell({ profile, onSignOut }: { profile: TeacherProfile
         <button className="icon-button" type="button" onClick={onSignOut} title="Sign out" aria-label="Sign out"><LogOut size={17} /></button>
       </div>
       </aside>
+      <div className="teacher-main-shell">
+      <div className="teacher-topbar">
+        <div><Link to="/teacher">Teacher workspace</Link><ChevronRight size={14} aria-hidden="true" /><span>{current.label}</span></div>
+        <div><span className="teacher-topbar-identity">{profile.displayName || "Teacher"}</span><span className="workspace-context"><BookOpen size={14} aria-hidden="true" />{courses.filter((course) => !course.archivedAt).length} courses</span><button className="icon-button teacher-mobile-signout" type="button" onClick={onSignOut} aria-label="Sign out" title="Sign out"><LogOut size={17} /></button></div>
+      </div>
       <main className="teacher-workspace content-shell" id="teacher-content" tabIndex={-1}>
       <header className={`workspace-page-header${isAttemptReview ? " review-detail-page-header" : ""}`}>
-        <div><span className="workspace-eyebrow">Teacher workspace</span><h1>{current.label}</h1><p>{current.description}</p></div>
+        <div><h1 title={current.description}>{current.label}</h1></div>
         <div className="workspace-header-actions">
+          <div className="teacher-page-tools" id="teacher-page-tools" />
           {isAttemptReview && <Link className="secondary-button review-back-button" to="/teacher/review"><ArrowLeft size={16} aria-hidden="true" />Back to review list</Link>}
-          <span className="workspace-context"><BookOpen size={16} aria-hidden="true" />{courses.filter((course) => !course.archivedAt).length} courses</span>
         </div>
       </header>
       <div className="teacher-dashboard">
@@ -296,6 +302,7 @@ function TeacherWorkspaceShell({ profile, onSignOut }: { profile: TeacherProfile
       <Outlet />
       </div>
       </main>
+      </div>
     </div>
   );
 }

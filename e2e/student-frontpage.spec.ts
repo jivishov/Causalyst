@@ -16,6 +16,9 @@ test("student frontpage explains all formats, supports keyboard exploration, and
   await expect(page.getByTestId("example-pressure")).toHaveText("2.00×");
   await page.getByLabel("Volume", { exact: true }).fill("100");
   await expect(page.getByTestId("example-pressure")).toHaveText("1.00×");
+  await page.getByRole("tab", { name: /Simulation/ }).click();
+  await page.getByLabel("Volume", { exact: true }).fill("80");
+  await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
   for (const width of [1366, 1024, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(page.getByRole("button", { name: "Continue with Google", exact: true })).toBeVisible();

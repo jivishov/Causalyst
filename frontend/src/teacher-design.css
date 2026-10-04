@@ -32,6 +32,8 @@
 .teacher-page.account-workspace.teacher-design .workspace-context {padding:0;background:transparent;border:0;border-radius:0;font-size:11px;color:var(--muted)}
 .teacher-design .teacher-mobile-signout {display:none}
 .teacher-page.account-workspace.teacher-design .content-shell {max-width:1600px;padding:18px 26px 28px}
+.teacher-design .skip-link {width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.teacher-design .skip-link:focus {width:auto;height:auto;clip-path:none}
 .teacher-page.account-workspace.teacher-design .workspace-page-header {min-height:37px;padding:0;border:0;margin-bottom:16px;gap:12px;align-items:center}
 .teacher-page.account-workspace.teacher-design .workspace-page-header h1 {font-size:26px;font-weight:650;letter-spacing:-.7px;line-height:1.2}
 .teacher-page.account-workspace.teacher-design .workspace-header-actions {gap:10px;min-width:0;flex-wrap:wrap}
@@ -39,7 +41,7 @@
 .teacher-page.account-workspace.teacher-design .teacher-page-tools .checkbox-row {font-size:11px;color:var(--muted);font-weight:500;gap:6px;white-space:nowrap}
 .teacher-page.account-workspace.teacher-design :is(.teacher-dashboard,.page-stack,.teacher-courses-layout) {gap:16px}
 .teacher-page.account-workspace.teacher-design :is(.course-list-panel,.course-editor,.gradebook-page,.safe-preview-panel,.feedback-panel) {padding:15px;border-color:var(--line);border-radius:11px;background:#fff;box-shadow:var(--shadow)}
-.teacher-page.account-workspace.teacher-design :is(.course-list-header,.safe-preview-header,.gradebook-header) {margin-bottom:12px;align-items:center;gap:10px}
+.teacher-page.account-workspace.teacher-design :is(.course-list-header,.safe-preview-header,.gradebook-header) {margin-bottom:12px;align-items:center;flex-direction:row;flex-wrap:wrap;gap:10px}
 .teacher-page.account-workspace.teacher-design :is(.course-list-panel,.course-editor,.safe-preview-panel,.feedback-panel,.gradebook-header) h2 {font-size:14px;line-height:1.4;font-weight:650}
 .teacher-page.account-workspace.teacher-design :is(.primary-button,.secondary-button,.danger-button) {min-height:34px;padding:7px 11px;border-radius:7px;font-size:12px;line-height:1.3;box-shadow:none}
 .teacher-page.account-workspace.teacher-design .primary-button {background:#6350c8;border-color:#6350c8;color:#fff}
@@ -175,7 +177,7 @@
   .teacher-page.account-workspace.teacher-design :is(.brand-copy small,.nav-section-label,.rail-toggle,.rail-account) {display:none}
   .teacher-page.account-workspace.teacher-design .brand-copy strong {font-size:16px}
   .teacher-page.account-workspace.teacher-design .brand-mark {width:27px;height:29px;flex-basis:27px}
-  .teacher-page.account-workspace.teacher-design .side-nav {display:flex;gap:2px;overflow-x:auto;margin:0 0 0 auto;min-width:0;scrollbar-width:none}
+.teacher-page.account-workspace.teacher-design .side-nav {display:flex;flex-wrap:nowrap;flex:1 1 auto;width:auto;gap:2px;overflow-x:auto;margin:0 0 0 auto;min-width:0;scrollbar-width:none}
   .teacher-page.account-workspace.teacher-design .side-nav a {min-height:36px;padding:8px;flex:0 0 34px;justify-content:center}
   .teacher-page.account-workspace.teacher-design .side-nav a span {display:none}
   .teacher-design .teacher-topbar {min-height:40px;padding:0 14px;gap:8px;font-size:10px}
@@ -203,8 +205,10 @@
 @media (max-width:480px) {
   .teacher-page.account-workspace.teacher-design .teacher-page-tools {width:100%;justify-content:space-between;margin-left:0}
   .teacher-page.account-workspace.teacher-design .workspace-header-actions {width:100%}
-  .teacher-page.account-workspace.teacher-design .teacher-builder-header>div:first-child {flex:1 1 calc(100% - 24px)}
-  .teacher-design .teacher-builder-tabs {order:2;margin-left:0;width:100%;justify-content:flex-start}
+  .teacher-page.account-workspace.teacher-design .assessment-builder-panel>.teacher-builder-header {display:grid;grid-template-columns:minmax(0,1fr) 24px;gap:0 10px}
+  .teacher-page.account-workspace.teacher-design .teacher-builder-header>div:first-child {grid-column:1;grid-row:1}
+  .teacher-design .teacher-builder-tabs {grid-column:1/-1;grid-row:2;order:2;margin-left:0;width:100%;justify-content:flex-start}
+  .teacher-page.account-workspace.teacher-design .assessment-builder-close {grid-column:2;grid-row:1;margin:0}
   .teacher-page.account-workspace.teacher-design .assessment-builder-panel .compact-settings-grid {grid-template-columns:minmax(0,1fr)}
   .teacher-page.account-workspace.teacher-design .assessment-basics-fields {grid-template-columns:minmax(0,1fr)}
   .teacher-page.account-workspace.teacher-design .assessment-builder-save>.primary-button {margin-left:0}

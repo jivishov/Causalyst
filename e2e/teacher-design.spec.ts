@@ -93,6 +93,7 @@ test("teacher pages remain usable on mobile and validation opens the field's tab
   }
   await page.goto("teacher/assessments");
   await page.getByRole("article", { name: "Gas laws", exact: true }).getByRole("button", { name: "Edit", exact: true }).click();
+  await page.evaluate(() => { (document.activeElement as HTMLElement)?.blur(); window.scrollTo(0, 0); });
   await page.screenshot({ path: testInfo.outputPath("working-teacher-mobile.png"), fullPage: true });
   expect(errors).toEqual([]);
 });

@@ -398,7 +398,7 @@ export function TeacherAssessmentsPage() {
                 </label>
                 <label>
                   Expected answer (optional)
-                  <textarea value={assessmentExpectedAnswer} onChange={(event) => setAssessmentExpectedAnswer(event.target.value)} rows={4} />
+                  <textarea value={assessmentExpectedAnswer} onChange={(event) => setAssessmentExpectedAnswer(event.target.value)} rows={2} />
                 </label>
               </div>
             </section>

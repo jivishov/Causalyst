@@ -50,7 +50,7 @@ jobs:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_JWKS_URL: ${{ vars.SUPABASE_JWKS_URL }}
           APP_ENV: ${{ vars.APP_ENV }}
-          ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+          ALLOWED_ORIGINS: ${{ format('{0},https://explain.az,https://www.explain.az', vars.ALLOWED_ORIGINS) }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PIN_PEPPER: ${{ secrets.PIN_PEPPER }}
@@ -70,7 +70,7 @@ jobs:
             --var SUPABASE_URL:${{ vars.SUPABASE_URL }}
             --var SUPABASE_JWKS_URL:${{ vars.SUPABASE_JWKS_URL }}
             --var APP_ENV:${{ vars.APP_ENV }}
-            --var ALLOWED_ORIGINS:${{ vars.ALLOWED_ORIGINS }}
+            --var ALLOWED_ORIGINS:${{ format('{0},https://explain.az,https://www.explain.az', vars.ALLOWED_ORIGINS) }}
           secrets: |
             SUPABASE_SERVICE_ROLE_KEY
             OPENAI_API_KEY

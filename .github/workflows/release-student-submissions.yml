@@ -1,0 +1,120 @@
+name: Release student submission design
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-student-submissions.yml]
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+concurrency:
+  group: causalyst-interface-release
+  cancel-in-progress: false
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify the reviewed source and deployed backend
+        env:
+          REVIEWED_SHA: 5baa5e66eae4507274aa93d2ed8e2293efdceb6c
+          BACKEND_SHA: d4ae0733f303291f1b01bbf923cd71cfd3338d0e
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = ".github/workflows/release-student-submissions.yml"
+          git diff --quiet "$BACKEND_SHA" "$REVIEWED_SHA" -- worker shared supabase package.json package-lock.json scripts
+      - name: Verify successful validation and identical source trees
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const validatedSha = "ae072e2f0a2ad66892e79c2ebfc538900c5b21c3";
+            const reviewedSha = "5baa5e66eae4507274aa93d2ed8e2293efdceb6c";
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37240856177 });
+            const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37238122597 });
+            for (const [run, sha] of [
+              [checked.data, validatedSha],
+              [deployed.data, "d4ae0733f303291f1b01bbf923cd71cfd3338d0e"]
+            ]) {
+              if (run.head_sha !== sha || run.status !== "completed" || run.conclusion !== "success") {
+                throw new Error("Validation or the deployed backend does not match this release.");
+              }
+            }
+            const [validated, reviewed] = await Promise.all([validatedSha, reviewedSha].map(commit_sha =>
+              github.rest.git.getCommit({ ...context.repo, commit_sha })
+            ));
+            if (validated.data.tree.sha !== reviewed.data.tree.sha) {
+              throw new Error("The reviewed source tree differs from the validated tree.");
+            }
+  deploy-frontend:
+    needs: release-gate
+    uses: ./.github/workflows/deploy-frontend.yml
+  verify-public:
+    needs: deploy-frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve the current public site
+        id: site
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { data } = await github.rest.repos.getPages(context.repo);
+            const url = data.html_url;
+            if (!url || !url.startsWith("https://")) throw new Error("Public site URL is unavailable.");
+            core.setOutput("url", url.endsWith("/") ? url : url + "/");
+      - name: Verify the published submission interface and app routing
+        env:
+          PUBLIC_URL: ${{ steps.site.outputs.url }}
+        run: |
+          node --input-type=module - <<'NODE'
+          const base = process.env.PUBLIC_URL;
+          const version = process.env.GITHUB_SHA;
+          let lastError;
+          for (let attempt = 0; attempt < 8; attempt++) {
+            try {
+              const root = await fetch(base + "?release=" + version);
+              if (!root.ok) throw new Error("Student frontpage returned HTTP " + root.status);
+              const html = await root.text();
+              if (!html.includes("Explain your thinking")) throw new Error("Frontpage metadata is unavailable.");
+              const styles = [...html.matchAll(/href=["']([^"']+\.css)["']/g)].map(match => new URL(match[1], base).href);
+              if (!styles.length) throw new Error("App stylesheet was not found.");
+              const css = (await Promise.all(styles.map(async url => {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Stylesheet returned HTTP " + response.status);
+                return response.text();
+              }))).join("\n");
+              for (const marker of ["student-submission-page", "submission-evidence-grid", "submission-tabs", "submission-grade-summary"]) {
+                if (!css.includes(marker)) throw new Error("Published submission stylesheet is missing " + marker);
+              }
+              const module = html.match(/src=["']([^"']+\.js)["']/)?.[1];
+              if (!module) throw new Error("App entry module was not found.");
+              const entryUrl = new URL(module, base);
+              const entry = await fetch(entryUrl);
+              if (!entry.ok) throw new Error("App entry module returned HTTP " + entry.status);
+              const code = await entry.text();
+              for (const [name, markers] of [
+                ["AttemptResultPage", ["Your submission", "Provisional Automated Feedback", "Recovered simulation preview"]],
+                ["FinalResultPage", ["Final result", "View submission evidence", "Published Feedback"]]
+              ]) {
+                const modulePath = code.match(new RegExp('\\bimport\\(["\']([^"\']*' + name + '-[^"\']+\\.js)["\']\\)'))?.[1];
+                if (!modulePath) throw new Error(name + " module was not found.");
+                const response = await fetch(new URL(modulePath, entryUrl));
+                if (!response.ok) throw new Error(name + " returned HTTP " + response.status);
+                const content = await response.text();
+                for (const marker of markers) {
+                  if (!content.includes(marker)) throw new Error(name + " is missing " + marker);
+                }
+              }
+              const fallback = await fetch(base + "404.html?release=" + version);
+              if (!fallback.ok || !(await fallback.text()).includes("Explain your thinking")) throw new Error("Deep-link fallback is unavailable.");
+              console.log("Verified student submission and published-result interface:", base);
+              process.exit(0);
+            } catch (error) {
+              lastError = error;
+              if (attempt < 7) await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+          }
+          throw lastError;
+          NODE

@@ -240,6 +240,9 @@ export function TeacherAssessmentsPage() {
     const invalid = [...form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input, textarea, select")].find(control => !control.checkValidity());
     if (invalid || !assessmentTitle.trim() || !assessmentPrompt.trim()) {
       setBuilderTab((invalid?.closest<HTMLElement>("[data-builder-tab]")?.dataset.builderTab as BuilderTab | undefined) ?? "prompt");
+      for (let ancestor = invalid?.parentElement; ancestor && ancestor !== form; ancestor = ancestor.parentElement) {
+        if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+      }
       setError("Complete the highlighted assessment field before saving.");
       requestAnimationFrame(() => { invalid?.focus(); form.reportValidity(); });
       return;

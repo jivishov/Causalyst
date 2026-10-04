@@ -82,6 +82,15 @@ test("teacher pages remain usable on mobile and validation opens the field's tab
   await page.getByRole("button", { name: "Create assessment", exact: true }).click();
   await expect(page.getByRole("tab", { name: "Prompt", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByLabel("Title", { exact: true })).toBeFocused();
+  await page.getByLabel("Title", { exact: true }).fill("Voice explanation");
+  await page.getByLabel("Prompt", { exact: true }).fill("Explain your scientific reasoning with a specific example.");
+  await page.getByRole("tab", { name: "Models & settings", exact: true }).click();
+  await page.getByLabel("Max recording seconds", { exact: true }).fill("invalid");
+  await page.locator("#builder-panel-settings summary").click();
+  await page.getByRole("tab", { name: "Prompt", exact: true }).click();
+  await page.getByRole("button", { name: "Create assessment", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Models & settings", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByLabel("Max recording seconds", { exact: true })).toBeFocused();
   for (const width of [1024, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     for (const route of ["teacher/assessments", "teacher", "teacher/assignments", "teacher/review", "teacher/gradebook"]) {

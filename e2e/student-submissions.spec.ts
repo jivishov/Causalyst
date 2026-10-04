@@ -70,7 +70,21 @@ test("saved submission keeps interactive evidence through keyboard tabs and resp
     await page.setViewportSize({ width, height: 844 });
     await expect(page.locator(".submission-response-text")).toHaveText(description);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-    if (width === 390) await page.screenshot({ path: testInfo.outputPath("submitted-assignment-mobile.png"), fullPage: true });
+    if (width === 390) {
+      const heading = await page.locator(".submission-heading").boundingBox();
+      const header = await page.locator(".submission-header").boundingBox();
+      expect(heading!.width).toBeGreaterThanOrEqual(header!.width - 45);
+      await testInfo.attach("submission-mobile-layout", { contentType: "application/json", body: JSON.stringify(await page.evaluate(() => ({
+        viewport: { width: innerWidth, height: innerHeight },
+        elements: ["html", "body", "#root", ".app-shell", ".content-shell", ".student-submission-page", ".simulation-preview-frame", ".simulation-preview-iframe"].map(selector => {
+          const element = document.querySelector(selector)!;
+          const box = element.getBoundingClientRect();
+          const style = getComputedStyle(element);
+          return { selector, top: box.top, bottom: box.bottom, height: box.height, scrollHeight: element.scrollHeight, minHeight: style.minHeight, overflow: style.overflow, position: style.position };
+        })
+      }))) });
+      await page.screenshot({ path: testInfo.outputPath("submitted-assignment-mobile.png"), fullPage: true });
+    }
   }
   expect(requests.mutations).toBe(0);
 });
@@ -96,6 +110,12 @@ test("published grades retain their distinction from provisional feedback", asyn
   await expect(page.locator(".submission-grade-score strong")).toHaveText("82");
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  const heading = await page.locator(".submission-heading").boundingBox();
+  const header = await page.locator(".submission-header").boundingBox();
+  expect(heading!.width).toBeGreaterThanOrEqual(header!.width - 45);
+  const score = await page.getByLabel("Score 82 percent").boundingBox();
+  const feedbackTitle = await page.getByRole("heading", { name: "Published Feedback" }).boundingBox();
+  expect(Math.abs(score!.y - feedbackTitle!.y)).toBeLessThan(2);
   await page.screenshot({ path: testInfo.outputPath("published-result-mobile.png"), fullPage: true });
   result.publishedGrade = { finalScore: null, finalStatus: "missing", publishedAt: "2026-10-04T21:00:00Z" };
   await page.goto("./final/energy");

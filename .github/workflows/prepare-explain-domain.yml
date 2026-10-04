@@ -18,15 +18,6 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     steps:
-      - name: Check available domain administration credential names
-        env:
-          REPOSITORY_CREDENTIALS: ${{ toJSON(secrets) }}
-        run: |
-          node --input-type=module - <<'NODE'
-          const names = Object.keys(JSON.parse(process.env.REPOSITORY_CREDENTIALS || "{}"));
-          const relevant = names.filter(name => /SUPABASE|GITHUB|^GH_|(^|_)PAT($|_)/i.test(name));
-          console.log("DOMAIN_ADMINISTRATION_CREDENTIAL_NAMES:", JSON.stringify(relevant.sort()));
-          NODE
       - name: Inspect Cloudflare and prepare the domain zone
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_DNS_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}

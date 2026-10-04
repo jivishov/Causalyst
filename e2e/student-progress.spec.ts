@@ -164,6 +164,7 @@ test("restored simulation work shows progress, renders completed HTML and signal
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Your Simulation Description" })).toBeVisible();
   await expect(page.getByText(result.simulationDescription!, { exact: true })).toBeVisible();
+  await page.locator(".submission-sketch > summary").click();
   await expect(page.getByRole("img", { name: "Generated simulation sketch" })).toBeVisible();
   await expect(page.frameLocator('iframe[title="Recovered simulation preview"]').getByRole("heading", { name: "Container movement" })).toBeVisible();
   await page.reload();

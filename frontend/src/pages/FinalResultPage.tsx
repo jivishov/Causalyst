@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, FileCheck2 } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import type { StudentPublishedFinalResultResponse } from "@alt-assessment/shared";
 import { RubricFeedback } from "../components/RubricFeedback";
+import { AssignmentPrompt } from "../components/AssignmentPrompt";
+import { PublishedGradeSummary, SubmissionHeader, SubmissionPanel, SubmissionTabs, type SubmissionTab } from "../components/SubmissionLayout";
 import { getPublishedFinalResult } from "../lib/api";
 
 export function FinalResultPage() {
@@ -13,6 +15,9 @@ export function FinalResultPage() {
 function FinalResultWorkspace({ assignmentId }: { assignmentId: string | undefined }) {
   const [result, setResult] = useState<StudentPublishedFinalResultResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const panelId = useId();
+  const [activeTab, setActiveTab] = useState<SubmissionTab>("feedback");
 
   useEffect(() => {
     if (!assignmentId) return;
@@ -25,54 +30,22 @@ function FinalResultWorkspace({ assignmentId }: { assignmentId: string | undefin
     return () => { cancelled = true; };
   }, [assignmentId]);
 
-  if (error) {
-    return <p className="field-error">{error}</p>;
-  }
-  if (!result) {
-    return <p className="status-line">Loading final result</p>;
-  }
+  if (error) return <div className="page-stack student-submission-page submission-error"><Link className="text-button" to="/"><ArrowLeft size={17} />Dashboard</Link><h1>Final result unavailable</h1><p className="field-error">{error}</p></div>;
+  if (!result) return <p className="status-line" role="status">Loading final result</p>;
 
   return (
-    <div className="page-stack">
-      <Link className="text-button" to="/">
-        <ArrowLeft size={17} /> Dashboard
-      </Link>
-      <header className="page-header">
-        <div>
-          <h1>{result.assessment.title}</h1>
-          <p>{result.classCode} · {result.className}</p>
-        </div>
-      </header>
-      <section className="evidence-panel final-grade-panel">
-        <h2><FileCheck2 size={20} /> Published Final Grade</h2>
-        <p>
-          Status: <strong>{formatFinalStatus(result.publishedGrade.finalStatus)}</strong>
-          {" · "}
-          Score: <strong>{result.publishedGrade.finalScore ?? "Not scored"}</strong>
-        </p>
-        <p>Published at {new Date(result.publishedGrade.publishedAt).toLocaleString()}</p>
-        {result.latestAttempt?.attemptId && (
-          <Link className="text-button" to={`/attempt/${result.latestAttempt.attemptId}`}>View submission evidence</Link>
-        )}
-      </section>
-      <section className="evidence-panel">
-        <h2>Assessment Prompt</h2>
-        <p>{result.assessment.prompt}</p>
-      </section>
-      {result.publishedGrade.finalStatus === "approved_ai" && result.publishedGrade.feedback && (
-        <RubricFeedback
-          feedback={result.publishedGrade.feedback}
-          rubric={result.assessment.rubric}
-          heading="Published Feedback"
-          subheading="This feedback is part of the published final result."
-        />
-      )}
+    <div className="page-stack student-submission-page">
+      <SubmissionHeader title={result.assessment.title} type={result.assessment.type} context={`${result.classCode} · ${result.className}`} status="Final result published" attention={result.publishedGrade.finalStatus === "missing"} />
+      <SubmissionTabs id={panelId} value={activeTab} onChange={setActiveTab} tabs={[{ value: "feedback", label: "Final result" }, { value: "instructions", label: "Assessment prompt" }]} />
+      <SubmissionPanel id={panelId} tab="feedback" active={activeTab}>
+        <PublishedGradeSummary grade={result.publishedGrade}>
+          {result.latestAttempt?.attemptId && <Link className="text-button" to={`/attempt/${result.latestAttempt.attemptId}`}><FileText size={14} aria-hidden="true" />View submission evidence</Link>}
+        </PublishedGradeSummary>
+        {result.publishedGrade.finalStatus === "approved_ai" && result.publishedGrade.feedback && <RubricFeedback feedback={result.publishedGrade.feedback} rubric={result.assessment.rubric} heading="Published Feedback" subheading="This feedback is part of the published final result." />}
+      </SubmissionPanel>
+      <SubmissionPanel id={panelId} tab="instructions" active={activeTab}>
+        <section className="evidence-panel"><h2>Assessment Prompt</h2><AssignmentPrompt text={result.assessment.prompt} /></section>
+      </SubmissionPanel>
     </div>
   );
-}
-
-function formatFinalStatus(status: "approved_ai" | "teacher_override" | "missing"): string {
-  if (status === "approved_ai") return "Approved AI";
-  if (status === "teacher_override") return "Teacher Override";
-  return "Missing";
 }

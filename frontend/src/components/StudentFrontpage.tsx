@@ -95,6 +95,6 @@ function GasExample() {
       </div>
       <div className="frontpage-example-footer"><MousePointer2 size={15} /><span>Move the slider. What do you notice?</span><span>Sample only</span></div>
     </div>
-    <p className="frontpage-example-note">In a simulation assessment, you describe the idea. AI helps turn your explanation into a model that you can test and refine.</p>
+    <p className="frontpage-example-note">In a simulation assessment, you answer by explaining the process. AI helps turn your explanation into a model that you can test and refine.</p>
   </aside>;
 }

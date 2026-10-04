@@ -117,22 +117,24 @@ function AssignmentWorkspace({ assignmentId }: { assignmentId: string | undefine
 
   return (
     <div className="page-stack student-assessment-page">
-      <button className="text-button" type="button" onClick={() => navigate("/")}>
-        <ArrowLeft size={17} /> Dashboard
-      </button>
-      <header className="assessment-header">
+      <header className="assessment-header student-assessment-header">
         <div>
           <div className="assessment-title-row">
-            <span className={`mode-label ${activeAssessment.type}`}>{formatAssessmentTypeLabel(activeAssessment.type)}</span>
             <h1>{activeAssessment.title}</h1>
+            <span className={`mode-label ${activeAssessment.type}`}>{formatAssessmentTypeLabel(activeAssessment.type)}</span>
           </div>
           <p className="assessment-course-context">{activeAssignment.classCode} · {activeAssignment.className}</p>
         </div>
+        <div className="student-workflow" aria-label="Assignment workflow">
+          <span><b>1</b>{activeAssessment.type === "voice" || activeAssessment.type === "voice_realtime" ? "Record" : "Explain"}</span><i aria-hidden="true" />
+          <span><b>2</b>{activeAssessment.type === "simulation" ? "Test & revise" : "Review"}</span><i aria-hidden="true" />
+          <span><b>3</b>Submit</span>
+        </div>
       </header>
-      <details className="assignment-instructions" open>
+      {activeAssessment.type !== "simulation" && <details className="assignment-instructions" open>
         <summary><ClipboardList size={17} aria-hidden="true" /><span>Assignment instructions</span><span className="instructions-hint">Read, then describe in your own words</span><ChevronDown size={16} className="accordion-chevron" aria-hidden="true" /></summary>
         <AssignmentPrompt text={activeAssessment.prompt} />
-      </details>
+      </details>}
       {error && <p className="field-error">{error}</p>}
       {!workspaceReady && error && <button className="secondary-button assignment-retry" type="button" onClick={() => { setError(null); void ensureAttempt().catch(err => { if (isActive()) setError(resolveStudentLifecycleError(err)); }); }}>Retry opening assignment</button>}
       <StudentActionProgress active={!workspaceReady && !error} title="Opening your assignment" />

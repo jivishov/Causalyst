@@ -1,3 +1,4 @@
+import { AssignmentPrompt } from "../../components/AssignmentPrompt";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronDown, Image, LoaderCircle, Maximize2, Minimize2, MonitorPlay, RefreshCw, Send, SlidersHorizontal, Sparkles, WandSparkles, X } from "lucide-react";
@@ -579,7 +580,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
         setHtmlRequestedModel(job.requestedModel ?? null);
         setHtmlModelUsed(job.modelUsed ?? null);
         setCurrentHtmlReasoningEffort(job.htmlReasoningEffort ?? selectedHtmlReasoningEffort);
-        setInputPanelOpen(false);
+        setInputPanelOpen(true);
         const completed = await pollHtmlGenerationJob(job, {
           runToken,
           preservePreviewOnFailure: preserveExistingPreview,
@@ -792,8 +793,9 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
         open={inputPanelOpen}
         onToggle={(event) => setInputPanelOpen(event.currentTarget.open)}
       >
-        <summary><SlidersHorizontal size={17} aria-hidden="true" /><span>Input and Rubric</span><ChevronDown size={16} className="accordion-chevron" aria-hidden="true" /></summary>
+        <summary><SlidersHorizontal size={17} aria-hidden="true" /><span>My explanation</span><ChevronDown size={16} className="accordion-chevron" aria-hidden="true" /></summary>
         <div className="simulation-input-body">
+          <details className="assignment-instructions" open><summary><span>The assignment</span><ChevronDown size={16} className="accordion-chevron" aria-hidden="true" /></summary><AssignmentPrompt text={assessment.prompt} /></details>
           <div className="simulation-input-grid">
             <section className="writing-panel">
               <label htmlFor="simulation-description">Description</label>
@@ -810,7 +812,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
                 rows={12}
               />
             </section>
-            <RubricFeedback feedback={null} rubric={assessment.rubric} />
+            <details className="simulation-rubric"><summary>Success criteria<ChevronDown size={15} aria-hidden="true" /></summary><RubricFeedback feedback={null} rubric={assessment.rubric} /></details>
             <div className="simulation-html-options">
               <p id="html-reasoning-effort" className="overall-comment">Reasoning effort and token limits are assigned by your teacher.</p>
               <p className="overall-comment">Next HTML model: {modelSettings?.htmlModelId || (modelSettingsLoading ? "Loading settings…" : "Unavailable")}{modelSettings ? ` · Reasoning: ${formatSimulationHtmlReasoningEffort(modelSettings.htmlReasoningEffort)}` : ""}</p>
@@ -839,7 +841,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
                   setSketchPreviewToken(sketch.previewToken);
                   setSketchRequestedModel(sketch.requestedModel);
                   setSketchModelUsed(sketch.modelUsed);
-                  setInputPanelOpen(false);
+                  setInputPanelOpen(true);
                   revealSketchPanel();
                   await requestSketchPreview({
                     artifactId: sketch.artifactId,
@@ -860,7 +862,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
                   setHtmlRequestedModel(job.requestedModel ?? null);
                   setHtmlModelUsed(job.modelUsed ?? null);
                   setCurrentHtmlReasoningEffort(job.htmlReasoningEffort ?? selectedHtmlReasoningEffort);
-                  setInputPanelOpen(false);
+                  setInputPanelOpen(true);
                   const completed = await pollHtmlGenerationJob(job, {
                     runToken,
                     preservePreviewOnFailure: false
@@ -955,6 +957,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
                 disabled={!canCancelHtmlGeneration || cancellingGeneration || submittingSimulation}
                 aria-busy={cancellingGeneration}
                 aria-label={cancellingGeneration ? "Cancelling..." : "Cancel generation"}
+                title="Cancel generation"
               >
                 {cancellingGeneration ? <LoaderCircle size={16} className="student-action-spinner" aria-hidden="true" /> : <X size={15} aria-hidden="true" />} {cancellingGeneration ? "Cancelling..." : "Cancel generation"}
               </button>

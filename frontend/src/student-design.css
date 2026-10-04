@@ -1,0 +1,200 @@
+.app-shell.student-design{--ink:#242137;--muted:#696579;--paper:#f5f4f9;--surface:#fff;--panel:#fff;--line:#e2dfeb;--accent:#6350c8;--accent-strong:#4e3bab;--accent-soft:#eeebfa;--green:#6350c8;--blue:#4c5cab;--amber:#984a38;--danger:#a62e4c;--focus:#6350c8;--shadow:none;--sidebar-width:218px;grid-template-columns:var(--sidebar-width) minmax(0,1fr);background:var(--paper);color:var(--ink);font-family:"Segoe UI Variable Text","Segoe UI",Arial,sans-serif;font-size:14px}
+.app-shell.student-design.sidebar-collapsed{--sidebar-width:76px;grid-template-columns:var(--sidebar-width) minmax(0,1fr)}
+.app-shell.student-design .side-rail{background:#252139;border-color:#352f49;color:#f5f0ff;padding:19px 14px 16px;position:sticky;top:0;display:flex;flex-direction:column;height:100dvh}
+.app-shell.student-design .rail-top{display:flex;gap:5px;align-items:center}
+.app-shell.student-design .brand-lockup{color:#f6f1ff;gap:9px}
+.app-shell.student-design .brand-mark{width:32px;height:36px;background:#9d85e1;color:#fff;border-radius:10px;flex-shrink:0}
+.app-shell.student-design .brand-copy strong{font-size:20px;letter-spacing:-.7px;font-weight:700}
+.app-shell.student-design .brand-copy small{color:#b4abc9;font-size:11px;letter-spacing:0;text-transform:none}
+.app-shell.student-design .rail-toggle{color:#c8b4df;width:24px;min-width:24px;height:32px;min-height:32px;padding:3px;background:transparent}
+.app-shell.student-design .rail-toggle:hover{background:#403651}
+.app-shell.student-design .side-nav{display:grid;gap:4px;margin-top:25px}
+.app-shell.student-design .side-nav a{min-height:43px;border-radius:8px;padding:10px 11px;gap:8px;font-size:13px;font-weight:550;color:#c4bbd6;border:0;background:transparent}
+.app-shell.student-design .side-nav a:hover{background:#332d48;color:#f4edff}
+.app-shell.student-design .side-nav a.active{background:#413655;color:#f4edff;font-weight:650}
+.app-shell.student-design .side-nav a span{white-space:nowrap}
+.app-shell.student-design .nav-section-label{padding:19px 11px 4px;margin:0;color:#a99fbe;font-size:11px;text-transform:none;letter-spacing:0;font-weight:400}
+.app-shell.student-design .side-nav .student-course-nav{font-size:11.5px;gap:10px}
+.app-shell.student-design .student-course-dot{display:block;width:9px;height:9px;border-radius:3px;background:#a99ae1;flex-shrink:0}
+.app-shell.student-design .student-course-dot.coral{background:#d29683}
+.app-shell.student-design .student-rail-bottom{margin-top:auto;display:grid;gap:12px;padding-top:22px}
+.app-shell.student-design .student-join-course{display:flex;gap:9px;align-items:center;background:#332c46;color:#d5cae5;border-radius:9px;padding:11px;font-size:12px}
+.app-shell.student-design .rail-account{border-color:#41374f;gap:8px;margin-top:0;padding:13px 3px 0}
+.app-shell.student-design .rail-account-copy strong{font-size:12px;color:#f5f0ff}
+.app-shell.student-design .rail-account-copy small{font-size:11px;color:#b6a9c9}
+.app-shell.student-design .account-avatar{width:34px;height:34px;min-width:34px;background:#514365;color:#eee0ff;font-size:12px}
+.app-shell.student-design .rail-account .icon-button{color:#c9bbdc}
+.app-shell.student-design.sidebar-collapsed .rail-top{flex-direction:column}
+.app-shell.student-design.sidebar-collapsed .brand-copy,.app-shell.student-design.sidebar-collapsed .side-nav>a.student-course-nav,.app-shell.student-design.sidebar-collapsed .student-join-course span{display:none}
+.app-shell.student-design.sidebar-collapsed .student-join-course{justify-content:center;padding:10px}
+.app-shell.student-design.sidebar-collapsed .rail-account{display:grid;justify-items:center;grid-template-columns:1fr}
+.app-shell.student-design.sidebar-collapsed .rail-account-copy{display:none}
+.app-shell.student-design .student-main-shell{min-width:0}
+.app-shell.student-design .student-topbar{height:48px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:5px 28px;background:#fdfcfe;border-bottom:1px solid var(--line)}
+.app-shell.student-design .student-breadcrumbs{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:11px;min-width:0}
+.app-shell.student-design .student-breadcrumbs a{color:var(--accent)}
+.app-shell.student-design .student-account-label{font-size:10px;color:#7d6594;background:#f1edf8;border:1px solid #e3daef;padding:3px 8px;border-radius:5px;white-space:nowrap}
+.app-shell.student-design .content-shell{min-width:0;padding:20px 30px 30px;background:var(--paper)}
+.app-shell.student-design .page-stack{gap:12px;max-width:1490px;margin:0 auto;width:100%}
+.app-shell.student-design h1{font-size:26px;line-height:1.2;letter-spacing:-.7px;font-weight:650}
+.app-shell.student-design .student-dashboard-header{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:38px;border:0;padding:0;margin-bottom:2px;background:transparent}
+.app-shell.student-design .student-dashboard-header h1{font-size:26px;margin:0}
+.app-shell.student-design .assignment-filters{display:flex;gap:2px;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:3px;background:#fff}
+.app-shell.student-design .assignment-filters button{min-height:32px;border:0;border-radius:6px;padding:6px 10px;color:var(--muted);font-size:11px;background:transparent;box-shadow:none;white-space:nowrap}
+.app-shell.student-design .assignment-filters button[aria-pressed=true]{color:#fff;background:#252139;border-color:transparent;box-shadow:none}
+.app-shell.student-design .assignment-filters button:hover:not([aria-pressed=true]){background:#f3effa;color:var(--ink)}
+.app-shell.student-design .assignment-filters button span{color:inherit;background:transparent;padding:0;min-width:auto;opacity:.75;font-size:10px}
+.app-shell.student-design .student-dashboard-columns{display:grid;grid-template-columns:minmax(0,1fr) 258px;gap:20px;align-items:start}
+.app-shell.student-design .student-assignment-main{min-width:0}
+.app-shell.student-design .student-resume-card{display:grid;grid-template-columns:minmax(0,1fr) 180px;min-height:140px;background:#2c2644;border:1px solid #3c3355;border-radius:13px;overflow:hidden;margin-bottom:14px;color:#f7f2ff}
+.app-shell.student-design .student-resume-content{padding:19px 21px;display:grid;gap:10px;align-content:center}
+.app-shell.student-design .student-resume-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;min-width:0}
+.app-shell.student-design .student-resume-heading>div{min-width:0}
+.app-shell.student-design .student-resume-course{font-size:11px;color:#c4b8da;margin:0 0 5px}
+.app-shell.student-design .student-resume-content h2{font-size:22px;letter-spacing:-.5px;line-height:1.25;color:#f7f2ff;margin:0;font-weight:650;overflow-wrap:break-word}
+.app-shell.student-design .student-resume-content>p{font-size:12px;color:#cec3e0;margin:0;line-height:1.6;max-width:none}
+.app-shell.student-design .student-resume-content .primary-button{background:#d5c6ff;border-color:#d5c6ff;color:#36274e;font-size:12px;min-height:38px;padding:8px 12px;box-shadow:none;white-space:nowrap;flex-shrink:0}
+.app-shell.student-design .student-resume-content .primary-button:hover{background:#e2d7ff}
+.app-shell.student-design .student-resume-art{display:flex;flex-direction:column;justify-content:center;gap:6px;padding:14px 12px;background:#352c50}
+.app-shell.student-design .student-resume-art svg{width:100%;height:85px;fill:none}
+.app-shell.student-design .resume-grid{stroke:#514867;stroke-width:1}
+.app-shell.student-design .resume-spectrum{stroke:#d0bfff;stroke-width:2.3;fill:#c6b5ff20}
+.app-shell.student-design .student-resume-art small{color:#c1b3d3;font-size:10px;line-height:1.5;text-align:center}
+.app-shell.student-design .assignment-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.app-shell.student-design .student-result-count{font-size:11px;color:var(--muted)}
+.app-shell.student-design .student-list-tools{display:flex;align-items:center;gap:9px;min-width:0}
+.app-shell.student-design .workspace-search{width:180px;border:1px solid var(--line);border-radius:8px;background:white;color:var(--muted);min-height:35px;gap:7px;padding:0 9px}
+.app-shell.student-design .workspace-search input{min-height:33px;min-width:0;width:100%;padding:4px 0;font-size:11px;background:transparent;border:0;box-shadow:none}
+.app-shell.student-design .student-list-tools select{min-height:35px;max-width:175px;padding:5px 8px;background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:11px}
+.app-shell.student-design .student-assignment-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0;padding:0;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#fff}
+.app-shell.student-design .student-assignment-card{padding:13px 17px;gap:5px;border:0;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none;min-height:0;height:auto;background:#fff;grid-template-rows:auto auto auto}
+.app-shell.student-design .student-assignment-card:last-child{border-bottom:0}
+.app-shell.student-design .student-assignment-card:hover{background:#fcfbfe;border-color:var(--line);box-shadow:none}
+.app-shell.student-design .student-assignment-card-header{display:grid;grid-template-columns:39px minmax(0,1fr);align-items:center;gap:13px}
+.app-shell.student-design .type-icon{height:39px;width:39px;background:#eeebfa;color:#7661be;border-radius:10px}
+.app-shell.student-design .type-icon.writing{background:#faece6;color:#aa6049}
+.app-shell.student-design .type-icon.voice,.app-shell.student-design .type-icon.voice_realtime{background:#eceef9;color:#5967ad}
+.app-shell.student-design .student-card-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.app-shell.student-design .student-assignment-card-header h3{font-size:14px;margin:0;line-height:1.35;overflow-wrap:break-word;word-break:normal;flex:1 1 220px}
+.app-shell.student-design .student-card-title .status-row{display:inline-flex;align-items:center;gap:4px;font-size:10px;white-space:nowrap;background:#efedf4;color:#615c73;border-radius:5px;padding:2px 6px;flex:0 0 auto}
+.app-shell.student-design .student-card-title .status-warning{background:#fff0e9;color:#984a38}
+.app-shell.student-design .student-card-title .status-critical{background:#fdebf0;color:#a62e4c}
+.app-shell.student-design .student-card-title .status-positive{background:#eeebfa;color:#6350c8}
+.app-shell.student-design .assignment-type-label{font-size:10px;color:var(--muted);letter-spacing:0;text-transform:none;margin-top:3px;display:block}
+.app-shell.student-design .student-assignment-prompt-block{margin-left:52px;display:flex;align-items:flex-start;gap:8px;min-width:0}
+.app-shell.student-design .student-assignment-prompt{min-width:0;flex:1;max-width:none;line-height:1.55;font-size:11.5px;color:var(--muted);overflow-wrap:break-word;word-break:normal}
+.app-shell.student-design .student-assignment-prompt.is-collapsed{-webkit-line-clamp:1;max-height:1.55em}
+.app-shell.student-design .student-assignment-prompt.is-expanded{max-height:none}
+.app-shell.student-design .assignment-details-toggle{min-height:24px;min-width:38px;padding:0 2px;font-size:10px;color:var(--accent)}
+.app-shell.student-design .assignment-details-toggle svg{width:12px;height:12px}
+.app-shell.student-design .student-assignment-card-footer{margin-left:52px;padding-top:0;gap:7px;flex-wrap:nowrap;align-items:center}
+.app-shell.student-design .student-assignment-meta{flex:1;gap:5px 8px;min-width:0}
+.app-shell.student-design .student-card-course,.app-shell.student-design .assignment-due-date{font-size:10px;color:var(--muted)}
+.app-shell.student-design .due-pill{font-size:9px;padding:2px 5px;background:#f8ede7;color:#984a38}
+.app-shell.student-design .due-overdue{background:#fdebf0;color:#a62e4c}
+.app-shell.student-design .card-action{background:#eeebfa;color:#4e3bab;border:1px solid #dfd7f2;min-height:32px;padding:6px 9px;box-shadow:none;font-size:11px;white-space:nowrap}
+.app-shell.student-design .card-action:hover{background:#e6dff6;box-shadow:none}
+.app-shell.student-design .student-aside-card{padding:16px 17px;border:1px solid var(--line);border-radius:12px;background:white;margin-bottom:14px}
+.app-shell.student-design .student-aside-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:13px}
+.app-shell.student-design .student-aside-heading h2{font-size:14px;letter-spacing:0;font-weight:650}
+.app-shell.student-design .student-aside-heading>span{font-size:10px;color:var(--muted)}
+.app-shell.student-design .student-upcoming-item{display:grid;grid-template-columns:33px minmax(0,1fr);gap:10px;padding-bottom:13px;color:#514269}
+.app-shell.student-design .student-upcoming-item:last-child{padding-bottom:0}
+.app-shell.student-design .student-calendar-date{display:flex;flex-direction:column;align-items:center;justify-content:center;width:33px;min-height:39px;background:#f0ecf7;color:#6e5b89;border-radius:5px;font-size:15px;line-height:1.25;font-weight:650}
+.app-shell.student-design .student-calendar-date small{font-size:9px;font-weight:400}
+.app-shell.student-design .student-upcoming-item strong{display:block;font-size:12px;line-height:1.4;font-weight:600;overflow-wrap:break-word}
+.app-shell.student-design .student-upcoming-item small{display:block;font-size:10px;color:var(--muted);margin-top:4px}
+.app-shell.student-design .student-results-card{background:#eee9f8;border-color:#ded5ed}
+.app-shell.student-design .student-aside-card p{font-size:12px;line-height:1.65;color:#61516f;margin:0}
+.app-shell.student-design .student-result-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;color:#514269;padding:10px 0;border-top:1px solid #ddd3ec}
+.app-shell.student-design .student-result-item strong{font-size:12px;font-weight:600;overflow-wrap:break-word}
+.app-shell.student-design .student-result-item small{font-size:10px;color:#69548d;grid-row:2}
+.app-shell.student-design .student-result-item svg{grid-column:2;grid-row:1/3;align-self:center}
+.app-shell.student-design .student-work-guide{display:grid;gap:10px;margin-top:20px;color:var(--muted)}
+.app-shell.student-design .student-work-guide p{display:flex;gap:10px;align-items:flex-start;margin:0;font-size:11px;line-height:1.5}
+.app-shell.student-design .student-work-guide svg{color:#88709e;flex-shrink:0}
+.app-shell.student-design .workspace-footnote{font-size:10px;color:var(--muted);margin:4px 0 0}
+.app-shell.student-design :is(.primary-button,.secondary-button,.danger-button){border-radius:8px;box-shadow:none;min-height:36px;padding:7px 11px;font-size:12px;font-weight:600}
+.app-shell.student-design .primary-button{background:var(--accent);border-color:var(--accent);color:white}
+.app-shell.student-design .primary-button:hover:not(:disabled){background:var(--accent-strong);box-shadow:none}
+.app-shell.student-design .secondary-button{background:#fff;border-color:var(--line);color:var(--ink)}
+.app-shell.student-design .secondary-button:hover:not(:disabled){background:#f2eef9}
+.app-shell.student-design :is(input,textarea,select){accent-color:var(--accent);border-color:#d8cee8;color:var(--ink)}
+.app-shell.student-design :focus-visible{outline-color:var(--focus)}
+.app-shell.student-design .student-assessment-page{gap:10px}
+.app-shell.student-design .student-assessment-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0;border:0;background:transparent}
+.app-shell.student-design .assessment-title-row{gap:9px;align-items:center;flex-wrap:wrap}
+.app-shell.student-design .assessment-title-row h1{font-size:25px;margin:0}
+.app-shell.student-design .assessment-header .mode-label{font-size:10px;background:#eeebfa;color:#6350c8;padding:3px 7px;border-radius:5px;min-height:0}
+.app-shell.student-design .assessment-course-context{font-size:11px;color:var(--muted);margin:5px 0 0;max-width:none}
+.app-shell.student-design .student-workflow{display:flex;align-items:center;gap:10px;color:#786a92;font-size:11px;flex-shrink:0;white-space:nowrap}
+.app-shell.student-design .student-workflow span{display:flex;align-items:center;gap:6px}
+.app-shell.student-design .student-workflow b{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#eeebfa;color:#6854ac;font-size:10px}
+.app-shell.student-design .student-workflow>i{width:26px;height:1px;background:var(--line)}
+.app-shell.student-design .student-workflow .current{color:var(--accent);font-weight:600}
+.app-shell.student-design .student-workflow .current b{background:var(--accent);color:white}
+.app-shell.student-design .assignment-instructions{border-color:#e4dded;border-radius:8px;background:#f7f5fb}
+.app-shell.student-design :is(.assignment-instructions,.simulation-input-accordion,.simulation-sketch-panel)>summary{background:transparent;color:var(--ink);font-size:12px;min-height:40px;padding:9px 13px;border-color:var(--line)}
+.app-shell.student-design :is(.assignment-instructions,.simulation-input-accordion,.simulation-sketch-panel)>summary:hover{background:#f1edf8}
+.app-shell.student-design .assignment-instructions .instructions-hint{color:var(--muted);font-size:10px}
+.app-shell.student-design .assignment-instructions>.assignment-prompt{color:#5d566f;font-size:12px;line-height:1.55;margin:0 13px 12px}
+.app-shell.student-design .assignment-prompt p{max-width:none}
+.app-shell.student-design .assignment-prompt-list{grid-template-columns:minmax(0,1fr)}
+.app-shell.student-design .assignment-prompt-list li::marker{color:var(--accent)}
+.app-shell.student-design .assignment-prompt .assignment-prompt-note{background:#eee8f8;border-left-color:#9e85c3}
+.app-shell.student-design .simulation-layout{display:grid;grid-template-columns:minmax(330px,.83fr) minmax(0,1.17fr);gap:18px;align-items:start}
+.app-shell.student-design .simulation-layout>.student-action-progress{grid-column:1/-1}
+.app-shell.student-design .simulation-input-accordion{border:1px solid var(--line);border-radius:11px;background:#fff;min-width:0;overflow:hidden}
+.app-shell.student-design .simulation-input-accordion>summary{border-bottom:1px solid var(--line);min-height:43px;background:white}
+.app-shell.student-design .simulation-input-body{padding:12px 14px 14px}
+.app-shell.student-design .simulation-input-body>.assignment-instructions{margin-bottom:10px}
+.app-shell.student-design .simulation-input-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.app-shell.student-design .simulation-input-grid>.writing-panel{padding:0;border:0;background:none;box-shadow:none}
+.app-shell.student-design .simulation-input-grid>.writing-panel label{font-size:11px;font-weight:600}
+.app-shell.student-design .simulation-input-body textarea{height:245px;min-height:180px;padding:12px 13px;font-size:13px;line-height:1.75;background:#fff;border:1px solid #d8cee8;border-radius:8px;resize:vertical}
+.app-shell.student-design .simulation-input-grid>.feedback-panel{padding:11px 12px;border:1px solid #e8e2f0;border-radius:8px;background:#faf8fd}
+.app-shell.student-design .simulation-input-grid>.feedback-panel h2{font-size:12px}
+.app-shell.student-design .criterion-list{margin-top:7px;gap:5px}
+.app-shell.student-design .criterion-row{padding:6px 0;border-color:var(--line)}
+.app-shell.student-design .criterion-row :is(span,strong,p){font-size:11px;color:var(--muted)}
+.app-shell.student-design .simulation-html-options{grid-column:auto;background:#f5f1fb;border-color:#e1d8ee;padding:8px 10px}
+.app-shell.student-design .simulation-html-options .overall-comment{font-size:10px;margin:0;color:#6a5b7b;line-height:1.6}
+.app-shell.student-design .simulation-submit{grid-column:auto;min-height:39px;width:100%}
+.app-shell.student-design .overall-comment{font-size:11px;color:var(--muted)}
+.app-shell.student-design .simulation-output-stack{display:flex;flex-direction:column;gap:10px;min-width:0}
+.app-shell.student-design .safe-preview-primary{order:0;padding:0;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#fff;box-shadow:none}
+.app-shell.student-design .safe-preview-primary .safe-preview-header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:nowrap;padding:7px 12px;min-height:44px;border-bottom:1px solid var(--line);background:white;margin:0}
+.app-shell.student-design .safe-preview-primary .safe-preview-header h2{font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.app-shell.student-design .safe-preview-primary .safe-preview-header h2 svg{width:16px;height:16px;color:#8370a5}
+.app-shell.student-design .safe-preview-primary .preview-actions{display:flex;align-items:center;gap:3px;flex-wrap:wrap;justify-content:flex-end;margin:0}
+.app-shell.student-design .safe-preview-primary .preview-actions .secondary-button{width:30px;min-width:30px;min-height:30px;height:30px;padding:6px;border-color:transparent;border-radius:6px;font-size:0;gap:0}
+.app-shell.student-design .safe-preview-primary .preview-actions .secondary-button svg{width:16px;height:16px}
+.app-shell.student-design .simulation-preview-status{padding:7px 13px;border-bottom:1px solid var(--line)}
+.app-shell.student-design .simulation-preview-status .overall-comment{margin:0;font-size:10px}
+.app-shell.student-design .safe-preview-primary .safe-preview-empty{background:#faf9fd;color:var(--muted);min-height:430px;height:clamp(350px,55vh,550px);border:0;border-radius:0;padding:26px;font-size:12px;line-height:1.65}
+.app-shell.student-design .simulation-preview-frame{min-height:430px;border-radius:0;border:0;background:white}
+.app-shell.student-design .safe-preview-primary .simulation-preview-iframe{min-height:430px}
+.app-shell.student-design .simulation-sketch-panel{order:2;border-color:var(--line);border-radius:10px;background:#fff;padding:0;box-shadow:none}
+.app-shell.student-design .simulation-sketch-body{padding:12px}
+.app-shell.student-design .simulation-final-actions{order:1;display:flex;justify-content:flex-end;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:white}
+.app-shell.student-design .raw-debug-accordion{order:3;border-color:var(--line);border-radius:9px;background:#f9f7fc}
+.app-shell.student-design .raw-debug-accordion summary{font-size:11px;color:var(--muted);padding:9px 12px}
+.app-shell.student-design .raw-debug-content{color:var(--muted)}
+.app-shell.student-design .student-action-progress{background:#f0ecfa;border-color:#d7ceeb;color:#5e4c82}
+.app-shell.student-design .student-action-progress-track{background:#e1d8ef}
+.app-shell.student-design .student-action-progress-fill{background:var(--accent)}
+.app-shell.student-design :is(.writing-panel,.recorder-panel,.upload-panel,.feedback-panel,.evidence-panel,.simulation-panel){background:#fff;border-color:var(--line);box-shadow:none}
+.app-shell.student-design .drop-zone{background:#faf8fd;border-color:#d6cae7}
+.app-shell.student-design .score-dial{color:var(--accent);border-color:#d9ccee;background:#f3edfc}
+@media(min-width:1600px){.app-shell.student-design .student-dashboard-columns{grid-template-columns:minmax(0,1fr) 285px}.app-shell.student-design .simulation-input-body textarea{height:320px}}
+@media(max-width:1180px) and (min-width:761px){.app-shell.student-design{--sidebar-width:196px}.app-shell.student-design.sidebar-collapsed{--sidebar-width:76px}.app-shell.student-design .content-shell{padding:18px 22px 28px}.app-shell.student-design .student-dashboard-columns{grid-template-columns:minmax(0,1fr) 225px;gap:18px}.app-shell.student-design .student-resume-card{grid-template-columns:minmax(0,1fr) 120px}.app-shell.student-design .student-resume-heading{flex-wrap:wrap;gap:12px}.app-shell.student-design .student-resume-content{padding:17px}.app-shell.student-design .student-list-tools{gap:7px}.app-shell.student-design .workspace-search{width:150px}.app-shell.student-design .student-workflow{gap:7px;font-size:10px}.app-shell.student-design .student-workflow>i{width:16px}.app-shell.student-design .simulation-layout{grid-template-columns:minmax(300px,.9fr) minmax(0,1.1fr);gap:14px}.app-shell.student-design .safe-preview-primary .safe-preview-header{flex-wrap:wrap;gap:3px}}
+@media(max-width:980px){.app-shell.student-design .student-dashboard-columns{grid-template-columns:1fr}.app-shell.student-design .student-dashboard-aside{display:grid;grid-template-columns:1fr 1fr;gap:15px}.app-shell.student-design .student-dashboard-aside .student-aside-card{margin:0}.app-shell.student-design .student-work-guide{display:none}}
+@media(max-width:920px){.app-shell.student-design .simulation-layout{grid-template-columns:minmax(0,1fr)}.app-shell.student-design .student-assessment-header{flex-wrap:wrap;gap:9px}.app-shell.student-design .student-workflow{margin-bottom:3px}.app-shell.student-design .safe-preview-primary .safe-preview-header{flex-wrap:nowrap}}
+@media(max-width:760px){.app-shell.student-design,.app-shell.student-design.sidebar-collapsed{--sidebar-width:0px;grid-template-columns:minmax(0,1fr)}.app-shell.student-design .side-rail{position:relative;flex-direction:row;align-items:center;padding:9px 14px;height:auto;gap:12px;border-right:0;border-bottom:1px solid #352f49}.app-shell.student-design .rail-top,.app-shell.student-design.sidebar-collapsed .rail-top{display:flex;flex-direction:row}.app-shell.student-design .brand-copy,.app-shell.student-design.sidebar-collapsed .brand-copy{display:block}.app-shell.student-design .brand-copy strong{font-size:17px}.app-shell.student-design .brand-copy small,.app-shell.student-design .rail-toggle,.app-shell.student-design .nav-section-label,.app-shell.student-design .student-rail-bottom,.app-shell.student-design .side-nav .student-course-nav,.app-shell.student-design .student-compact-course{display:none}.app-shell.student-design .brand-mark{width:28px;height:30px;border-radius:8px}.app-shell.student-design .side-nav,.app-shell.student-design.sidebar-collapsed .side-nav{display:flex;flex-wrap:nowrap;margin:0 0 0 auto;gap:3px}.app-shell.student-design .side-nav a{min-height:34px;padding:7px 9px;font-size:11px;gap:5px}.app-shell.student-design .side-nav a span,.app-shell.student-design.sidebar-collapsed .side-nav a span{display:none}.app-shell.student-design .side-nav a.active span{display:inline}.app-shell.student-design .student-topbar{height:39px;padding:4px 16px}.app-shell.student-design .student-account-label{font-size:9px;padding:2px 6px}.app-shell.student-design .content-shell{padding:15px 16px 26px}.app-shell.student-design .page-stack{gap:11px}.app-shell.student-design .student-dashboard-header{flex-wrap:wrap;gap:10px}.app-shell.student-design .student-dashboard-header h1{font-size:24px}.app-shell.student-design .assignment-filters{padding:2px;gap:0}.app-shell.student-design .assignment-filters button{font-size:10px;padding:6px 9px;gap:5px}.app-shell.student-design .student-resume-card{grid-template-columns:minmax(0,1fr) 96px;min-height:0;margin-bottom:12px}.app-shell.student-design .student-resume-content{padding:16px 14px}.app-shell.student-design .student-resume-heading{flex-wrap:wrap;gap:12px}.app-shell.student-design .student-resume-content h2{font-size:20px;line-height:1.3}.app-shell.student-design .student-resume-course{font-size:10px}.app-shell.student-design .student-resume-content .primary-button{font-size:11px;padding:7px 10px;min-height:35px}.app-shell.student-design .student-resume-content>p{font-size:11px}.app-shell.student-design .student-resume-art{padding:10px 7px}.app-shell.student-design .student-resume-art small{font-size:9px}.app-shell.student-design .assignment-toolbar{flex-wrap:wrap;gap:7px}.app-shell.student-design .student-list-tools{width:100%;gap:7px}.app-shell.student-design .workspace-search{flex:1;width:auto;min-width:0}.app-shell.student-design .student-list-tools select{max-width:130px;font-size:10px}.app-shell.student-design .student-assignment-card{padding:12px 11px;gap:5px}.app-shell.student-design .student-assignment-card-header{grid-template-columns:31px minmax(0,1fr);gap:9px}.app-shell.student-design .student-assignment-card-header h3{font-size:12px;flex-basis:160px}.app-shell.student-design .type-icon{width:31px;height:34px}.app-shell.student-design .student-card-title{gap:3px 7px}.app-shell.student-design .student-card-title .status-row{font-size:9px;padding:2px 5px}.app-shell.student-design .student-assignment-prompt-block,.app-shell.student-design .student-assignment-card-footer{margin-left:40px}.app-shell.student-design .student-assignment-card-footer{flex-wrap:wrap}.app-shell.student-design .student-card-course,.app-shell.student-design .assignment-due-date{font-size:9px}.app-shell.student-design .student-assignment-meta{flex:1 1 130px}.app-shell.student-design .card-action{font-size:10px;min-height:32px;padding:6px 8px}.app-shell.student-design .student-dashboard-aside{grid-template-columns:1fr;gap:12px}.app-shell.student-design .student-assessment-header h1{font-size:22px}.app-shell.student-design .assessment-title-row{gap:6px 8px}.app-shell.student-design .student-workflow{display:none}.app-shell.student-design .assessment-course-context{font-size:10px}.app-shell.student-design .safe-preview-primary .safe-preview-header{flex-wrap:wrap}.app-shell.student-design .safe-preview-primary .safe-preview-header h2{font-size:12px}.app-shell.student-design .simulation-input-body{padding:11px 12px}.app-shell.student-design .simulation-input-body textarea{height:265px}.app-shell.student-design .simulation-preview-frame,.app-shell.student-design .safe-preview-primary .simulation-preview-iframe{min-height:360px}.app-shell.student-design .safe-preview-primary .safe-preview-empty{min-height:340px;height:340px}}
+@media(max-width:370px){.app-shell.student-design .student-resume-card{grid-template-columns:1fr}.app-shell.student-design .student-resume-art{display:none}.app-shell.student-design .assignment-filters button{padding:6px 7px;font-size:9px}}
+@media(prefers-reduced-motion:reduce){.app-shell.student-design *{transition:none!important}}
+
+.app-shell.student-design .simulation-rubric{border:1px solid var(--line);border-radius:8px;background:#faf8fd;overflow:hidden}
+.app-shell.student-design .simulation-rubric>summary{display:flex;justify-content:space-between;align-items:center;padding:8px 11px;cursor:pointer;font-size:11px;font-weight:600;list-style:none}
+.app-shell.student-design .simulation-rubric>.feedback-panel{padding:10px 12px;border:0;background:transparent}
+.app-shell.student-design .simulation-rubric>.feedback-panel h2{display:none}

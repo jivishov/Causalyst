@@ -66,13 +66,15 @@ test("draft descriptions and previews stay with their assignment across navigati
   await page.screenshot({ path: testInfo.outputPath("student-preview-workbench.png") });
   const panel = await page.locator(".safe-preview-primary").boundingBox();
   const sketchPanel = await page.locator(".simulation-sketch-panel").boundingBox();
-  expect(panel!.width).toBeGreaterThan(1050);
+  expect(panel!.width).toBeGreaterThan(550);
+  const editor = await page.locator(".simulation-input-accordion").boundingBox();
+  expect(panel!.x).toBeGreaterThanOrEqual(editor!.x + editor!.width);
   expect(panel!.y).toBeLessThan(sketchPanel!.y);
   await page.getByRole("button", { name: "Expand preview", exact: true }).click();
   await expect(page.getByRole("button", { name: "Exit expanded preview", exact: true })).toBeVisible();
   expect(await page.locator(".safe-preview-primary").evaluate(element => element === document.fullscreenElement && element.clientWidth > 1300)).toBe(true);
   await page.getByRole("button", { name: "Exit expanded preview", exact: true }).click();
-  await page.getByText("Input and Rubric", { exact: true }).click();
+  if (!(await page.locator(".simulation-input-accordion").evaluate(element => (element as HTMLDetailsElement).open))) await page.getByText("My explanation", { exact: true }).click();
   const edited = description("a") + " I will label the two containers clearly.";
   await page.getByLabel("Description", { exact: true }).fill(edited);
   await f.switchTo("b");

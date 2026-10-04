@@ -28,14 +28,15 @@ test("compact student pages preserve assignment information and instructions", a
 
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("./");
-  await expect(page.getByRole("heading", { name: "Assigned assessments", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "My assignments", exact: true })).toBeVisible();
   await expect(page.locator(".student-assignment-card")).toHaveCount(4);
   const header = await page.locator(".student-dashboard-header").boundingBox();
   expect(header!.height).toBeLessThanOrEqual(65);
   const firstCard = await page.locator(".student-assignment-card").first().boundingBox();
   expect(firstCard!.height).toBeLessThan(200);
-  await expect(page.getByText("Your learning workspace", { exact: true })).toBeVisible();
-  await expect(page.getByText("Pick up where you left off, or start something new.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Continue my work/ })).toBeVisible();
+  const filtersBox = await page.getByRole("group", { name: "Filter assignments" }).boundingBox();
+  expect(Math.abs(header!.y - filtersBox!.y)).toBeLessThan(10);
   await page.screenshot({ path: testInfo.outputPath("compact-student-dashboard.png") });
   await page.getByRole("button", { name: /To do/ }).click();
   await expect(page.locator(".student-assignment-card")).toHaveCount(3);

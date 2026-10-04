@@ -20,22 +20,20 @@ jobs:
           fetch-depth: 0
       - name: Verify the reviewed frontend and deployed backend
         env:
-          REVIEWED_SHA: efb5bb9210cb349c6fb794157a93cc4d8e090c4e
+          REVIEWED_SHA: 3aa74be63ea571f02fada1d8f88a13858e594782
           BACKEND_SHA: 05c2987e97590edd005756ce8907b363fc25d978
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
-          allowed_paths=".github/workflows/design-proof.yml
-          .github/workflows/release-student-iris.yml"
-          test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = "$allowed_paths"
+          test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = ".github/workflows/release-student-iris.yml"
           git diff --quiet "$BACKEND_SHA" "$REVIEWED_SHA" -- worker shared supabase package.json package-lock.json scripts .github/workflows/deploy-frontend.yml
       - name: Verify successful validation and production backend release
         uses: actions/github-script@v8
         with:
           script: |
-            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37176218604 });
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37176638678 });
             const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37072085393 });
             for (const [run, sha] of [
-              [checked.data, "efb5bb9210cb349c6fb794157a93cc4d8e090c4e"],
+              [checked.data, "3aa74be63ea571f02fada1d8f88a13858e594782"],
               [deployed.data, "05c2987e97590edd005756ce8907b363fc25d978"]
             ]) {
               if (run.head_sha !== sha || run.status !== "completed" || run.conclusion !== "success") {
@@ -45,3 +43,45 @@ jobs:
   deploy-frontend:
     needs: release-gate
     uses: ./.github/workflows/deploy-frontend.yml
+
+  verify-public:
+    needs: deploy-frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the published student stylesheet and teacher mockup
+        run: |
+          node --input-type=module - <<'NODE'
+          const base = "https://jivishov.github.io/Causalyst/";
+          const version = process.env.GITHUB_SHA;
+          let lastError;
+          for (let attempt = 0; attempt < 8; attempt++) {
+            try {
+              const root = await fetch(base + "?release=" + version);
+              if (!root.ok) throw new Error("Student entry returned HTTP " + root.status);
+              const html = await root.text();
+              const styles = [...html.matchAll(/href=["']([^"']+\.css)["']/g)].map(match => new URL(match[1], base).href);
+              if (!styles.length) throw new Error("Student stylesheet was not found.");
+              const css = (await Promise.all(styles.map(async url => {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Student stylesheet returned HTTP " + response.status);
+                return response.text();
+              }))).join("\n");
+              if (!css.includes("student-design") || !css.includes("student-mobile-signout")) {
+                throw new Error("The published student stylesheet has not updated yet.");
+              }
+              const mock = await fetch(base + "prototypes/Causalyst_Teacher_UI_Demo.html?release=" + version);
+              if (!mock.ok) throw new Error("Teacher mockup returned HTTP " + mock.status);
+              const source = await mock.text();
+              if (!source.includes("Teacher workspace demo") || !source.includes("Causalyst_Teacher_UI_Demo.html")) {
+                throw new Error("The teacher mockup or portable download is missing.");
+              }
+              console.log("Verified student interface:", base);
+              console.log("Verified teacher mockup:", base + "prototypes/Causalyst_Teacher_UI_Demo.html");
+              process.exit(0);
+            } catch (error) {
+              lastError = error;
+              if (attempt < 7) await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+          }
+          throw lastError;
+          NODE

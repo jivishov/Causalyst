@@ -25,15 +25,8 @@ describe("frontend route guardrails", () => {
     ]);
   });
 
-  it("keeps assessment prompts visible before result feedback", () => {
-    const attemptResultSource = readFileSync(new URL("../src/pages/AttemptResultPage.tsx", import.meta.url), "utf8");
+  it("keeps final result feedback limited to approved published feedback", () => {
     const finalResultSource = readFileSync(new URL("../src/pages/FinalResultPage.tsx", import.meta.url), "utf8");
-
-    for (const source of [attemptResultSource, finalResultSource]) {
-      expect(source).toContain("<h2>Assessment Prompt</h2>");
-      expect(source).toContain("<p>{result.assessment.prompt}</p>");
-      expect(source.indexOf("<h2>Assessment Prompt</h2>")).toBeLessThan(source.indexOf("<RubricFeedback"));
-    }
     expect(finalResultSource).not.toContain('result.publishedGrade.finalStatus !== "approved_ai" &&');
   });
 

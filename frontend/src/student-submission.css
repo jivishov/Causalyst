@@ -25,7 +25,7 @@
 .app-shell.student-design .submission-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
 .app-shell.student-design .submission-card-header h2 { display: flex; align-items: center; gap: 7px; }
 .app-shell.student-design .submission-card-header h2 svg { color: #8c77ad; flex-shrink: 0; }
-.app-shell.student-design .submission-card-label { font-size: 10px; color: #8b7b9d; white-space: nowrap; }
+.app-shell.student-design .submission-card-label { font-size: 10px; color: #746b84; white-space: nowrap; }
 .app-shell.student-design .submission-response-text { color: #50475e; font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; }
 .app-shell.student-design .student-submission-page .submission-preview-panel { padding: 0; overflow: hidden; }
 .app-shell.student-design .submission-preview-panel .submission-card-header { padding: 9px 13px; margin: 0; min-height: 45px; border-bottom: 1px solid #e9e3f1; }
@@ -53,7 +53,7 @@
 .app-shell.student-design .submission-grade-summary.is-missing { border-color: #ead5df; background: #f9edf2; }
 .app-shell.student-design .submission-grade-summary.is-missing .submission-grade-score strong { font-size: 20px; color: #9d3e5d; }
 .app-shell.student-design .student-submission-page .feedback-header { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #e9e3f1; }
-.app-shell.student-design .student-submission-page .feedback-header p { font-size: 11px; color: #85768f; margin-top: 4px; line-height: 1.55; }
+.app-shell.student-design .student-submission-page .feedback-header p { font-size: 11px; color: #746b84; margin-top: 4px; line-height: 1.55; }
 .app-shell.student-design .student-submission-page .score-dial { flex-shrink: 0; width: 52px; height: 48px; border: 1px solid #e0d6ef; border-radius: 9px; background: #f3eefb; font-size: 22px; font-weight: 650; }
 .app-shell.student-design .student-submission-page .overall-comment { font-size: 13px; line-height: 1.75; color: #50475e; margin: 12px 0; }
 .app-shell.student-design .student-submission-page .criterion-list { gap: 0; margin-top: 8px; }

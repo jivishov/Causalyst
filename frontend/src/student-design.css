@@ -214,3 +214,7 @@
 
 .app-shell.student-design a{text-decoration:none}
 .app-shell.student-design .student-upcoming-item:hover strong,.app-shell.student-design .student-result-item:hover strong{text-decoration:underline}
+
+.app-shell.student-design .student-topbar-account{display:flex;align-items:center;gap:7px}
+.app-shell.student-design .student-mobile-signout{display:none}
+@media(max-width:760px){.app-shell.student-design .student-mobile-signout{display:inline-flex;align-items:center;justify-content:center;width:30px;min-width:30px;min-height:30px;height:30px;padding:5px;background:transparent;color:var(--muted)}}

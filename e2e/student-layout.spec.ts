@@ -55,6 +55,7 @@ test("compact student pages preserve assignment information and instructions", a
     await page.goto("./");
     await expect(page.locator(".student-assignment-card")).toHaveCount(4);
     await expect(page.getByText("4 assessments", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     for (const id of ["simulation", "writing"]) {
       await page.goto(`./assignment/${id}`);

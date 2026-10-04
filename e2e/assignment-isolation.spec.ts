@@ -75,6 +75,7 @@ test("draft descriptions and previews stay with their assignment across navigati
   await expect(page.getByRole("button", { name: "Exit expanded preview", exact: true })).toBeVisible();
   expect(await page.locator(".safe-preview-primary").evaluate(element => element === document.fullscreenElement && element.clientWidth > 1300)).toBe(true);
   await page.getByRole("button", { name: "Exit expanded preview", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true);
   if (!(await page.locator(".simulation-input-accordion").evaluate(element => (element as HTMLDetailsElement).open))) await page.getByText("My explanation", { exact: true }).click();
   const edited = description("a") + " I will label the two containers clearly.";
   await page.getByLabel("Description", { exact: true }).fill(edited);

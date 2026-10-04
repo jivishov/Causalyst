@@ -1,4 +1,5 @@
 name: Design preview proof
+# Capture the checked fullscreen exit and final link styling.
 on:
   pull_request:
     paths: [.github/workflows/design-proof.yml]

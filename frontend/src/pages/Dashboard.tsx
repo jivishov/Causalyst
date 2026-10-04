@@ -65,7 +65,7 @@ export function Dashboard() {
           {assignments.length > 0 && <div className="assignment-toolbar">
             <span className="student-result-count">{visible.length} {visible.length === 1 ? "assessment" : "assessments"}</span>
             <div className="student-list-tools">
-              <label className="workspace-search"><Search size={16} aria-hidden="true" /><input aria-label="Search assignments" type="search" placeholder="Search assignments" value={query} onChange={event => setQuery(event.target.value)} /></label>
+              <label className="workspace-search"><Search size={16} aria-hidden="true" /><input aria-label="Search assignments" type="search" placeholder="Search" value={query} onChange={event => setQuery(event.target.value)} /></label>
               <select aria-label="Filter by course" value={courseId} onChange={event => setParameter("course", event.target.value)}><option value="all">All classes</option>{courses.map(course => <option key={course.classId} value={course.classId}>{course.className}</option>)}</select>
             </div>
           </div>}

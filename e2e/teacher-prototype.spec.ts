@@ -16,6 +16,11 @@ test("teacher demo keeps assessment edits and assigned settings after reload", a
   const tabs = await builder.getByRole("group", { name: "Builder section" }).boundingBox();
   expect(Math.abs(title!.y + title!.height / 2 - tabs!.y - tabs!.height / 2)).toBeLessThan(5);
   await page.screenshot({ path: testInfo.outputPath("teacher-assessment-builder.png"), fullPage: true });
+  await page.getByRole("button", { name: "Demo controls", exact: true }).click();
+  const htmlDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Download the HTML mockup/ }).click();
+  expect((await htmlDownloadPromise).suggestedFilename()).toBe("Causalyst_Teacher_UI_Demo.html");
+  await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await page.getByLabel("Assessment title", { exact: true }).fill("Atomic fingerprint — revised");
   await page.getByLabel("Student instructions", { exact: true }).fill("Use sodium to explain electron configuration, subshell occupancy, relative binding energy, and the limitations of a schematic spectrum.");
   await expect(page.locator("#save-message")).toHaveText("Unsaved changes");

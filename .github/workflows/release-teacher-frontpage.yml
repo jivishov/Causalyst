@@ -1,4 +1,4 @@
-name: Release compact student frontpage
+name: Release corrected gas preview and Explain headline
 on:
   push:
     branches: [main]
@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
       - name: Verify the validated frontend and deployed backend
         env:
-          REVIEWED_SHA: a2753b6f95c0cc7b812c7112bf48183faffc95ac
+          REVIEWED_SHA: 648a378ac829e2ceb8c95b642407376d49bab388
           BACKEND_SHA: 05c2987e97590edd005756ce8907b363fc25d978
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
@@ -30,10 +30,10 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37209173870 });
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37211399265 });
             const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37072085393 });
             for (const [run, sha] of [
-              [checked.data, "a2753b6f95c0cc7b812c7112bf48183faffc95ac"],
+              [checked.data, "648a378ac829e2ceb8c95b642407376d49bab388"],
               [deployed.data, "05c2987e97590edd005756ce8907b363fc25d978"]
             ]) {
               if (run.head_sha !== sha || run.status !== "completed" || run.conclusion !== "success") {
@@ -58,7 +58,7 @@ jobs:
               const root = await fetch(base + "?release=" + version);
               if (!root.ok) throw new Error("Student frontpage returned HTTP " + root.status);
               const html = await root.text();
-              if (!html.includes("Show your thinking") || !html.includes("live conversation assessments")) {
+              if (!html.includes("Explain your thinking") || !html.includes("live conversation assessments")) {
                 throw new Error("The published student frontpage metadata has not updated yet.");
               }
               const styles = [...html.matchAll(/href=["']([^"']+\.css)["']/g)].map(match => new URL(match[1], base).href);
@@ -82,11 +82,13 @@ jobs:
               const loginModule = (await entry.text()).match(/\bimport\(["']([^"']*Login-[^"']+\.js)["']\)/)?.[1];
               if (!loginModule) throw new Error("Student frontpage module was not found.");
               const frontpage = await fetch(new URL(loginModule, entryUrl));
-              if (!frontpage.ok || !(await frontpage.text()).includes("In a simulation assessment, you answer by explaining the process.")) {
-                throw new Error("The revised simulation explanation has not updated yet.");
+              if (!frontpage.ok) throw new Error("Student frontpage module returned HTTP " + frontpage.status);
+              const frontpageCode = await frontpage.text();
+              for (const marker of ["Explain your thinking.", "In a simulation assessment, you answer by explaining the process.", "gas-cylinder", "gas-piston-rod", "gas-piston-handle", "Heat exchange keeps temperature constant."]) {
+                if (!frontpageCode.includes(marker)) throw new Error("The revised frontpage is missing " + marker);
               }
               const fallback = await fetch(base + "404.html?release=" + version);
-              if (!fallback.ok || !(await fallback.text()).includes("Show your thinking")) {
+              if (!fallback.ok || !(await fallback.text()).includes("Explain your thinking")) {
                 throw new Error("The app's deep-link fallback has not updated yet.");
               }
               console.log("Verified student frontpage:", base);

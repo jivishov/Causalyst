@@ -42,6 +42,23 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+        env:
+          VITE_BASE_PATH: /
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_WORKER_URL: ${{ vars.VITE_WORKER_URL }}
+      - name: Verify the root-domain asset paths
+        run: |
+          node --input-type=module - <<'NODE'
+          import { readFileSync, existsSync } from "node:fs";
+          import { join } from "node:path";
+          const html = readFileSync("frontend/dist/index.html", "utf8");
+          const assets = [...html.matchAll(/(?:src|href)=["']([^"']+\\.(?:js|css))["']/g)].map(match => match[1]);
+          if (!assets.length || !assets.every(path => path.startsWith("/assets/") && existsSync(join("frontend/dist", path.slice(1))))) {
+            throw new Error("The domain root build has invalid asset paths.");
+          }
+          console.log("Root-domain build verified:", assets.length, "entry assets.");
+          NODE
       - run: npm run security
       - name: Validate deployment configuration
         run: node scripts/validate-deploy-env.mjs worker
@@ -98,13 +115,19 @@ jobs:
             throw new Error(`Worker health check failed with HTTP ${response.status}`);
           }
           for (const origin of ["https://explain.az", "https://www.explain.az"]) {
-            const preflight = await fetch(process.env.WORKER_URL + "/api/student/me", {
-              method: "OPTIONS",
-              headers: { Origin: origin, "Access-Control-Request-Method": "GET", "Access-Control-Request-Headers": "authorization,content-type" }
-            });
-            if (preflight.status !== 204 || preflight.headers.get("access-control-allow-origin") !== origin) {
-              throw new Error("API origin verification failed for " + origin);
+            let verified = false;
+            for (let attempt = 0; attempt < 8; attempt++) {
+              const preflight = await fetch(process.env.WORKER_URL + "/api/student/me", {
+                method: "OPTIONS",
+                headers: { Origin: origin, "Access-Control-Request-Method": "GET", "Access-Control-Request-Headers": "authorization,content-type" }
+              });
+              if (preflight.status === 204 && preflight.headers.get("access-control-allow-origin") === origin) {
+                verified = true;
+                break;
+              }
+              if (attempt < 7) await new Promise(resolve => setTimeout(resolve, 1500));
             }
+            if (!verified) throw new Error("API origin verification failed for " + origin);
           }
           console.log("Worker health and both explain.az API origins verified.");
           NODE

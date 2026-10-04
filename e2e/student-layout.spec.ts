@@ -81,7 +81,8 @@ test("compact student pages preserve assignment information and instructions", a
       } else {
         await expect(instructions).toContainText("Preserve the 1.5 mol quantity.");
       }
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const overflow = await page.evaluate(() => ({width:innerWidth,scroll:document.documentElement.scrollWidth,elements:[...document.querySelectorAll("body *")].filter(e=>e.getBoundingClientRect().right>innerWidth+1).slice(0,12).map(e=>({tag:e.tagName,cls:e.className,right:e.getBoundingClientRect().right}))}));
+      expect(overflow.scroll, JSON.stringify({id,...overflow})).toBeLessThanOrEqual(width);
       if (width === 1366) await page.screenshot({ path: testInfo.outputPath(`compact-${id}-prompt.png`) });
     }
   }

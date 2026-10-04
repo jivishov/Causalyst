@@ -474,7 +474,7 @@ export function SimulationAssessment({ assessment, disabled, initialDraft, draft
     if (localDescription !== undefined && localDescription !== initialDraft.description) return;
     setRunStarted(Boolean(initialDraft.simulationSketchPreview || initialDraft.simulationPreview || initialDraft.activeSimulationJob));
     setGenerationStage(initialDraft.activeSimulationJob ? "html" : initialDraft.simulationPreview || initialDraft.simulationSketchPreview ? "done" : "idle");
-    setInputPanelOpen(!initialDraft.simulationPreview);
+    setInputPanelOpen(true);
     if (initialDraft.activeSimulationJob) {
       setHtmlGenerationJob(initialDraft.activeSimulationJob);
       setHtmlGenerationMessage(initialDraft.activeSimulationJob.message);

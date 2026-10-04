@@ -198,3 +198,12 @@
 .app-shell.student-design .simulation-rubric>summary{display:flex;justify-content:space-between;align-items:center;padding:8px 11px;cursor:pointer;font-size:11px;font-weight:600;list-style:none}
 .app-shell.student-design .simulation-rubric>.feedback-panel{padding:10px 12px;border:0;background:transparent}
 .app-shell.student-design .simulation-rubric>.feedback-panel h2{display:none}
+
+.app-shell.student-design .student-assessment-header>div{min-width:0;max-width:100%}
+.app-shell.student-design .assessment-title-row h1{min-width:0;overflow-wrap:anywhere}
+.app-shell.student-design .workspace-grid>*{min-width:0}
+.app-shell.student-design .student-action-progress-icon{background:#e4dcf3;color:var(--accent)}
+.app-shell.student-design .student-action-progress-copy p{color:var(--muted)}
+.app-shell.student-design .student-action-progress-badge{border-color:#d7cdeb;background:#fff9;color:#6a5786}
+.app-shell.student-design .student-action-progress-track>span{background:var(--accent)}
+@media(max-width:760px){.app-shell.student-design .side-nav .assigned-nav-link{display:none}.app-shell.student-design .workspace-grid{grid-template-columns:minmax(0,1fr)}}

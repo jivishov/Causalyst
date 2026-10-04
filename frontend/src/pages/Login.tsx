@@ -72,7 +72,7 @@ export function Login() {
 
   return (
     <StudentFrontpage>
-      <section className="frontpage-signin-panel" id="student-sign-in" aria-busy={submitting || status === "checking"}>
+      <section className="frontpage-signin-panel" id="student-sign-in" aria-busy={submitting}>
         <div className="frontpage-signin-heading"><h2>Student Assessment Workspace</h2><span>Start here</span></div>
         <p>Use your school Google account to find your class assignments.</p>
         <div className="google-oauth-button-slot">
@@ -80,7 +80,7 @@ export function Login() {
             type="button"
             className="google-oauth-button"
             onClick={handleSignIn}
-            disabled={submitting || originBlocked || status === "checking"}
+            disabled={submitting || originBlocked}
           >
             <span className="google-oauth-icon" aria-hidden="true">G</span>
             <span>{submitting ? "Starting Google sign-in" : "Continue with Google"}</span>

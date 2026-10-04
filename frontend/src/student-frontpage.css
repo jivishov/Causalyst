@@ -30,7 +30,7 @@
 .frontpage-signin-heading h2 {font-size:13px;font-weight:650;letter-spacing:-.1px}
 .frontpage-signin-heading>span {font-size:9px;background:#f0ebf8;color:#8a719f;padding:2px 6px;border-radius:4px;white-space:nowrap}
 .frontpage-signin-panel>p {font-size:11px;line-height:1.65;color:var(--muted);margin-top:6px}
-.student-frontpage .google-oauth-button-slot {margin-top:13px}
+.student-frontpage .google-oauth-button-slot {width:100%;margin-top:13px}
 .student-frontpage .google-oauth-button {width:100%;max-width:none;min-height:44px;padding:10px 16px;display:flex;justify-content:center;align-items:center;gap:12px;border:1px solid #dad4e3;border-radius:7px;background:#fff;color:#3c324b;font-size:12px;font-weight:600;box-shadow:0 1px 2px #25213904}
 .student-frontpage .google-oauth-button:hover:not(:disabled) {background:#f8f5fd;border-color:#bfb0d8}
 .student-frontpage .google-oauth-button:disabled {opacity:.6;cursor:wait}
@@ -100,6 +100,7 @@
 .frontpage-footer .frontpage-brand {font-size:14px;color:#867196;gap:7px;letter-spacing:-.3px}
 .frontpage-footer>a {margin-left:auto;display:flex;align-items:center;gap:6px}
 @media (min-width:1500px) {.frontpage-hero {padding-top:65px;padding-bottom:54px}.student-frontpage h1 {font-size:60px}}
+@media (min-width:801px) {.frontpage-intro {align-self:start;padding-top:26px}}
 @media (max-width:1100px) {
   .student-frontpage .frontpage-wrap {padding:0 30px}
   .frontpage-hero {gap:32px;padding:40px 0 34px}

@@ -51,7 +51,7 @@ export function TeacherPasswordReset() {
   }
 
   return (
-    <main className="login-page">
+    <main className="login-page teacher-login-design">
       <section className="login-card teacher-card teacher-reset-card" aria-busy={status === "checking" || submitting}>
         <header className="teacher-page-header">
           <div className="teacher-page-header-main">

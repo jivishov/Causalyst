@@ -66,7 +66,7 @@ jobs:
           console.log("EXPLAIN_AZ_ZONE:", JSON.stringify({ name: zone.name, status: zone.status, nameservers: zone.name_servers }));
           const staged = await cf("/zones/" + zone.id + "/dns_records?per_page=100");
           console.log("Existing explain.az web records:", JSON.stringify(staged.filter(record => ["A", "AAAA", "CNAME"].includes(record.type)).map(({ type, name, content, proxied }) => ({ type, name, content, proxied }))));
-const expected = [
+          const expected = [
             ...["185.199.108.153", "185.199.109.153", "185.199.110.153", "185.199.111.153"].map(content => ({ type: "A", name: "explain.az", content, ttl: 1, proxied: false })),
             { type: "CNAME", name: "www.explain.az", content: "jivishov.github.io", ttl: 1, proxied: false }
           ];

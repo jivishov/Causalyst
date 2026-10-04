@@ -201,7 +201,7 @@ test("failed submission preserves the editor and result loading can be retried w
   await page.getByRole("button", { name: "Submit Simulation", exact: true }).click();
   await expect(page.getByText("Submission temporarily unavailable. Your work is saved.")).toBeVisible();
   await expect(editor.getByRole("button", { name: "Advanced" })).toBeVisible();
-  await page.getByText("Input and Rubric", { exact: true }).click();
+  if (!(await page.locator(".simulation-input-accordion").evaluate(element => (element as HTMLDetailsElement).open))) await page.getByText("My explanation", { exact: true }).click();
   await expect(page.getByLabel("Description", { exact: true })).toHaveValue(result.simulationDescription!);
   await page.locator(".simulation-sketch-panel > summary").click();
   await expect(page.getByRole("img", { name: "Generated simulation sketch" })).toBeVisible();

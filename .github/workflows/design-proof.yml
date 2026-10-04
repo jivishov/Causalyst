@@ -1,0 +1,42 @@
+name: Design preview proof
+# Capture the checked fullscreen exit and final link styling.
+on:
+  pull_request:
+    paths: [.github/workflows/design-proof.yml]
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test e2e/student-layout.spec.ts e2e/assignment-isolation.spec.ts e2e/teacher-prototype.spec.ts
+      - name: Emit synthetic screenshots for visual review
+        if: always()
+        run: |
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          const wanted = new Set(['compact-student-dashboard.png','compact-simulation-prompt.png','student-preview-workbench.png','teacher-assessment-builder.png','teacher-response-review.png','teacher-mobile-builder.png']);
+          function walk(dir) {
+            if (!fs.existsSync(dir)) return;
+            for (const item of fs.readdirSync(dir,{withFileTypes:true})) {
+              const file=path.join(dir,item.name);
+              if (item.isDirectory()) walk(file);
+              else if (wanted.has(item.name)) console.log('DESIGN_PREVIEW '+item.name+' '+fs.readFileSync(file).toString('base64'));
+            }
+          }
+          walk('test-results');
+          NODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: design-previews
+          path: test-results/
+          retention-days: 7

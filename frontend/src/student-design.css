@@ -207,3 +207,7 @@
 .app-shell.student-design .student-action-progress-badge{border-color:#d7cdeb;background:#fff9;color:#6a5786}
 .app-shell.student-design .student-action-progress-track>span{background:var(--accent)}
 @media(max-width:760px){.app-shell.student-design .side-nav .assigned-nav-link{display:none}.app-shell.student-design .workspace-grid{grid-template-columns:minmax(0,1fr)}}
+
+.app-shell.student-design .student-assessment-page .student-assessment-header>div:first-child{flex:1 1 0;width:auto;max-width:none;min-width:0}
+.app-shell.student-design .student-assessment-page .student-assessment-header>.student-workflow{flex:0 0 auto;width:auto;max-width:none}
+.app-shell.student-design .safe-preview-primary .preview-expand-button{background:var(--soft);border-color:#ddd4f1;color:var(--accent-dark)}

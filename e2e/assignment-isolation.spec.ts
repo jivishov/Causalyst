@@ -63,6 +63,7 @@ test("draft descriptions and previews stay with their assignment across navigati
   await expect(frame().getByRole("heading", { name: "Simulation A" })).toBeVisible();
   await expect(page.locator(".raw-debug-content")).toContainText("Next HTML model: gpt-6.1-sol | Next HTML reasoning: High");
   await page.locator(".assignment-instructions > summary").click();
+  expect((await page.locator(".student-assessment-header").boundingBox())!.height).toBeLessThan(90);
   await page.screenshot({ path: testInfo.outputPath("student-preview-workbench.png") });
   const panel = await page.locator(".safe-preview-primary").boundingBox();
   const sketchPanel = await page.locator(".simulation-sketch-panel").boundingBox();
@@ -77,6 +78,8 @@ test("draft descriptions and previews stay with their assignment across navigati
   if (!(await page.locator(".simulation-input-accordion").evaluate(element => (element as HTMLDetailsElement).open))) await page.getByText("My explanation", { exact: true }).click();
   const edited = description("a") + " I will label the two containers clearly.";
   await page.getByLabel("Description", { exact: true }).fill(edited);
+  await expect(page.getByLabel("Description", { exact: true })).toHaveValue(edited);
+  await expect(page.locator('iframe[title="Safe simulation preview"]')).toHaveCount(0);
   await f.switchTo("b");
   await expect(frame().getByRole("heading", { name: "Simulation B" })).toBeVisible();
   await expect(page.locator(".raw-debug-content")).toContainText("Next HTML model: gpt-5.6-terra | Next HTML reasoning: Medium");

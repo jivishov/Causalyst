@@ -22,7 +22,7 @@ jobs:
           node --input-type=module - <<'NODE'
           import fs from 'node:fs';
           import path from 'node:path';
-          const wanted = new Set(['compact-student-dashboard.png','student-preview-workbench.png','teacher-assessment-builder.png','teacher-response-review.png','teacher-mobile-builder.png']);
+          const wanted = new Set(['compact-student-dashboard.png','compact-simulation-prompt.png','student-preview-workbench.png','teacher-assessment-builder.png','teacher-response-review.png','teacher-mobile-builder.png']);
           function walk(dir) {
             if (!fs.existsSync(dir)) return;
             for (const item of fs.readdirSync(dir,{withFileTypes:true})) {

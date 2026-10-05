@@ -97,6 +97,38 @@ describe("attempt start precedence", () => {
     expect(state.attempts.find((row) => row.id === "attempt-draft")?.due_at_snapshot).toBe("2026-05-01T12:00:00.000Z");
   });
 
+  it("restores the same saved sketch and description without HTML or a second attempt", async () => {
+    const state = makeState();
+    state.assessments[0].type = "simulation";
+    state.attempts.push({
+      id: "image-only-draft", assignment_id: "assignment-1", assessment_id: "assessment-1",
+      student_id: "student-1", status: "draft", simulation_description: "Saved energy explanation",
+      created_at: "2026-04-30T10:00:00.000Z", updated_at: "2026-04-30T10:00:00.000Z",
+      due_at_snapshot: "2026-05-01T12:00:00.000Z"
+    });
+    state.attempt_artifacts.push(
+      { id: "saved-sketch", attempt_id: "image-only-draft", student_id: "student-1",
+        kind: "simulation-sketch", upload_state: "uploaded", original_filename: "sketch.png",
+        created_at: "2026-04-30T10:01:00.000Z" },
+      { id: "foreign-sketch", attempt_id: "image-only-draft", student_id: "student-2",
+        kind: "simulation-sketch", upload_state: "uploaded", created_at: "2026-04-30T10:02:00.000Z" }
+    );
+    const db = makeDb(state);
+    for (let reopen = 0; reopen < 2; reopen++) {
+      const started = await startAttempt(jsonRequest({ assignmentId: "assignment-1" }),
+        { PIN_PEPPER: "pepper" } as never, db as never, "student-1");
+      expect(started.attemptId).toBe("image-only-draft");
+      expect(started.simulationDraft).toMatchObject({
+        description: "Saved energy explanation", simulationPreview: null, activeSimulationJob: null,
+        simulationSketchPreview: { artifactId: "saved-sketch", outputKind: "image" }
+      });
+      expect(started.simulationDraft?.simulationSketchPreview?.previewToken).toEqual(expect.any(String));
+    }
+    expect(state.attempts).toHaveLength(1);
+    expect(state.attempts[0].status).toBe("draft");
+    expect(state.simulation_generation_jobs).toHaveLength(0);
+  });
+
   it("loads existing drafts when submitted_after_due is not available yet", async () => {
     const state = makeState();
     state.forceMissingSubmittedAfterDueOnAttemptSelect = true;

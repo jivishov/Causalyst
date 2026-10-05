@@ -15,6 +15,7 @@ import { uploadArtifact } from "../src/routes/artifacts";
 import { signUploadToken } from "../src/lib/crypto";
 import { claimAttemptSubmission } from "../src/lib/attemptLifecycle";
 import { studentSession } from "../src/routes/student";
+import { startAttempt } from "../src/routes/attempts";
 import { listStudentSubmissions } from "../src/routes/studentSubmissions";
 import { reserveSimulationJob } from "../src/lib/simulationJobs";
 import { runRetention } from "../src/lib/retention";
@@ -300,6 +301,32 @@ describe('real Supabase service boundaries', () => {
     expect(history.submissions.some(item => item.attemptId === legacy && item.assignmentId === null)).toBe(true);
     expect(history.submissions.some(item => item.attemptId === draft || item.attemptId === foreign)).toBe(false);
     expect(JSON.stringify(history)).not.toContain(privateAnswer);
+  });
+
+  it('reopens a persisted image-only draft through real Supabase without creating another attempt', async () => {
+    const assessment = randomUUID(), assignment = randomUUID(), draft = randomUUID(), sketch = randomUUID();
+    const savedDescription = 'Saved energy explanation with a generated sketch';
+    await sql.query("insert into assessments(id,type,title,prompt,created_by) values($1,'simulation','Image-only draft','Explain energy flow',$2)", [assessment, teacherId]);
+    await sql.query('insert into assessment_assignments(id,class_id,assessment_id) values($1,$2,$3)', [assignment, courseId, assessment]);
+    const inserted = await service.from('attempts').insert({ id: draft, assessment_id: assessment, assignment_id: assignment,
+      student_id: studentId, simulation_description: savedDescription });
+    expect(inserted.error).toBeNull();
+    await sql.query("insert into attempt_artifacts(id,attempt_id,student_id,kind,bucket,storage_key,mime_type,upload_state) values($1::uuid,$2,$3,'simulation-sketch','simulation-sketch',$1::text,'image/png','uploaded')", [sketch, draft, studentId]);
+    const session = await studentSession(service, studentId);
+    const visible = session.courses.flatMap(course => course.assignments).find(item => item.assignmentId === assignment);
+    expect(visible?.latestAttempt).toMatchObject({ attemptId: draft, status: 'draft' });
+    for (let reopen = 0; reopen < 2; reopen++) {
+      const recovered = await startAttempt(new Request('https://worker.test/api/attempts/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignmentId: assignment })
+      }), syntheticEnv, service, studentId);
+      expect(recovered.attemptId).toBe(draft);
+      expect(recovered.simulationDraft).toMatchObject({ description: savedDescription, simulationPreview: null,
+        activeSimulationJob: null, simulationSketchPreview: { artifactId: sketch, outputKind: 'image' } });
+      expect(recovered.simulationDraft?.simulationSketchPreview?.previewToken).toEqual(expect.any(String));
+    }
+    const saved = await service.from('attempts').select('id,status').eq('assignment_id', assignment).eq('student_id', studentId);
+    expect(saved.error).toBeNull();
+    expect(saved.data).toEqual([{ id: draft, status: 'draft' }]);
   });
 
 });

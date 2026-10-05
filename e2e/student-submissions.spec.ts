@@ -18,7 +18,7 @@ async function fixture(page: Page, overrides: Partial<AttemptResult> = {}) {
     simulationDescription: description, transcript: null, ocrText: null, simulationSpec: null, provisionalScore: null, provisionalFeedback: null, publishedGrade: null, submittedAt: "2026-10-04T20:04:00Z",
     simulationPreview: { artifactId: "saved-html", previewPath: "/artifacts/saved-html/preview", previewToken: "synthetic-preview", outputKind: "html", htmlViewport: { width: 960, height: 680 } }, ...overrides
   };
-  const requests = { previews: 0, mutations: 0 };
+  const requests = { previews: 0, mutations: 0, starts: 0, sketchPreviews: 0 };
   const history = {
     unavailable: false, newerDraft: false, emptyAssignments: false,
     submissions: [{
@@ -28,14 +28,32 @@ async function fixture(page: Page, overrides: Partial<AttemptResult> = {}) {
       provisionalScore: result.provisionalScore, publishedGrade: result.publishedGrade
     }] as StudentSubmissionSummary[]
   };
+  const assignment = () => ({
+    assignmentId: "energy", classId: "course", classCode: "APES-2627", className: "AP Environmental Science",
+    assessment: result.assessment, opensAt: null, dueAt: null, dueState: "none",
+    state: history.newerDraft ? "draft" : result.publishedGrade ? "final_published" : "submitted",
+    latestAttempt: { attemptId: history.newerDraft ? "newer-draft" : "saved", status: history.newerDraft ? "draft" : result.status },
+    publishedGrade: result.publishedGrade
+  });
   const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
   await page.route("http://127.0.0.1:8787/api/**", async route => {
     if (route.request().method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
     if (route.request().method() !== "GET") requests.mutations++;
     const path = new URL(route.request().url()).pathname;
-    if (path === "/api/student/me") await route.fulfill({ headers, json: { profile: { id: user.id, displayName: "Student", email: user.email }, enrollmentStatus: "matched", courses: history.emptyAssignments ? [] : [{ classId: "course", classCode: "APES-2627", className: "AP Environmental Science", assignments: [{ assignmentId: "energy", classId: "course", classCode: "APES-2627", className: "AP Environmental Science", assessment: result.assessment, opensAt: null, dueAt: null, dueState: "none", state: history.newerDraft ? "draft" : result.publishedGrade ? "final_published" : "submitted", latestAttempt: { attemptId: history.newerDraft ? "newer-draft" : "saved", status: history.newerDraft ? "draft" : result.status }, publishedGrade: result.publishedGrade }] }] } });
+    if (path === "/api/student/me") await route.fulfill({ headers, json: { profile: { id: user.id, displayName: "Student", email: user.email }, enrollmentStatus: "matched", courses: history.emptyAssignments ? [] : [{ classId: "course", classCode: "APES-2627", className: "AP Environmental Science", assignments: [assignment()] }] } });
     else if (path === "/api/student/submissions") await route.fulfill({ headers, status: history.unavailable ? 503 : 200,
       json: history.unavailable ? { error: "Saved work is temporarily unavailable." } : { submissions: history.submissions } });
+    else if (path === "/api/attempts/start") {
+      requests.starts++;
+      expect(route.request().postDataJSON()).toEqual({ assignmentId: "energy" });
+      await route.fulfill({ headers, json: { attemptId: "newer-draft", assignment: assignment(),
+        simulationDraft: { description, simulationPreview: null, activeSimulationJob: null,
+          simulationSketchPreview: { artifactId: "draft-sketch", previewPath: "/artifacts/draft-sketch/preview", previewToken: "synthetic-sketch", outputKind: "image" } } } });
+    }
+    else if (path === "/api/artifacts/draft-sketch/preview") {
+      requests.sketchPreviews++;
+      await route.fulfill({ headers, contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64") });
+    }
     else if (path === "/api/attempts/saved/result") await route.fulfill({ headers, json: result });
     else if (path === "/api/assignments/energy/final") await route.fulfill({ headers, json: { assignmentId: "energy", classId: "course", classCode: "APES-2627", className: "AP Environmental Science", opensAt: null, dueAt: null, assessment: result.assessment, publishedGrade: result.publishedGrade, latestAttempt: { attemptId: "saved", status: result.status } } });
     else if (path === "/api/artifacts/saved-html/preview") { requests.previews++; await route.fulfill({ headers, contentType: "text/html", body: html }); }
@@ -50,6 +68,10 @@ test("saved submission keeps interactive evidence through keyboard tabs and resp
   await page.goto("./attempt/saved");
   await expect(page.getByRole("tab", { name: "Your submission" })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".submission-response-text")).toHaveText(description);
+  await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
+  const sidebar = page.getByRole("complementary", { name: "Assessment navigation" });
+  await expect(sidebar.getByRole("link", { name: "AP Environmental Science", exact: true })).toBeVisible();
+  await expect(sidebar.locator('a[href*="/assignment/"], a[href*="/attempt/"], a[href*="/final/"]')).toHaveCount(0);
   const frame = page.frameLocator('iframe[title="Recovered simulation preview"]');
   await expect(frame.getByRole("heading", { name: "Follow the energy" })).toBeVisible();
   await expect(page.locator('iframe[title="Recovered simulation preview"]')).toHaveAttribute("sandbox", "allow-scripts");
@@ -159,14 +181,15 @@ test("My work restores previous attempts behind a newer draft and reopens their 
   await page.goto("./");
   await expect(page.getByRole("link", { name: /Continue my work/ })).toBeVisible();
   await page.getByRole("link", { name: "My work", exact: true }).click();
-  await expect(page.locator(".student-submission-history-card")).toHaveCount(2);
+  await expect(page.locator(".student-submission-history-card")).toHaveCount(3);
+  await expect(page.getByRole("link", { name: "Continue draft", exact: true })).toHaveAttribute("href", "/Causalyst/assignment/energy");
   await expect(page.getByRole("link", { name: "View submission" }).first()).toHaveAttribute("href", "/Causalyst/attempt/saved");
   await page.getByRole("link", { name: "View submission" }).first().click();
   await expect(page.locator(".submission-response-text")).toHaveText(description);
   await page.getByRole("link", { name: "My work", exact: true }).click();
-  await expect(page.locator(".student-submission-history-card")).toHaveCount(2);
+  await expect(page.locator(".student-submission-history-card")).toHaveCount(3);
   await page.reload();
-  await expect(page.locator(".student-submission-history-card")).toHaveCount(2);
+  await expect(page.locator(".student-submission-history-card")).toHaveCount(3);
   expect(requests.mutations).toBe(0);
 });
 
@@ -179,9 +202,9 @@ test("My work includes archived and legacy submissions even with no active assig
   await expect(page.locator(".student-submission-history-card")).toHaveCount(2);
   await expect(page.getByRole("heading", { name: "Earlier lab report" })).toBeVisible();
   await expect(page.getByRole("link", { name: "View submission" }).last()).toHaveAttribute("href", "/Causalyst/attempt/legacy");
-  await page.getByRole("searchbox", { name: "Search submissions" }).fill("lab report");
+  await page.getByRole("searchbox", { name: "Search saved work" }).fill("lab report");
   await expect(page.locator(".student-submission-history-card")).toHaveCount(1);
-  await page.getByRole("searchbox", { name: "Search submissions" }).fill("");
+  await page.getByRole("searchbox", { name: "Search saved work" }).fill("");
   for (const width of [1366, 390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(page.locator(".student-submission-history-card")).toHaveCount(2);
@@ -201,4 +224,44 @@ test("a failed history load shows a retry and never claims there is no saved wor
   await page.getByRole("button", { name: "Retry loading saved work" }).click();
   await expect(page.locator(".student-submission-history-card")).toHaveCount(1);
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("an image-only draft remains in My work and resumes after returning and reloading", async ({ page }, testInfo) => {
+  const { history, requests } = await fixture(page);
+  history.newerDraft = true;
+  history.submissions = [];
+  await page.goto("./?view=work");
+  await expect(page.locator(".student-submission-history-card")).toHaveCount(1);
+  await page.getByRole("button", { name: /^In progress/ }).click();
+  await expect(page.getByRole("link", { name: "Continue draft", exact: true })).toHaveAttribute("href", "/Causalyst/assignment/energy");
+  await page.getByRole("button", { name: /^Submitted/ }).click();
+  await expect(page.getByRole("link", { name: "View submission", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: /^In progress/ }).click();
+  await page.getByRole("link", { name: "Continue draft", exact: true }).click();
+  await expect(page.getByLabel("Description", { exact: true })).toHaveValue(description);
+  const sketch = page.getByRole("img", { name: "Generated simulation sketch", exact: true });
+  await expect(sketch).toBeVisible();
+  expect(await sketch.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+  await expect(page.getByText("Generate HTML to open your interactive simulation here.", { exact: true })).toBeVisible();
+  await expect(page.locator(".simulation-preview-iframe")).toHaveCount(0);
+  await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
+  const sidebar = page.getByRole("complementary", { name: "Assessment navigation" });
+  await expect(sidebar.getByRole("link", { name: "AP Environmental Science", exact: true })).toBeVisible();
+  await expect(sidebar.locator('a[href*="/assignment/"], a[href*="/attempt/"], a[href*="/final/"]')).toHaveCount(0);
+  await page.getByRole("link", { name: "My work", exact: true }).click();
+  await expect(page.getByRole("link", { name: "Continue draft", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("link", { name: "Continue draft", exact: true })).toBeVisible();
+  for (const width of [1366, 390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
+  await page.screenshot({ path: testInfo.outputPath("saved-draft-mobile.png"), fullPage: true });
+  await page.getByRole("link", { name: "Continue draft", exact: true }).click();
+  await expect(sketch).toBeVisible();
+  await expect(page.getByLabel("Description", { exact: true })).toHaveValue(description);
+  expect(requests.starts).toBe(2);
+  expect(requests.sketchPreviews).toBe(2);
+  expect(requests.previews).toBe(0);
+  expect(requests.mutations).toBe(requests.starts);
 });

@@ -65,6 +65,7 @@ jobs:
       - name: Build the read-only history verification module
         run: npx esbuild worker/src/routes/studentSubmissions.ts --bundle --platform=node --format=esm --outfile=/tmp/verify-student-history.mjs
       - name: Verify existing production submissions without modifying records
+        working-directory: worker
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

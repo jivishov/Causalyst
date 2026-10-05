@@ -262,10 +262,10 @@ async function loadLatestAttemptByAssignmentId(
   return projected;
 }
 
-async function loadPublishedGradeByAssignmentId(
+export async function loadPublishedGradeByAssignmentId(
   db: AppDatabaseClient,
   userId: string,
-  assignments: VisibleAssignmentRow[]
+  assignments: Array<Pick<VisibleAssignmentRow, "id" | "class_id">>
 ): Promise<Map<string, StudentPublishedGrade>> {
   if (assignments.length === 0) return new Map();
 

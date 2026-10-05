@@ -7,6 +7,7 @@ import type {
   StudentAssignmentSummary,
   StudentCourseAssignments,
   StudentSessionResponse,
+  StudentSubmissionSummary,
   StudentSimulationGenerationJob,
   StudentSimulationModelSettings,
   SimulationHtmlStreamEvent,
@@ -875,6 +876,10 @@ export async function getSimulationPreviewUrl(input: { artifactId: string; previ
 
   const previewBlob = await response.blob();
   return createSimulationPreviewObjectUrl(previewBlob, { healthNonce: input.healthNonce });
+}
+
+export function getStudentSubmissions() {
+  return apiFetch<{ submissions: StudentSubmissionSummary[] }>("/student/submissions");
 }
 
 export function getAttemptResult(attemptId: string) {

@@ -151,3 +151,14 @@
   .app-shell.account-workspace .student-assessment-page h1 { font-size: 1.25rem; }
   .app-shell.account-workspace .assignment-prompt { font-size: .875rem; }
 }
+.student-history-note {
+  margin: 0;
+  color: var(--muted, #646b72);
+  font-size: 0.875rem;
+}
+.student-history-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}

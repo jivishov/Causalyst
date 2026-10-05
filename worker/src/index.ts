@@ -8,6 +8,7 @@ import type { Env } from "./lib/env";
 import { validateWorkerSecrets } from "./lib/env";
 import { getTeacherAiSettings, updateTeacherAiSettings, testTeacherAiSettings } from "./routes/teacherAiSettings";
 import { studentLogin, studentSession } from "./routes/student";
+import { listStudentSubmissions } from "./routes/studentSubmissions";
 import { attemptResult, publishedFinalResult, startAttempt } from "./routes/attempts";
 import { createUploadToken, previewArtifact, uploadArtifact } from "./routes/artifacts";
 import { gradeVoiceAttempt } from "./routes/voice";
@@ -236,6 +237,8 @@ const routes: readonly RouteDefinition[] = [
     const db = serviceSupabase(env);
     return jsonResponse(request, env, await studentSession(db, auth.userId, auth.email as string));
   }),
+  studentRoute("GET", "/api/student/submissions", /^\/api\/student\/submissions$/, async (request, env, _match, auth) =>
+    jsonResponse(request, env, await listStudentSubmissions(serviceSupabase(env), auth.userId), { headers: { "Cache-Control": "no-store" } })),
   studentRoute("POST", "/api/attempts/start", /^\/api\/attempts\/start$/, async (request, env, _match, auth) => {
     const db = serviceSupabase(env);
     return jsonResponse(request, env, await startAttempt(request, env, db, auth.userId));

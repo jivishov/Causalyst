@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import type { AttemptResult, GradeFeedback, StudentPublishedGrade } from "@alt-assessment/shared";
+import type { AttemptResult, GradeFeedback, StudentPublishedGrade, StudentSubmissionSummary } from "@alt-assessment/shared";
 
 const prompt = "A grassland food chain is: grass → grasshopper → frog → snake. Assume the producer trophic level contains 40,000 kJ of usable energy. Describe how energy changes between trophic levels. Your description must explicitly include: • the direction of the arrows; • the energy available at each level using the 10% rule; • the distinction between energy flow and matter cycling. Important: 10% is an approximation. Energy flows through ecosystems and is ultimately dissipated as heat, while matter is recycled.";
 const description = "A trophic level pyramid of a grassland food chain shows energy flowing from grass (40,000 kJ) to grasshoppers (4,000 kJ), frogs (400 kJ), and snakes (40 kJ). Each arrow points from the food source to the consumer. The 10% rule is an approximate model of ecological energy transfer.\n\nOrganisms use most of the energy they consume for metabolism and other life processes, and energy is dissipated as heat. This leaves less energy available at higher trophic levels. Energy flows through the ecosystem; matter cycles through organisms, decomposers, and the environment.";
@@ -19,18 +19,29 @@ async function fixture(page: Page, overrides: Partial<AttemptResult> = {}) {
     simulationPreview: { artifactId: "saved-html", previewPath: "/artifacts/saved-html/preview", previewToken: "synthetic-preview", outputKind: "html", htmlViewport: { width: 960, height: 680 } }, ...overrides
   };
   const requests = { previews: 0, mutations: 0 };
+  const history = {
+    unavailable: false, newerDraft: false, emptyAssignments: false,
+    submissions: [{
+      attemptId: result.attemptId, assignmentId: result.assignmentId, assessment: result.assessment,
+      classId: "course", classCode: "APES-2627", className: "AP Environmental Science",
+      createdAt: "2026-10-04T19:00:00Z", status: result.status, submittedAt: result.submittedAt,
+      provisionalScore: result.provisionalScore, publishedGrade: result.publishedGrade
+    }] as StudentSubmissionSummary[]
+  };
   const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
   await page.route("http://127.0.0.1:8787/api/**", async route => {
     if (route.request().method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
     if (route.request().method() !== "GET") requests.mutations++;
     const path = new URL(route.request().url()).pathname;
-    if (path === "/api/student/me") await route.fulfill({ headers, json: { profile: { id: user.id, displayName: "Student", email: user.email }, enrollmentStatus: "matched", courses: [{ classId: "course", classCode: "APES-2627", className: "AP Environmental Science", assignments: [{ assignmentId: "energy", classId: "course", classCode: "APES-2627", className: "AP Environmental Science", assessment: result.assessment, opensAt: null, dueAt: null, dueState: "none", state: result.publishedGrade ? "final_published" : "submitted", latestAttempt: { attemptId: "saved", status: result.status }, publishedGrade: result.publishedGrade }] }] } });
+    if (path === "/api/student/me") await route.fulfill({ headers, json: { profile: { id: user.id, displayName: "Student", email: user.email }, enrollmentStatus: "matched", courses: history.emptyAssignments ? [] : [{ classId: "course", classCode: "APES-2627", className: "AP Environmental Science", assignments: [{ assignmentId: "energy", classId: "course", classCode: "APES-2627", className: "AP Environmental Science", assessment: result.assessment, opensAt: null, dueAt: null, dueState: "none", state: history.newerDraft ? "draft" : result.publishedGrade ? "final_published" : "submitted", latestAttempt: { attemptId: history.newerDraft ? "newer-draft" : "saved", status: history.newerDraft ? "draft" : result.status }, publishedGrade: result.publishedGrade }] }] } });
+    else if (path === "/api/student/submissions") await route.fulfill({ headers, status: history.unavailable ? 503 : 200,
+      json: history.unavailable ? { error: "Saved work is temporarily unavailable." } : { submissions: history.submissions } });
     else if (path === "/api/attempts/saved/result") await route.fulfill({ headers, json: result });
     else if (path === "/api/assignments/energy/final") await route.fulfill({ headers, json: { assignmentId: "energy", classId: "course", classCode: "APES-2627", className: "AP Environmental Science", opensAt: null, dueAt: null, assessment: result.assessment, publishedGrade: result.publishedGrade, latestAttempt: { attemptId: "saved", status: result.status } } });
     else if (path === "/api/artifacts/saved-html/preview") { requests.previews++; await route.fulfill({ headers, contentType: "text/html", body: html }); }
     else await route.fulfill({ headers, json: {} });
   });
-  return { result, requests };
+  return { result, requests, history };
 }
 
 test("saved submission keeps interactive evidence through keyboard tabs and responsive layouts", async ({ page }, testInfo) => {
@@ -139,4 +150,55 @@ test("writing and spoken submissions preserve line breaks without simulation con
   await page.goto("./attempt/saved");
   await expect(page.getByRole("heading", { name: "Transcript", exact: true })).toBeVisible();
   await expect(page.locator(".submission-response-text")).toHaveText(text);
+});
+
+test("My work restores previous attempts behind a newer draft and reopens their saved evidence", async ({ page }) => {
+  const { history, requests } = await fixture(page);
+  history.newerDraft = true;
+  history.submissions.push({ ...history.submissions[0], attemptId: "earlier", submittedAt: "2026-10-01T12:00:00Z" });
+  await page.goto("./");
+  await expect(page.getByRole("link", { name: /Continue my work/ })).toBeVisible();
+  await page.getByRole("link", { name: "My work", exact: true }).click();
+  await expect(page.locator(".student-submission-history-card")).toHaveCount(2);
+  await expect(page.getByRole("link", { name: "View submission" }).first()).toHaveAttribute("href", "/Causalyst/attempt/saved");
+  await page.getByRole("link", { name: "View submission" }).first().click();
+  await expect(page.locator(".submission-response-text")).toHaveText(description);
+  await page.getByRole("link", { name: "My work", exact: true }).click();
+  await expect(page.locator(".student-submission-history-card")).toHaveCount(2);
+  await page.reload();
+  await expect(page.locator(".student-submission-history-card")).toHaveCount(2);
+  expect(requests.mutations).toBe(0);
+});
+
+test("My work includes archived and legacy submissions even with no active assignments", async ({ page }, testInfo) => {
+  const { history, requests } = await fixture(page);
+  history.emptyAssignments = true;
+  history.submissions.push({ ...history.submissions[0], attemptId: "legacy", assignmentId: null,
+    classId: null, className: null, classCode: null, assessment: { id: "old", type: "writing", title: "Earlier lab report" } });
+  await page.goto("./?view=work");
+  await expect(page.locator(".student-submission-history-card")).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: "Earlier lab report" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "View submission" }).last()).toHaveAttribute("href", "/Causalyst/attempt/legacy");
+  await page.getByRole("searchbox", { name: "Search submissions" }).fill("lab report");
+  await expect(page.locator(".student-submission-history-card")).toHaveCount(1);
+  await page.getByRole("searchbox", { name: "Search submissions" }).fill("");
+  for (const width of [1366, 390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(page.locator(".student-submission-history-card")).toHaveCount(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
+  await page.screenshot({ path: testInfo.outputPath("saved-work-history-mobile.png"), fullPage: true });
+  expect(requests.mutations).toBe(0);
+});
+
+test("a failed history load shows a retry and never claims there is no saved work", async ({ page }) => {
+  const { history } = await fixture(page);
+  history.unavailable = true;
+  await page.goto("./?view=work");
+  await expect(page.getByRole("alert")).toContainText("Saved work is temporarily unavailable.");
+  await expect(page.getByText("Your work will appear here", { exact: true })).toHaveCount(0);
+  history.unavailable = false;
+  await page.getByRole("button", { name: "Retry loading saved work" }).click();
+  await expect(page.locator(".student-submission-history-card")).toHaveCount(1);
+  await expect(page.getByRole("alert")).toHaveCount(0);
 });

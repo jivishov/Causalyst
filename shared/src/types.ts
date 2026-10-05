@@ -65,6 +65,16 @@ export interface StudentAttemptSummary {
   submittedAfterDue?: boolean;
 }
 
+export interface StudentSubmissionSummary extends StudentAttemptSummary {
+  assignmentId: string | null;
+  classId: string | null;
+  classCode: string | null;
+  className: string | null;
+  createdAt: string;
+  assessment: Pick<AssessmentSummary, "id" | "type" | "title"> | null;
+  publishedGrade: StudentPublishedGrade | null;
+}
+
 export interface StudentPublishedGrade {
   finalScore: number | null;
   finalStatus: "approved_ai" | "teacher_override" | "missing";

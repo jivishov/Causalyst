@@ -4,6 +4,7 @@ import { AlertCircle, BookOpen, CheckCircle2, ChevronDown, ChevronUp, Clock3, Fi
 import type { StudentAssignmentSummary } from "@alt-assessment/shared";
 import { formatStudentAssignmentStateLabel, formatStudentDueStateLabel, resolveStudentAssignmentAction, resolveStudentAssignmentState, resolveStudentDueState } from "../lib/studentLifecycle";
 import { useSession } from "../state/session";
+import { StudentWork } from "./StudentWork";
 
 const icons = { voice: Mic, voice_realtime: Radio, writing: PencilLine, simulation: Shapes };
 type AssignmentFilter = "all" | "todo" | "submitted" | "results";
@@ -18,6 +19,7 @@ export function Dashboard() {
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const myWork = params.get("view") === "work";
+  if (myWork) return <StudentWork />;
   const requestedFilter = params.get("status");
   const filter: AssignmentFilter = requestedFilter === "todo" || requestedFilter === "submitted" || requestedFilter === "results" ? requestedFilter : "all";
   const courseId = params.get("course") || "all";

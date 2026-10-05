@@ -15,6 +15,7 @@ import { uploadArtifact } from "../src/routes/artifacts";
 import { signUploadToken } from "../src/lib/crypto";
 import { claimAttemptSubmission } from "../src/lib/attemptLifecycle";
 import { studentSession } from "../src/routes/student";
+import { listStudentSubmissions } from "../src/routes/studentSubmissions";
 import { reserveSimulationJob } from "../src/lib/simulationJobs";
 import { runRetention } from "../src/lib/retention";
 import * as openai from "../src/lib/openai";
@@ -77,6 +78,35 @@ afterAll(async () => {
 });
 
 describe('real Supabase service boundaries', () => {
+  it('restores archived and legacy submissions through real PostgREST despite a newer draft and the 73-row response cap', async () => {
+    const assessment = randomUUID(), assignment = randomUUID(), draft = randomUUID(), legacy = randomUUID(), foreign = randomUUID();
+    await sql.query("insert into public.assessments(id,type,title,prompt,expected_answer,created_by) values($1,'writing','History original title','Explain',$2,$3)",
+      [assessment, privateAnswer, teacherId]);
+    await sql.query('insert into public.assessment_assignments(id,class_id,assessment_id) values($1,$2,$3)', [assignment, courseId, assessment]);
+    const savedIds = Array.from({ length: 80 }, () => randomUUID());
+    const inserted = await service.from('attempts').insert(savedIds.map(id => ({
+      id, assessment_id: assessment, assignment_id: assignment, student_id: studentId,
+      status: 'submitted', submitted_at: new Date(Date.now() - 60_000).toISOString()
+    })));
+    expect(inserted.error).toBeNull();
+    expect((await service.from('attempts').insert({ id: draft, assessment_id: assessment, assignment_id: assignment, student_id: studentId })).error).toBeNull();
+    expect((await service.from('attempts').insert({ id: legacy, assessment_id: assessment, assignment_id: null, student_id: studentId,
+      status: 'graded', submitted_at: new Date().toISOString() })).error).toBeNull();
+    await sql.query("insert into public.profiles(id,role) values($1,'student') on conflict(id) do nothing", [unrelatedId]);
+    expect((await service.from('attempts').insert({ id: foreign, assessment_id: assessment, assignment_id: null, student_id: unrelatedId,
+      status: 'submitted', submitted_at: new Date().toISOString() })).error).toBeNull();
+    expect((await service.from('assessment_assignments').update({ archived_at: new Date().toISOString() }).eq('id', assignment)).error).toBeNull();
+    expect((await service.from('assessments').update({ title: 'History edited title', archived_at: new Date().toISOString() }).eq('id', assessment)).error).toBeNull();
+    const history = await listStudentSubmissions(service, studentId);
+    const restored = history.submissions.filter(item => item.assignmentId === assignment);
+    expect(restored).toHaveLength(80);
+    expect(new Set(restored.map(item => item.attemptId))).toEqual(new Set(savedIds));
+    expect(restored.every(item => item.assessment?.title === 'History original title')).toBe(true);
+    expect(history.submissions.some(item => item.attemptId === legacy && item.assignmentId === null)).toBe(true);
+    expect(history.submissions.some(item => item.attemptId === draft || item.attemptId === foreign)).toBe(false);
+    expect(JSON.stringify(history)).not.toContain(privateAnswer);
+  });
+
   it('denies private keys, snapshots and privileged RPCs to anonymous and signed-in clients', async () => {
     for (const client of [anonymous, studentClient, unrelatedClient]) {
       const keys = await client.from('assessments').select('expected_answer');

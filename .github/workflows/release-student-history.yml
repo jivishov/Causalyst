@@ -1,4 +1,4 @@
-name: Release student submission history
+name: Release student sidebar and drafts
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: worker-production
+  group: student-interface-release
   cancel-in-progress: false
 
 jobs:
@@ -22,139 +22,33 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Verify reviewed source and unchanged database schema
+      - name: Verify reviewed source and unchanged backend
         env:
-          REVIEWED_SHA: bace40f3ef55e650e081c7cbf2fcc6ab1de4af56
-          BASE_SHA: aa40f82ba39ad704fe521b16e51c9f1119c8ddb7
+          REVIEWED_SHA: d675f69295870680be97c2d06f54d244a39cc4bc
+          PREVIOUS_RELEASE_SHA: 1da0f88382fd131ba50bac46d3e5ff3259453722
         run: |
-          test "$GITHUB_REF" = "refs/heads/main"
-          test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = ".github/workflows/release-student-history.yml"
-          git diff --quiet "$BASE_SHA" "$REVIEWED_SHA" -- supabase package.json package-lock.json worker/src/lib/database.generated.ts frontend/src/auth .github/workflows/deploy-frontend.yml
-      - name: Require successful full validation of the reviewed source
+          node - <<'NODE'
+          const { execFileSync } = require("node:child_process");
+          const files = execFileSync("git", ["diff", "--name-only", process.env.REVIEWED_SHA, process.env.GITHUB_SHA], { encoding: "utf8" }).trim().split("\n").filter(Boolean);
+          if (files.some(file => file !== ".github/workflows/release-student-history.yml")) {
+            throw new Error("The release contains source changes beyond the reviewed commit.");
+          }
+          execFileSync("git", ["diff", "--exit-code", process.env.PREVIOUS_RELEASE_SHA, process.env.GITHUB_SHA, "--",
+            "worker/src", "shared/src", "supabase", "frontend/src/auth", "package.json", "package-lock.json", "worker/wrangler.toml"], { stdio: "inherit" });
+          NODE
+      - name: Require successful browser and real database validation
         uses: actions/github-script@v8
         with:
           script: |
-            const { data } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37343085330 });
-            if (data.head_sha !== "bace40f3ef55e650e081c7cbf2fcc6ab1de4af56" || data.status !== "completed" || data.conclusion !== "success") {
-              throw new Error("Full validation has not passed for the reviewed source.");
+            const { data: run } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37348034630 });
+            if (run.head_sha !== "d675f69295870680be97c2d06f54d244a39cc4bc" || run.status !== "completed" || run.conclusion !== "success") {
+              throw new Error("The reviewed source has not passed full validation.");
             }
-
-  test-and-deploy:
-    needs: release-gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Validate deployment configuration
-        run: node scripts/validate-deploy-env.mjs worker
-        env:
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_JWKS_URL: ${{ vars.SUPABASE_JWKS_URL }}
-          APP_ENV: ${{ vars.APP_ENV }}
-          ALLOWED_ORIGINS: ${{ format('{0},https://explain.az,https://www.explain.az', vars.ALLOWED_ORIGINS) }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PIN_PEPPER: ${{ secrets.PIN_PEPPER }}
-          TEACHER_SETUP_CODE: ${{ secrets.TEACHER_SETUP_CODE }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - name: Build the read-only history verification module
-        run: npx esbuild worker/src/routes/studentSubmissions.ts --bundle --platform=node --format=esm --outfile=/tmp/verify-student-history.mjs
-      - name: Verify existing production submissions without modifying records
-        working-directory: worker
-        env:
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          node --input-type=module - <<'NODE'
-          import { createClient } from "@supabase/supabase-js";
-          import { listStudentSubmissions } from "/tmp/verify-student-history.mjs";
-          if (new URL(process.env.SUPABASE_URL).hostname !== "bpqckntsnattswwzmroq.supabase.co") {
-            throw new Error("Unexpected production database.");
-          }
-          const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,
-            { auth: { persistSession: false, autoRefreshToken: false } });
-          const filter = "status.eq.submitted,status.eq.graded,submitted_at.not.is.null";
-          const sample = await db.from("attempts").select("student_id").neq("status", "draft")
-            .or(filter).order("created_at", { ascending: false }).limit(1);
-          if (sample.error) throw new Error("The production history query is unavailable.");
-          const userId = sample.data?.[0]?.student_id;
-          if (userId) {
-            const count = await db.from("attempts").select("id", { count: "exact", head: true })
-              .eq("student_id", userId).neq("status", "draft").or(filter);
-            if (count.error || typeof count.count !== "number") throw new Error("Could not verify the saved submission count.");
-            const history = await listStudentSubmissions(db, userId);
-            if (history.submissions.length !== count.count || history.submissions.some(item => item.status === "draft")) {
-              throw new Error("The history projection did not restore every submitted attempt.");
-            }
-            console.log("Read-only production history check passed; restored submission count:", history.submissions.length);
-          } else {
-            console.log("Read-only production history query passed; no submitted attempts were found.");
-          }
-          NODE
-      - id: deploy
-        name: Deploy Cloudflare Worker
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: worker
-          wranglerVersion: "4.145.0"
-          command: >-
-            deploy
-            --var SUPABASE_URL:${{ vars.SUPABASE_URL }}
-            --var SUPABASE_JWKS_URL:${{ vars.SUPABASE_JWKS_URL }}
-            --var APP_ENV:${{ vars.APP_ENV }}
-            --var ALLOWED_ORIGINS:${{ format('{0},https://explain.az,https://www.explain.az', vars.ALLOWED_ORIGINS) }}
-          secrets: |
-            SUPABASE_SERVICE_ROLE_KEY
-            OPENAI_API_KEY
-            PIN_PEPPER
-            TEACHER_SETUP_CODE
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PIN_PEPPER: ${{ secrets.PIN_PEPPER }}
-          TEACHER_SETUP_CODE: ${{ secrets.TEACHER_SETUP_CODE }}
-      - name: Verify deployed Worker
-        env:
-          WORKER_URL: ${{ steps.deploy.outputs.deployment-url }}
-          FRONTEND_WORKER_URL: ${{ vars.VITE_WORKER_URL }}
-        run: |
-          node scripts/validate-worker-url.mjs "$WORKER_URL"
-          node scripts/validate-worker-url.mjs "$FRONTEND_WORKER_URL"
-          if [ "$WORKER_URL" != "$FRONTEND_WORKER_URL" ]; then
-            echo "VITE_WORKER_URL does not match the deployed Worker URL."
-            exit 1
-          fi
-          node - <<'NODE'
-          const response = await fetch(`${process.env.WORKER_URL}/api/health`);
-          const payload = await response.json();
-          if (!response.ok || payload?.ok !== true) {
-            throw new Error(`Worker health check failed with HTTP ${response.status}`);
-          }
-          let historyStatus;
-          for (let attempt = 0; attempt < 10; attempt++) {
-            const history = await fetch(process.env.WORKER_URL + "/api/student/submissions", { cache: "no-store" });
-            historyStatus = history.status;
-            if (historyStatus === 401) break;
-            if (history.ok) throw new Error("The deployed history endpoint did not require student sign-in.");
-            console.log("Waiting for the deployed history route; HTTP", historyStatus);
-            await new Promise(resolve => setTimeout(resolve, 3000));
-          }
-          if (historyStatus !== 401) throw new Error("The deployed history endpoint must require student sign-in; HTTP " + historyStatus);
-          console.log("Worker health and protected submission history endpoint verified.");
-          NODE
-
+            core.info("Reviewed source passed browser and real Supabase checks.");
   deploy-frontend:
-    needs: test-and-deploy
+    needs: release-gate
     uses: ./.github/workflows/deploy-frontend.yml
     secrets: inherit
-
   verify-public:
     needs: deploy-frontend
     runs-on: ubuntu-latest
@@ -167,16 +61,21 @@ jobs:
             const { data } = await github.rest.repos.getPages(context.repo);
             if (!data.html_url?.startsWith("https://")) throw new Error("The published site URL is unavailable.");
             core.setOutput("url", data.html_url.endsWith("/") ? data.html_url : data.html_url + "/");
-      - name: Verify the published My work interface
+      - name: Verify class navigation and saved draft interface
         env:
           PUBLIC_URL: ${{ steps.site.outputs.url }}
+          WORKER_URL: ${{ vars.VITE_WORKER_URL }}
         run: |
           node --input-type=module - <<'NODE'
           const base = process.env.PUBLIC_URL;
+          const health = await fetch(process.env.WORKER_URL + "/api/health");
+          if (!health.ok || (await health.json()).ok !== true) throw new Error("The existing backend is unavailable.");
+          const history = await fetch(process.env.WORKER_URL + "/api/student/submissions");
+          if (history.status !== 401) throw new Error("The saved history endpoint must require student sign-in.");
           let lastError;
           for (let attempt = 0; attempt < 8; attempt++) {
             try {
-              const response = await fetch(base + "?view=work&release=" + process.env.GITHUB_SHA);
+              const response = await fetch(base + "?view=work&release=" + process.env.GITHUB_SHA, { cache: "no-store" });
               if (!response.ok) throw new Error("The published site is unavailable.");
               const html = await response.text();
               const entryPath = html.match(/src=["']([^"']+\.js)["']/)?.[1];
@@ -185,15 +84,18 @@ jobs:
               const entry = await fetch(entryUrl);
               if (!entry.ok) throw new Error("The app entry could not be loaded.");
               const code = await entry.text();
+              if (!code.includes("student-course-nav") || code.includes("assigned-nav-link")) {
+                throw new Error("The published sidebar still contains assignment navigation.");
+              }
               const modulePath = code.match(/\bimport\(["']([^"']*Dashboard-[^"']+\.js)["']\)/)?.[1];
               if (!modulePath) throw new Error("The student dashboard module is unavailable.");
               const dashboard = await fetch(new URL(modulePath, entryUrl));
               if (!dashboard.ok) throw new Error("The student dashboard could not be loaded.");
               const dashboardCode = await dashboard.text();
-              for (const marker of ["Search submissions", "Retry loading saved work", "including earlier attempts and archived assignments"]) {
-                if (!dashboardCode.includes(marker)) throw new Error("The published history is missing " + marker);
+              for (const marker of ["Search saved work", "In progress", "Continue draft", "saved drafts and submissions"]) {
+                if (!dashboardCode.includes(marker)) throw new Error("The published My work interface is missing " + marker);
               }
-              console.log("Published My work submission history verified:", base);
+              console.log("Published class-only sidebar and resumable drafts verified:", base);
               process.exit(0);
             } catch (error) {
               lastError = error;

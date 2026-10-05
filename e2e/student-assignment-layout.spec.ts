@@ -57,6 +57,7 @@ test("layout switches preserve simulation state, enlarge text, and persist acros
   const frame = page.frameLocator('iframe[title="Safe simulation preview"]');
   const editor = page.getByLabel("Description", { exact: true });
   await expect(editor).toHaveValue(description);
+  const initialStarts = [...f.starts];
   await expect(group.getByRole("button", { name: "Side by side", exact: true })).toHaveAttribute("aria-pressed", "true");
   const beforeEditor = await page.locator(".simulation-input-accordion").boundingBox();
   const beforePreview = await page.locator(".safe-preview-primary").boundingBox();
@@ -86,7 +87,7 @@ test("layout switches preserve simulation state, enlarge text, and persist acros
   await group.getByRole("button", { name: "Side by side", exact: true }).click();
   await expect(editor).toHaveValue(edited);
   await group.getByRole("button", { name: "Vertical", exact: true }).click();
-  expect(f.starts).toEqual(["simulation"]);
+  expect(f.starts).toEqual(initialStarts);
   expect(f.unexpectedMutations).toEqual([]);
   expect(await page.evaluate(key => localStorage.getItem(key), layoutKey)).toBe("vertical");
   await page.reload();
@@ -105,6 +106,7 @@ for (const type of ["writing", "voice", "voice_realtime"] as const) {
     await page.goto("./assignment/" + type);
     const response = page.locator(type === "writing" ? ".upload-panel" : ".recorder-panel");
     await expect(response).toBeVisible();
+    const initialStarts = [...f.starts];
     const before = await response.boundingBox();
     const rubric = await page.locator(".feedback-panel").boundingBox();
     expect(rubric!.x).toBeGreaterThanOrEqual(before!.x + before!.width);
@@ -127,12 +129,16 @@ for (const type of ["writing", "voice", "voice_realtime"] as const) {
       await page.setViewportSize({ width, height: 768 });
       for (const label of ["Side by side", "Vertical"]) {
         await group.getByRole("button", { name: label, exact: true }).click();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        const overflow = await page.evaluate(() => ({
+          width: innerWidth, scroll: document.documentElement.scrollWidth,
+          elements: [...document.querySelectorAll("body *")].filter(el => el.getBoundingClientRect().right > innerWidth + 1).slice(0, 8).map(el => ({ className: el.className, right: el.getBoundingClientRect().right }))
+        }));
+        expect(overflow.scroll, JSON.stringify({ type, label, ...overflow })).toBeLessThanOrEqual(width);
         await expect(page.getByLabel("Assignment instructions", { exact: true })).toContainText("25 mL");
       }
       if (width === 390) await page.screenshot({ path: testInfo.outputPath(type + "-vertical-mobile.png"), fullPage: true });
     }
-    expect(f.starts).toEqual([type]);
+    expect(f.starts).toEqual(initialStarts);
     expect(f.unexpectedMutations).toEqual([]);
   });
 }

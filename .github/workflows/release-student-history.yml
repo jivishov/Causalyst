@@ -137,8 +137,16 @@ jobs:
           if (!response.ok || payload?.ok !== true) {
             throw new Error(`Worker health check failed with HTTP ${response.status}`);
           }
-          const history = await fetch(process.env.WORKER_URL + "/api/student/submissions");
-          if (history.status !== 401) throw new Error("The deployed history endpoint must require student sign-in.");
+          let historyStatus;
+          for (let attempt = 0; attempt < 10; attempt++) {
+            const history = await fetch(process.env.WORKER_URL + "/api/student/submissions", { cache: "no-store" });
+            historyStatus = history.status;
+            if (historyStatus === 401) break;
+            if (history.ok) throw new Error("The deployed history endpoint did not require student sign-in.");
+            console.log("Waiting for the deployed history route; HTTP", historyStatus);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+          if (historyStatus !== 401) throw new Error("The deployed history endpoint must require student sign-in; HTTP " + historyStatus);
           console.log("Worker health and protected submission history endpoint verified.");
           NODE
 

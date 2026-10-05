@@ -1,0 +1,109 @@
+/* Student layout preferences change CSS only, preserving editors and previews. */
+.app-shell.student-design .student-assessment-page .student-assessment-header > .student-assessment-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 100%;
+  gap: 9px;
+}
+.app-shell.student-design .student-assessment-controls .student-workflow { margin: 0; }
+.app-shell.student-design .student-assignment-layout-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+.app-shell.student-design .student-assignment-layout-label {
+  padding: 0 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.app-shell.student-design .student-assignment-layout-control button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.app-shell.student-design .student-assignment-layout-control button[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+.app-shell.student-design .student-assignment-layout-control button:hover:not([aria-pressed="true"]) {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.app-shell.student-design .student-assignment-layout-control button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+.app-shell.student-design .student-assignment-layout-control svg { flex-shrink: 0; }
+
+.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] :is(.simulation-layout, .workspace-grid) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] .assignment-instructions > .assignment-prompt {
+  font-size: 18px;
+  line-height: 1.65;
+}
+.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] :is(.assignment-instructions, .simulation-input-accordion, .simulation-sketch-panel, .simulation-rubric) > summary {
+  font-size: 16px;
+  min-height: 44px;
+}
+.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] .simulation-input-grid > .writing-panel label {
+  font-size: 16px;
+}
+.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] .simulation-input-body textarea {
+  font-size: 18px;
+  line-height: 1.65;
+  min-height: 240px;
+}
+.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] :is(.feedback-panel, .recorder-panel, .upload-panel) {
+  font-size: 18px;
+  line-height: 1.6;
+}
+.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] :is(.feedback-panel h2, .safe-preview-header h2, .drop-zone strong) {
+  font-size: 18px;
+}
+.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] :is(.criterion-row span, .criterion-row strong, .criterion-row p, .transcript-box p, .realtime-log-entry p, .realtime-log-entry strong, .file-preview strong, .recording-meter) {
+  font-size: 18px;
+  line-height: 1.6;
+}
+.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] :is(.overall-comment, .status-line, .field-error, .drop-zone small, .file-preview p) {
+  font-size: 15px;
+  line-height: 1.6;
+}
+.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] .safe-preview-primary .safe-preview-empty {
+  font-size: 18px;
+}
+@media (max-width: 1100px) {
+  .app-shell.student-design .student-assessment-page .student-assessment-header { flex-wrap: wrap; }
+  .app-shell.student-design .student-assessment-page .student-assessment-header > .student-assessment-controls {
+    flex: 1 1 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 760px) {
+  .app-shell.student-design .student-assignment-layout-control button { min-height: 40px; }
+}

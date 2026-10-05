@@ -1,0 +1,26 @@
+name: Release Explain.az branding
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-explain-branding.yml]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: causalyst-interface-release
+  cancel-in-progress: false
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify frontend-only changes against the deployed release
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          git diff --quiet 755281a75957e8736379574fc775128c5b04aeb4 HEAD -- worker shared supabase package.json package-lock.json scripts .github/workflows/deploy-frontend.yml
+  deploy-frontend:
+    needs: release-gate
+    uses: ./.github/workflows/deploy-frontend.yml

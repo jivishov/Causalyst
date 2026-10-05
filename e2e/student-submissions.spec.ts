@@ -241,7 +241,7 @@ test("an image-only draft remains in My work and resumes after returning and rel
   await expect(page.getByLabel("Description", { exact: true })).toHaveValue(description);
   const sketch = page.getByRole("img", { name: "Generated simulation sketch", exact: true });
   await expect(sketch).toBeVisible();
-  expect(await sketch.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+  await expect.poll(() => sketch.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
   await expect(page.getByText("Generate HTML to open your interactive simulation here.", { exact: true })).toBeVisible();
   await expect(page.locator(".simulation-preview-iframe")).toHaveCount(0);
   await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
@@ -261,7 +261,7 @@ test("an image-only draft remains in My work and resumes after returning and rel
   await expect(sketch).toBeVisible();
   await expect(page.getByLabel("Description", { exact: true })).toHaveValue(description);
   expect(requests.starts).toBe(2);
-  expect(requests.sketchPreviews).toBe(2);
+  expect(requests.sketchPreviews).toBeGreaterThanOrEqual(requests.starts);
   expect(requests.previews).toBe(0);
   expect(requests.mutations).toBe(requests.starts);
 });

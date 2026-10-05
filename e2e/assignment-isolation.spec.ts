@@ -51,7 +51,12 @@ async function fixture(page: Page, type: "simulation" | "writing" = "simulation"
     } else if (/\/attempts\/attempt-[ab]\/result/.test(path)) await route.fulfill({ headers, json: result(path.includes("attempt-a") ? "a" : "b") });
     else await route.fulfill({ headers, json: {} });
   });
-  const switchTo = (id: string) => page.locator(".side-nav").getByRole("link", { name: `TEST Assignment ${id.toUpperCase()}`, exact: true }).click();
+  const switchTo = async (id: string) => {
+    await page.locator(".side-nav").getByRole("link", { name: "Dashboard", exact: true }).click();
+    await page.locator(".student-assignment-card").filter({
+      has: page.getByRole("heading", { name: `Assignment ${id.toUpperCase()}`, exact: true })
+    }).getByRole("link", { name: "Continue draft", exact: true }).click();
+  };
   return { starts, generations, submissions, startResponse, switchTo };
 }
 

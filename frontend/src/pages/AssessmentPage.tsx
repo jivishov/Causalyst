@@ -11,6 +11,7 @@ import { WritingAssessment } from "./assessment/WritingAssessment";
 import { SimulationAssessment, type SimulationDraftState } from "./assessment/SimulationAssessment";
 import { StudentActionProgress } from "../components/StudentActionProgress";
 import { AssignmentPrompt } from "../components/AssignmentPrompt";
+import { StudentAssignmentLayoutControl, useStudentAssignmentLayout } from "../components/StudentAssignmentLayoutControl";
 
 export function AssessmentPage() {
   const { assignmentId } = useParams();
@@ -21,6 +22,7 @@ export function AssessmentPage() {
 
 function AssignmentWorkspace({ assignmentId }: { assignmentId: string | undefined }) {
   const navigate = useNavigate();
+  const [layout, chooseLayout] = useStudentAssignmentLayout();
   const { assignments } = useSession();
   const assignment = useMemo(() => assignments.find((item) => item.assignmentId === assignmentId), [assignmentId, assignments]);
   const [attemptId, setAttemptId] = useState<string | null>(null);
@@ -116,7 +118,7 @@ function AssignmentWorkspace({ assignmentId }: { assignmentId: string | undefine
   }
 
   return (
-    <div className="page-stack student-assessment-page">
+    <div className="page-stack student-assessment-page" data-assignment-layout={layout}>
       <header className="assessment-header student-assessment-header">
         <div>
           <div className="assessment-title-row">
@@ -125,10 +127,13 @@ function AssignmentWorkspace({ assignmentId }: { assignmentId: string | undefine
           </div>
           <p className="assessment-course-context">{activeAssignment.classCode} · {activeAssignment.className}</p>
         </div>
-        <div className="student-workflow" aria-label="Assignment workflow">
-          <span><b>1</b>{activeAssessment.type === "voice" || activeAssessment.type === "voice_realtime" ? "Record" : "Explain"}</span><i aria-hidden="true" />
-          <span><b>2</b>{activeAssessment.type === "simulation" ? "Test & revise" : "Review"}</span><i aria-hidden="true" />
-          <span><b>3</b>Submit</span>
+        <div className="student-assessment-controls">
+          <div className="student-workflow" aria-label="Assignment workflow">
+            <span><b>1</b>{activeAssessment.type === "voice" || activeAssessment.type === "voice_realtime" ? "Record" : "Explain"}</span><i aria-hidden="true" />
+            <span><b>2</b>{activeAssessment.type === "simulation" ? "Test & revise" : "Review"}</span><i aria-hidden="true" />
+            <span><b>3</b>Submit</span>
+          </div>
+          <StudentAssignmentLayoutControl layout={layout} onChange={chooseLayout} />
         </div>
       </header>
       {activeAssessment.type !== "simulation" && <details className="assignment-instructions" open>

@@ -58,12 +58,12 @@ export function GasExample() {
   }, []);
 
   return <aside className="frontpage-example" aria-label="Interactive simulation example">
-    <div className="frontpage-example-caption"><span><Orbit size={16} />An idea, made visible</span><span>Try a simulation</span></div>
+    <div className="frontpage-example-caption"><span><Orbit size={16} />See an idea in action</span><span>Explore this example</span></div>
     <div className="frontpage-example-card">
-      <div className="frontpage-example-header"><span><span className="frontpage-example-dot" />Simulation preview</span><span>Interactive example</span></div>
-      <div className="frontpage-example-prompt"><span>Your explanation</span><p>"With the same amount of gas at a constant temperature, a smaller volume means higher pressure."</p></div>
+      <div className="frontpage-example-header"><span><span className="frontpage-example-dot" />Simulation example</span><span>Prepared demo</span></div>
+      <div className="frontpage-example-prompt"><span>Example explanation</span><p>"For a fixed amount of ideal gas at constant temperature, pressure doubles when volume halves."</p></div>
       <div className="frontpage-gas-model">
-        <div className="frontpage-gas-title"><h2>Give an idea a little room.</h2><span>Boyle’s law: fixed amount of gas, constant temperature.</span></div>
+        <div className="frontpage-gas-title"><h2>Explore volume and pressure.</h2><span>Boyle’s law: fixed amount of ideal gas, constant temperature.</span></div>
         <svg ref={svgRef} viewBox="0 0 430 190" role="img" aria-label={`Fixed cylinder with a movable piston. Gas volume is ${volume} percent of the reference volume. Pressure is ${state.pressureRatio.toFixed(2)} times the pressure at 100 percent volume.`}>
           <defs>
             <pattern id={gridId} width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#dedbe8" strokeWidth=".6" /></pattern>
@@ -87,10 +87,10 @@ export function GasExample() {
         </svg>
         <div className="frontpage-gas-control"><label htmlFor="example-volume">Gas volume · V/V₀ <output htmlFor="example-volume">{volume}%</output></label><input id="example-volume" aria-label="Volume" aria-valuetext={`${volume} percent of the reference volume`} type="range" min={MIN_GAS_VOLUME} max={REFERENCE_GAS_VOLUME} step="1" value={volume} onChange={event => setVolume(Number(event.target.value))} /><div><span>Compress</span><span>Expand</span></div></div>
         <div className="frontpage-gas-readout"><span>Pressure · P/P₀ <strong data-testid="example-pressure">{state.pressureRatio.toFixed(2)}×</strong></span><span>P₀ = pressure at 100% volume</span></div>
-        <p className="frontpage-gas-assumption"><strong>PV = P₀V₀.</strong> Heat exchange keeps temperature constant. Particle motion is slowed for clarity.</p>
+        <p className="frontpage-gas-assumption"><strong>PV = P₀V₀.</strong> Temperature is held constant in this ideal-gas model. Dots illustrate motion; pressure is calculated from Boyle’s law.</p>
       </div>
-      <div className="frontpage-example-footer"><MousePointer2 size={15} /><span>Move the slider. What do you notice?</span><span>Sample only</span></div>
+      <div className="frontpage-example-footer"><MousePointer2 size={15} /><span>Predict the pressure at 50% volume, then test it.</span><span>Ungraded demo</span></div>
     </div>
-    <p className="frontpage-example-note">In a simulation assessment, you answer by explaining the process. AI helps turn your explanation into a model that you can test and refine.</p>
+    <p className="frontpage-example-note">In a simulation assessment, you answer by explaining the process. AI helps turn your explanation into a model. Test predictions, compare its behavior with what you have learned, and refine your explanation.</p>
   </aside>;
 }

@@ -20,8 +20,9 @@
 .frontpage-hero {display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:start;gap:54px;padding:22px 0 20px}
 .frontpage-eyebrow {display:flex;align-items:center;gap:8px;color:#7a6a8b;font-size:10px;letter-spacing:1.25px;text-transform:uppercase;font-weight:600}
 .frontpage-eyebrow>span {width:6px;height:6px;border-radius:50%;background:#a481bc}
-.student-frontpage h1 {margin:10px 0 12px;font-size:clamp(40px,4vw,54px);letter-spacing:-2.4px;line-height:1.07;font-weight:650}
-.student-frontpage h1 em {font-family:Georgia,"Times New Roman",serif;font-weight:400;color:#73568c;letter-spacing:-2.2px}
+.student-frontpage h1 {margin:10px 0 12px;font-size:clamp(32px,3.7vw,46px);letter-spacing:-1.7px;line-height:1.12;font-weight:650}
+.student-frontpage h1>span,.student-frontpage h1>em {display:block;white-space:nowrap}
+.student-frontpage h1 em {font-family:Georgia,"Times New Roman",serif;font-size:.82em;font-weight:400;color:#73568c;letter-spacing:-1.3px}
 .frontpage-lead {font-size:16px;line-height:1.6;max-width:455px;color:#71687e}
 .frontpage-explore {display:inline-flex;align-items:center;gap:9px;font-size:12px;font-weight:600;margin-top:12px;color:#6350c8!important}
 .frontpage-explore:hover {gap:13px}
@@ -100,12 +101,10 @@
 .frontpage-footer {display:flex;align-items:center;gap:18px;border-top:1px solid var(--line);padding:12px 0 14px;font-size:10px;color:#796b87}
 .frontpage-footer .frontpage-brand {font-size:14px;color:#867196;gap:7px;letter-spacing:-.3px}
 .frontpage-footer>a {margin-left:auto;display:flex;align-items:center;gap:6px}
-@media (min-width:1500px) {.student-frontpage h1 {font-size:56px}}
 @media (max-width:1100px) {
   .student-frontpage .frontpage-wrap {padding:0 30px}
   .frontpage-hero {gap:32px}
-  .student-frontpage h1 {font-size:46px;letter-spacing:-2px}
-  .student-frontpage h1 em {letter-spacing:-1.9px}
+  .student-frontpage h1 {font-size:clamp(28px,3.7vw,40px)}
   .frontpage-lead {font-size:14px}
   .frontpage-gas-readout {flex-wrap:wrap;gap:5px}
   .frontpage-gas-readout>span:last-child {margin-left:auto}
@@ -120,7 +119,7 @@
   .frontpage-nav nav {gap:17px}
   .frontpage-nav nav>a:first-child,.frontpage-nav nav>a:nth-child(2) {display:none}
   .frontpage-hero {grid-template-columns:minmax(0,1fr);gap:20px;max-width:580px;margin:0 auto;padding:20px 0}
-  .student-frontpage h1 {font-size:52px;letter-spacing:-2px}
+  .student-frontpage h1 {font-size:clamp(38px,7.5vw,46px)}
   .frontpage-signin-panel {max-width:none}
   .frontpage-lead {max-width:480px;font-size:15px}
   .frontpage-example {transform:none;padding:0}
@@ -138,8 +137,8 @@
   .frontpage-nav .frontpage-teacher-link {font-size:11px;padding:7px 9px}
   .frontpage-hero {padding-top:18px;gap:18px}
   .frontpage-eyebrow {font-size:9px;letter-spacing:.75px}
-  .student-frontpage h1 {font-size:39px;line-height:1.12;letter-spacing:-1.7px;margin:10px 0 12px}
-  .student-frontpage h1 em {letter-spacing:-1.5px}
+  .student-frontpage h1 {font-size:clamp(24px,7vw,36px);letter-spacing:-1px}
+  .student-frontpage h1 em {letter-spacing:-.7px}
   .frontpage-lead {font-size:14px;line-height:1.6}
   .frontpage-explore {font-size:11px;margin-top:10px}
   .frontpage-signin-panel {padding:13px 15px 8px;margin-top:14px}
@@ -169,5 +168,5 @@
   .frontpage-footer {gap:10px;font-size:9px}
   .frontpage-footer>span:nth-child(2) {display:none}
 }
-@media (max-width:350px) {.student-frontpage h1 {font-size:34px}.frontpage-signin-heading>span {display:none}.frontpage-gas-readout>span:last-child {margin-left:0}}
+@media (max-width:350px) {.frontpage-signin-heading>span {display:none}.frontpage-gas-readout>span:last-child {margin-left:0}}
 @media (prefers-reduced-motion:reduce) {.student-frontpage * {animation:none!important;transition:none!important;scroll-behavior:auto!important}}

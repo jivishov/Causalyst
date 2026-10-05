@@ -74,7 +74,7 @@ export function Login() {
     <StudentFrontpage>
       <section className="frontpage-signin-panel" id="student-sign-in" aria-busy={submitting}>
         <div className="frontpage-signin-heading"><h2>Student Assessment Workspace</h2><span>Start here</span></div>
-        <p>Use your school Google account to find your class assignments.</p>
+        <p>Use the Google account your teacher added to the class roster.</p>
         <div className="google-oauth-button-slot">
           <button
             type="button"
@@ -89,7 +89,7 @@ export function Login() {
         {(error || authError) && <p className="field-error google-only-error" role="alert">{error ?? authError}</p>}
         {statusMessage && <p className="google-only-status" role="status">{statusMessage}</p>}
         {status === "needs_enrollment" && authEmail && (
-          <p className="google-only-status" role="status">Signed in as {authEmail}. No course profile was found for this Google account. Ask your teacher to add this account to the class roster.</p>
+          <p className="google-only-status" role="status">Signed in as {authEmail}. This account is not on a class roster yet. Ask your teacher to add it.</p>
         )}
         <button type="button" className="text-button google-only-reset-button" onClick={resetSignIn} disabled={submitting}>
           Reset sign-in

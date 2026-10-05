@@ -49,7 +49,7 @@ export async function loadTeacherAiSettings(db: AppDatabaseClient, teacherId: st
 }
 
 export function publicAiSettings(record: AiSettingsRecord, env: Env): TeacherAiSettings {
-  const settings = record.settings ?? defaultAiSettings(env);
+  const settings = withAssessmentBuilderModel(record.settings ?? defaultAiSettings(env));
   return {
     updatedAt: record.updatedAt,
     keys: Object.fromEntries(AI_PROVIDERS.map(provider => [provider, { configured: Boolean(settings.apiKeys[provider] || env[PROVIDER_ENV[provider]]),
@@ -59,16 +59,30 @@ export function publicAiSettings(record: AiSettingsRecord, env: Env): TeacherAiS
   };
 }
 
+// Existing JSON settings remain valid. Add the new role without changing any
+// saved student model, reasoning policy, credential, or immutable attempt.
+export function withAssessmentBuilderModel(settings: StoredAiSettings): StoredAiSettings {
+  if (settings.roleModels.assessmentBuilder) return settings;
+  const model = modelCatalog.assessmentBuilder;
+  const grading = settings.roleModels.grading;
+  return { ...settings, roleModels: { ...settings.roleModels, assessmentBuilder: {
+    id: grading?.id ?? model.id, catalogModelId: grading?.catalogModelId,
+    reasoningEffort: "medium", maxOutputTokens: model.maxOutputTokens, fastMode: false
+  } } };
+}
+
 export function validateAiModelSettings(body: Record<string, unknown>, previous: StoredAiSettings): StoredAiSettings {
   const providerModels = body.providerModels === undefined ? undefined : validateProviderModels(body.providerModels);
   const roles = record(body.roleModels);
   const roleModels = Object.fromEntries(AI_MODEL_ROLES.map(role => {
-    const model = validateRoleModel(roles[role]);
+    const model = validateRoleModel(roles[role] ?? (role === "assessmentBuilder" ? withAssessmentBuilderModel(previous).roleModels.assessmentBuilder : undefined));
     if (!AI_TEXT_MODEL_ROLES.includes(role) && (model.reasoningEffort !== "none" || model.maxOutputTokens !== undefined)) throw new HttpError(400, "Token limits and reasoning apply to text models only");
     const selected = providerModels?.find(entry => model.catalogModelId ? entry.id === model.catalogModelId : entry.provider === "openai" && entry.modelId === model.id);
-    if (providerModels && (!selected || (role !== "simulationHtml" && selected.provider !== "openai") || selected.capability !== modelCapabilityForRole(role) || selected.modelId !== model.id)) {
+    if (providerModels && (!selected || (role !== "simulationHtml" && role !== "assessmentBuilder" && selected.provider !== "openai") || selected.capability !== modelCapabilityForRole(role) || selected.modelId !== model.id)) {
       throw new HttpError(400, `Choose a compatible OpenAI model from the list for ${role}`);
     }
+    if (role === "assessmentBuilder" && selected && selected.provider !== "openai" && (model.reasoningEffort !== "none" || model.fastMode === true)) throw new HttpError(400, "Non-OpenAI builder models use provider default reasoning and do not support Fast mode");
+    if (model.fastMode === true && role !== "assessmentBuilder") throw new HttpError(400, "Role Fast mode is available for the assessment builder only");
     return [role, { ...model, catalogModelId: selected?.id ?? model.catalogModelId, maxOutputTokens: model.maxOutputTokens ?? modelCatalog[role].maxOutputTokens }];
   })) as StoredAiSettings["roleModels"];
   const sourceModels = providerModels ?? validateProviderModels(Array.isArray(body.codeModels) ? body.codeModels.map(entry => ({ ...record(entry), capability: "text" })) : body.codeModels);
@@ -115,8 +129,9 @@ function validateRoleModel(value: unknown): TeacherRoleModel {
     throw new HttpError(400, `Token limits must be whole numbers from ${AI_MIN_OUTPUT_TOKENS} to ${AI_MAX_OUTPUT_TOKENS}`);
   }
   if (model.catalogModelId !== undefined && !isSimulationCodeModelId(model.catalogModelId)) throw new HttpError(400, "Select a model from the provider list");
+  if (model.fastMode !== undefined && typeof model.fastMode !== "boolean") throw new HttpError(400, "Fast mode must be explicitly checked or unchecked");
   return { id: model.id.trim(), reasoningEffort: model.reasoningEffort as TeacherRoleModel["reasoningEffort"], maxOutputTokens: maxOutputTokens as number | undefined,
-    catalogModelId: model.catalogModelId as TeacherRoleModel["catalogModelId"] };
+    catalogModelId: model.catalogModelId as TeacherRoleModel["catalogModelId"], ...(model.fastMode === undefined ? {} : { fastMode: model.fastMode === true }) };
 }
 
 export async function captureRuntimeKeys(settings: StoredAiSettings, teacherId: string, env: Env): Promise<StoredAiSettings> {

@@ -1,5 +1,39 @@
 # Teacher AI settings
 
+## AI assessment and rubric builder
+
+In **Assessment model assignments**, **Assessment Builder** selects the model
+used for assessment drafts, rubric generation, and rubric review. Its reasoning
+effort, combined output-token limit, and opt-in Fast mode are independent of
+student simulation settings. The default is medium reasoning, 16,000 tokens,
+and Fast off. Compatible text models come from the existing provider lists;
+Kimi and Z.AI use provider-default reasoning and do not support Fast mode.
+Older saved settings are upgraded in memory without changing saved student
+settings, keys, assessments, or attempt snapshots.
+
+Next to **Create assessment**, **Generate assessment with AI** opens a
+collapsible request panel. **Generate Now** fills the title, student prompt,
+teacher-only expected answer, and rubric as an editable draft. The selected
+assessment type and type-specific settings stay under the teacher's control.
+The original AI request remains in its separate field while the builder stays
+open, including after generation, tab changes, and collapsing the panel.
+It is not included in the student prompt. Starting a new assessment, closing
+the builder, navigating away, or reloading clears this unsaved assistant state.
+
+The Rubric tab offers **Generate rubric with AI** and **Review rubric with AI**.
+Both use the current assessment prompt and expected answer. AI presents a rubric
+proposal and feedback; **Apply generated rubric** or **Apply revised rubric**
+changes the editable rubric. If its source assessment or rubric changes,
+generate another proposal before applying. **Undo AI changes** restores the
+previous draft. Only **Create assessment** or **Save assessment** persists work;
+generation never creates an assessment or publishes anything to students.
+
+Output is validated before it can fill the builder. Invalid or incomplete
+responses and provider errors preserve existing fields and requests. Generation
+shows an elapsed-time indicator and allows up to four minutes of provider work.
+Lower the reasoning effort or raise the builder token limit if reasoning uses
+the entire output budget.
+
 Open **Teacher workspace → AI settings**. The existing shared server key remains
 the default; students never enter a provider key. Blank password fields preserve
 saved keys. A teacher can enter a replacement OpenAI, Kimi/Moonshot, or Z.AI key,

@@ -2,11 +2,11 @@ import type { SimulationCodeModelId, SimulationCodeModelProvider } from "./asses
 
 export const AI_PROVIDERS = ["openai", "kimi", "zai"] as const;
 export type AiProvider = typeof AI_PROVIDERS[number];
-export const AI_MODEL_ROLES = ["grading", "visionGrading", "transcription", "simulationSpec", "simulationHtml", "simulationSketchImage", "simulationReadinessClassifier", "fidelityReview", "realtimeVoice"] as const;
+export const AI_MODEL_ROLES = ["grading", "visionGrading", "transcription", "simulationSpec", "simulationHtml", "simulationSketchImage", "simulationReadinessClassifier", "fidelityReview", "realtimeVoice", "assessmentBuilder"] as const;
 export type AiModelRole = typeof AI_MODEL_ROLES[number];
 export const AI_REASONING_EFFORTS = ["none", "low", "medium", "high", "xhigh", "max"] as const;
 export type AiReasoningEffort = typeof AI_REASONING_EFFORTS[number];
-export const AI_TEXT_MODEL_ROLES: readonly AiModelRole[] = ["grading", "visionGrading", "simulationSpec", "simulationHtml", "simulationReadinessClassifier", "fidelityReview"];
+export const AI_TEXT_MODEL_ROLES: readonly AiModelRole[] = ["grading", "visionGrading", "simulationSpec", "simulationHtml", "simulationReadinessClassifier", "fidelityReview", "assessmentBuilder"];
 export const AI_MIN_OUTPUT_TOKENS = 16;
 export const AI_MAX_OUTPUT_TOKENS = 128000;
 export function reasoningEffortsForModel(modelId: string): readonly AiReasoningEffort[] {
@@ -28,7 +28,7 @@ export function modelCapabilitiesForModel(provider: AiProvider, modelId: string)
 export function modelCapabilityForRole(role: AiModelRole): AiModelCapability {
   return role === "transcription" ? "transcription" : role === "simulationSketchImage" ? "image" : role === "realtimeVoice" ? "realtime" : "text";
 }
-export interface TeacherRoleModel { id: string; reasoningEffort: AiReasoningEffort; maxOutputTokens?: number; catalogModelId?: SimulationCodeModelId }
+export interface TeacherRoleModel { id: string; reasoningEffort: AiReasoningEffort; maxOutputTokens?: number; catalogModelId?: SimulationCodeModelId; fastMode?: boolean }
 export interface TeacherCodeModel {
   id: SimulationCodeModelId;
   provider: SimulationCodeModelProvider;
@@ -66,6 +66,7 @@ export function teacherProviderModels(settings: Pick<TeacherAiSettings, "codeMod
   const models: TeacherProviderModel[] = settings.codeModels.map(model => ({ ...model, capability: "text" }));
   for (const role of AI_MODEL_ROLES) {
     const model = settings.roleModels[role];
+    if (!model) continue;
     const capability = modelCapabilityForRole(role);
     if (!models.some(entry => entry.provider === "openai" && entry.modelId === model.id && entry.capability === capability)) {
       models.push({ id: `openai:${model.id}`, provider: "openai", label: model.id, modelId: model.id, capability,

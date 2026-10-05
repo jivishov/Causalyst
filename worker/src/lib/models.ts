@@ -15,7 +15,8 @@ export type ModelRole =
   | "simulationSketchImage"
   | "simulationReadinessClassifier"
   | "fidelityReview"
-  | "realtimeVoice";
+  | "realtimeVoice"
+  | "assessmentBuilder";
 
 export interface ModelCatalogEntry {
   id: string;
@@ -48,6 +49,7 @@ const CONFIRMATION_REQUIRED_MODEL_IDS = new Set<string>();
 const SIMULATION_HTML_MAX_OUTPUT_TOKENS = 64000;
 
 export const modelCatalog: Record<ModelRole, ModelCatalogEntry> = {
+  assessmentBuilder: { id: "gpt-6.1-sol", reasoningEffort: "medium", verbosity: "low", maxOutputTokens: 16000 },
   transcription: { id: "gpt-4o-transcribe" },
   grading: { id: "gpt-6.1-sol", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 8192 },
   visionGrading: { id: "gpt-6.1-sol", reasoningEffort: "max", verbosity: "low", maxOutputTokens: 8192 },
@@ -125,6 +127,7 @@ export function getModel(role: ModelRole, settings?: StoredAiSettings): ModelCat
   const override = settings?.roleModels[role];
   if (!override) return base;
   return { ...base, id: override.id, reasoningEffort: override.reasoningEffort === "none" ? undefined : override.reasoningEffort,
+    fastMode: role === "assessmentBuilder" ? override.fastMode === true : base.fastMode,
     // Older snapshots omitted this field and retain their original role limits.
     maxOutputTokens: override.maxOutputTokens,
     fallbackModelId: override.id === base.id ? base.fallbackModelId : undefined };

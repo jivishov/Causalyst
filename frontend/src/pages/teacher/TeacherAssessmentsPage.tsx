@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Archive, AudioLines, ClipboardList, Eye, FileText, MessageCircle, Orbit, Pencil, Plus, RotateCcw, Save, Search, Trash2, X } from "lucide-react";
+import { Archive, AudioLines, ClipboardList, Eye, FileText, MessageCircle, Orbit, Pencil, Plus, RotateCcw, Save, Search, Sparkles, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   DEFAULT_REALTIME_VOICE_MAX_SESSION_SEC,
@@ -11,6 +11,8 @@ import {
   FINDING_TO_QUESTION_TEMPLATE,
   SIMULATION_CODE_MODEL_OPTIONS,
   type AssessmentType,
+  type AssessmentBuilderAction,
+  type AssessmentBuilderDraft,
   type AssessmentTemplate,
   type RubricCriterion,
   type SimulationCodeModelId,
@@ -22,6 +24,7 @@ import {
 import { useTeacherWorkspaceData } from "./TeacherWorkspaceData";
 import { teacherApiFetch } from "../../lib/api";
 import { TeacherPageToolbar } from "./TeacherPageToolbar";
+import { TeacherAssessmentAiPanel } from "./TeacherAssessmentAiPanel";
 
 type AssessmentEditorMode = "create" | "edit";
 type BuilderTab = "prompt" | "rubric" | "settings";
@@ -71,6 +74,10 @@ export function TeacherAssessmentsPage() {
   const [simulationMinDescriptionChars, setSimulationMinDescriptionChars] = useState(String(DEFAULT_SIMULATION_MIN_DESCRIPTION_CHARS));
   const [simulationCodeModelId, setSimulationCodeModelId] = useState<SimulationCodeModelId>(DEFAULT_SIMULATION_CODE_MODEL_ID);
   const [assessmentSaving, setAssessmentSaving] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiAction, setAiAction] = useState<AssessmentBuilderAction>("assessment");
+  const [aiEditorKey, setAiEditorKey] = useState(0);
   const [builderOpen, setBuilderOpen] = useState(true);
   const [builderTab, setBuilderTab] = useState<BuilderTab>("prompt");
   const [search, setSearch] = useState("");
@@ -90,6 +97,7 @@ export function TeacherAssessmentsPage() {
   }, [assessments.length, loadingAssessments]);
 
   function resetAssessmentForm() {
+    resetAiAssistant();
     setBuilderTab("prompt");
     setAssessmentMode("create");
     setEditingAssessmentId(null);
@@ -109,6 +117,7 @@ export function TeacherAssessmentsPage() {
   }
 
   function applyAssessmentTemplate(template: AssessmentTemplate) {
+    resetAiAssistant();
     setBuilderTab("prompt");
     setAssessmentMode("create");
     setEditingAssessmentId(null);
@@ -139,6 +148,7 @@ export function TeacherAssessmentsPage() {
   }
 
   function beginEditAssessment(assessment: TeacherAssessment) {
+    resetAiAssistant();
     setBuilderTab("prompt");
     setAssessmentMode("edit");
     setEditingAssessmentId(assessment.id);
@@ -176,6 +186,17 @@ export function TeacherAssessmentsPage() {
 
   function addRubricRow() {
     setRubricRows((rows) => [...rows, { name: "", maxPoints: "5", description: "" }]);
+  }
+
+  function resetAiAssistant() {
+    setAiGenerating(false); setAiPanelOpen(false); setAiAction("assessment"); setAiEditorKey(value => value + 1);
+  }
+  function openAiAssistant(action: AssessmentBuilderAction) {
+    setAiAction(action); setAiPanelOpen(true);
+  }
+  function applyAiDraft(draft: AssessmentBuilderDraft) {
+    setAssessmentTitle(draft.title); setAssessmentPrompt(draft.prompt); setAssessmentExpectedAnswer(draft.expectedAnswer);
+    setRubricRows(draft.rubric.map(row => ({ id: row.id, name: row.name, description: row.description, maxPoints: String(row.maxPoints) })));
   }
 
   function updateRubricRow(index: number, patch: Partial<RubricDraftRow>) {
@@ -375,6 +396,7 @@ export function TeacherAssessmentsPage() {
             }}><X size={16} /></button>
           </div>
           <form className="assessment-builder-form compact-assessment-builder" onSubmit={submitAssessment} noValidate>
+            <fieldset className="assessment-ai-fieldset" disabled={aiGenerating || assessmentSaving} aria-label="Assessment draft">
             <section className="assessment-builder-section assessment-span-full">
               <div className="assessment-builder-section-grid assessment-basics-fields">
                 <label>
@@ -448,6 +470,8 @@ export function TeacherAssessmentsPage() {
                 <button className="secondary-button" type="button" onClick={addRubricRow}>
                   <Plus size={14} /> Add criterion
                 </button>
+                <button className="secondary-button" type="button" onClick={() => openAiAssistant("rubric")}><Sparkles size={14} />Generate rubric with AI</button>
+                <button className="secondary-button" type="button" onClick={() => openAiAssistant("reviewRubric")}><Sparkles size={14} />Review rubric with AI</button>
               </div>
             </section>
 
@@ -552,6 +576,7 @@ export function TeacherAssessmentsPage() {
 
             <div className="control-row assessment-span-full assessment-builder-save">
               <button className="secondary-button" type="button" onClick={() => previewDialog.current?.showModal()}><Eye size={15} />Student preview</button>
+              <button className="secondary-button assessment-ai-toggle" type="button" aria-expanded={aiPanelOpen && aiAction === "assessment"} aria-controls="assessment-ai-panel" onClick={() => aiPanelOpen && aiAction === "assessment" ? setAiPanelOpen(false) : openAiAssistant("assessment")}><Sparkles size={15} />Generate assessment with AI</button>
               <button className="primary-button" type="submit" disabled={assessmentSaving}>
                 <Save size={16} /> {assessmentSaving ? "Saving" : assessmentMode === "edit" ? "Save assessment" : "Create assessment"}
               </button>
@@ -562,6 +587,10 @@ export function TeacherAssessmentsPage() {
               )}
               {assessmentMode === "edit" && editingAssessmentId && <Link className="secondary-button" to={`/teacher/assignments?assessment=${encodeURIComponent(editingAssessmentId)}`}>Assign to a class</Link>}
             </div>
+            <TeacherAssessmentAiPanel key={aiEditorKey} open={aiPanelOpen} action={aiAction} type={assessmentType}
+              draft={{ title: assessmentTitle, prompt: assessmentPrompt, expectedAnswer: assessmentExpectedAnswer, rubric: buildRubricPayload() }}
+              settings={aiSettings} onClose={() => setAiPanelOpen(false)} onBusyChange={setAiGenerating} onApply={applyAiDraft} />
+            </fieldset>
           </form>
         </section>
       ) : (

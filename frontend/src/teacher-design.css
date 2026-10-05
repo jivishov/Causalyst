@@ -131,6 +131,33 @@
 .teacher-page.account-workspace.teacher-design .teacher-builder-tabpanel[hidden] {display:none!important}
 .teacher-design .teacher-model-settings-note {font-size:11px;line-height:1.7;color:var(--muted);margin:14px 0 0}
 .teacher-design .teacher-model-settings-note a {color:var(--accent)}
+.teacher-design .assessment-ai-fieldset {display:contents;border:0;padding:0;margin:0;min-width:0}
+.teacher-design .assessment-ai-panel {margin-top:10px;padding:15px;border:1px solid #ded5f0;border-radius:12px;background:#faf8ff;min-width:0}
+.teacher-design .assessment-ai-panel[hidden] {display:none!important}
+.teacher-design .assessment-ai-heading {display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
+.teacher-design .assessment-ai-heading h4 {display:flex;align-items:center;gap:7px;margin:0;color:var(--ink);font-size:13px}
+.teacher-design .assessment-ai-panel label {display:grid;gap:5px;font-size:12px;color:var(--muted)}
+.teacher-design .assessment-ai-panel textarea {width:100%;min-height:96px;resize:vertical;line-height:1.5}
+.teacher-design .assessment-ai-model {font-size:11px;line-height:1.5;margin:8px 0;color:var(--muted)}
+.teacher-design .assessment-ai-model a {margin-left:6px;color:var(--accent)}
+.teacher-design .assessment-ai-actions {display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.teacher-design .assessment-ai-status {margin:10px 0 0;font-size:12px;line-height:1.6;color:var(--ink)}
+.teacher-design .assessment-ai-error {margin:10px 0;font-size:12px;line-height:1.6;color:#9e2d3f}
+.teacher-design .assessment-ai-proposal {margin-top:13px;padding-top:12px;border-top:1px solid #ded5f0}
+.teacher-design .assessment-ai-proposal h4 {font-size:13px;margin:4px 0 8px}
+.teacher-design .assessment-ai-proposal ul {padding-left:20px;margin:8px 0 14px;font-size:12px;line-height:1.6}
+.teacher-design .assessment-ai-criteria {display:grid;gap:7px;margin:9px 0 12px}
+.teacher-design .assessment-ai-criteria article {padding:10px;border:1px solid var(--line);background:white;border-radius:8px}
+.teacher-design .assessment-ai-criteria article>div {display:flex;justify-content:space-between;gap:10px;font-size:12px}
+.teacher-design .assessment-ai-criteria article span {color:var(--muted);white-space:nowrap}
+.teacher-design .assessment-ai-criteria p {margin:5px 0 0;white-space:pre-wrap;font-size:12px;line-height:1.6}
+.teacher-design .assessment-ai-spinner {animation:assessment-ai-spin 1s linear infinite}
+.teacher-design .assessment-ai-toggle {margin-left:auto}
+.teacher-page.account-workspace.teacher-design .assessment-builder-save>.primary-button {margin-left:0}
+.teacher-design .rubric-editor-actions {flex-wrap:wrap;gap:7px}
+@keyframes assessment-ai-spin {to {transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce) {.teacher-design .assessment-ai-spinner {animation:none}}
+@media (max-width:600px) {.teacher-design .assessment-ai-toggle {margin-left:0}}
 .teacher-design .teacher-student-preview {padding:0;color:var(--ink);border:1px solid var(--line);border-radius:12px;width:660px;max-width:calc(100vw - 30px);max-height:calc(100dvh - 40px);overflow:auto;background:#fff;box-shadow:0 22px 80px #211b3833}
 .teacher-design .teacher-student-preview::backdrop {background:#211b3866;backdrop-filter:blur(3px)}
 .teacher-design .teacher-student-preview header {padding:18px 20px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}

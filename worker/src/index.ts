@@ -7,6 +7,7 @@ import { serviceSupabase } from "./lib/supabase";
 import type { Env } from "./lib/env";
 import { validateWorkerSecrets } from "./lib/env";
 import { getTeacherAiSettings, updateTeacherAiSettings, testTeacherAiSettings } from "./routes/teacherAiSettings";
+import { generateTeacherAssessmentDraft } from "./routes/teacherAssessmentBuilder";
 import { studentLogin, studentSession } from "./routes/student";
 import { listStudentSubmissions } from "./routes/studentSubmissions";
 import { attemptResult, publishedFinalResult, startAttempt } from "./routes/attempts";
@@ -77,6 +78,8 @@ export interface RouteMetadata {
 }
 
 const routes: readonly RouteDefinition[] = [
+  teacherRoute("POST", "/api/teacher/assessments/generate", /^\/api\/teacher\/assessments\/generate$/, async (request, env, _match, auth) =>
+    jsonResponse(request, env, await generateTeacherAssessmentDraft(request, serviceSupabase(env), env, auth.userId), { headers: { "Cache-Control": "no-store" } })),
   teacherRoute("GET", "/api/teacher/ai-settings", /^\/api\/teacher\/ai-settings$/, async (request, env, _match, auth) =>
     jsonResponse(request, env, await getTeacherAiSettings(serviceSupabase(env), env, auth.userId), { headers: { "Cache-Control": "no-store" } })),
   teacherRoute("PUT", "/api/teacher/ai-settings", /^\/api\/teacher\/ai-settings$/, async (request, env, _match, auth) =>

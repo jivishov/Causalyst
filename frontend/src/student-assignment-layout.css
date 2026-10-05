@@ -83,7 +83,7 @@
 .app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] :is(.feedback-panel h2, .safe-preview-header h2, .drop-zone strong) {
   font-size: 18px;
 }
-.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] :is(.criterion-row span, .criterion-row strong, .criterion-row p, .transcript-box p, .realtime-log-entry p, .realtime-log-entry strong, .file-preview strong, .recording-meter) {
+.app-shell.student-design .student-assessment-page[data-assignment-layout="vertical"] :is(.criterion-row span, .criterion-row strong, .criterion-row p, .live-transcript, .transcript-box p, .realtime-log-entry p, .realtime-log-entry strong, .file-preview strong, .recording-meter) {
   font-size: 18px;
   line-height: 1.6;
 }

@@ -221,7 +221,7 @@ export function TeacherAiSettingsPage() {
           const isBuilder = role === "assessmentBuilder";
           const assigned = isHtml ? { id: htmlModel.modelId, catalogModelId: htmlModel.id, reasoningEffort: htmlModel.reasoningEffort, maxOutputTokens: htmlModel.maxOutputTokens } : settings.roleModels[role];
           const assignedProvider = isHtml ? htmlModel.provider : models.find(model => assigned.catalogModelId ? model.id === assigned.catalogModelId : model.provider === "openai" && model.modelId === assigned.id)?.provider ?? "openai";
-          return <div className={`ai-role-model-row${isHtml || isBuilder ? " ai-html-model-row" : ""}`} key={role}>
+          return <div className={`ai-role-model-row${isHtml ? " ai-html-model-row" : isBuilder ? " ai-builder-model-row" : ""}`} key={role}>
           <label htmlFor={`ai-role-${role}`}>{roleNames[role]}</label>
           <select id={`ai-role-${role}`} value={assigned.catalogModelId ?? models.find(model => model.provider === "openai" && model.modelId === assigned.id)?.id ?? ""}
             onChange={event => isHtml ? setSettings(current => current && ({ ...current, defaultSimulationModelId: event.target.value as typeof current.defaultSimulationModelId })) : assignRoleModel(role, event.target.value)}>

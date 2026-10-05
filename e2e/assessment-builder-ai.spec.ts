@@ -59,7 +59,7 @@ test("AI fills an editable draft, preserves the request, reviews rubrics before 
   await page.getByLabel("AI assessment request", { exact: true }).fill(request);
   await page.getByRole("button", { name: "Generate Now", exact: true }).click();
   await expect(page.getByLabel("Title", { exact: true })).toHaveValue(generated.title);
-  await expect(page.getByLabel("Prompt", { exact: true })).toHaveValue(generated.prompt);
+  await expect(page.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(generated.prompt);
   await expect(page.getByLabel("Expected answer (optional)", { exact: true })).toHaveValue(generated.expectedAnswer);
   await expect(page.getByLabel("AI assessment request", { exact: true })).toHaveValue(request);
   expect(state.saves).toBe(0);
@@ -72,6 +72,9 @@ test("AI fills an editable draft, preserves the request, reviews rubrics before 
   await page.getByRole("button", { name: "Generate Now", exact: true }).click();
   await expect(page.getByRole("heading", { name: "AI feedback", exact: true })).toBeVisible();
   await expect(page.getByLabel("Name", { exact: true }).first()).toHaveValue("Scientific reasoning");
+  await page.getByLabel("Title", { exact: true }).fill("Changed since the rubric review");
+  await expect(page.getByRole("button", { name: "Apply revised rubric", exact: true })).toBeDisabled();
+  await page.getByLabel("Title", { exact: true }).fill(generated.title);
   await page.getByRole("button", { name: "Apply revised rubric", exact: true }).click();
   await expect(page.getByLabel("Name", { exact: true }).first()).toHaveValue("Revised reasoning");
   await page.getByRole("button", { name: "Undo AI changes", exact: true }).click();
@@ -98,14 +101,14 @@ test("provider errors preserve the draft and AI request; edited drafts invalidat
   const state = await fixture(page);
   await page.goto("teacher/assessments");
   await page.getByLabel("Title", { exact: true }).fill("Keep this title");
-  await page.getByLabel("Prompt", { exact: true }).fill("Keep this student-facing prompt.");
+  await page.getByRole("textbox", { name: "Prompt", exact: true }).fill("Keep this student-facing prompt.");
   await page.getByRole("button", { name: "Generate assessment with AI", exact: true }).click();
   await page.getByLabel("AI assessment request", { exact: true }).fill("Improve the draft for grade 10 chemistry.");
   state.setFail();
   await page.getByRole("button", { name: "Generate Now", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Your draft was kept");
   await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Keep this title");
-  await expect(page.getByLabel("Prompt", { exact: true })).toHaveValue("Keep this student-facing prompt.");
+  await expect(page.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue("Keep this student-facing prompt.");
   await expect(page.getByLabel("AI assessment request", { exact: true })).toHaveValue("Improve the draft for grade 10 chemistry.");
   expect(state.saves).toBe(0);
 });

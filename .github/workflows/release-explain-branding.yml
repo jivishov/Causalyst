@@ -20,7 +20,7 @@ jobs:
       - name: Verify frontend-only changes against the deployed release
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
-          git diff --quiet c89d0c497a83acc248402b7293f239f9fe953a9d HEAD -- worker shared supabase package.json package-lock.json scripts .github/workflows/deploy-frontend.yml
+          git diff --quiet cc6b2768b28db2c6638e79c9cbe571035d55e548 HEAD -- worker shared supabase package.json package-lock.json scripts .github/workflows/deploy-frontend.yml
   deploy-frontend:
     needs: release-gate
     uses: ./.github/workflows/deploy-frontend.yml

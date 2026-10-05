@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, ArrowRight, AudioLines, Check, FileText, MessageCircle, Orbit } from "lucide-react";
+import { ArrowDown, ArrowRight, AudioLines, FileText, MessageCircle, Orbit } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ExplainLogo } from "./ExplainLogo";
 import { GasExample } from "./GasExample";
@@ -62,7 +62,6 @@ export function StudentFrontpage({ children }: { children: ReactNode }) {
         <section className="frontpage-process" id="how-it-works" aria-labelledby="process-heading">
           <div className="frontpage-section-heading"><div><span className="frontpage-eyebrow">Explain, reflect, improve</span><h2 id="process-heading">From assignment to feedback.</h2></div><a href="#student-sign-in">Go to student sign-in <ArrowRight size={16} /></a></div>
           <ol><li><span>01</span><div><h3>Find your assignment</h3><p>Sign in, choose your class, and read the prompt and rubric to understand what your work should demonstrate.</p></div></li><li><span>02</span><div><h3>Explain and check your reasoning</h3><p>Respond in the assigned format. For simulations, test predictions and compare the model with what you have learned.</p></div></li><li><span>03</span><div><h3>Submit and reflect on feedback</h3><p>Read the feedback when available. Your final grade appears after your teacher publishes it.</p></div></li></ol>
-          <div className="frontpage-review-note"><Check size={17} /><p><strong>Your reasoning matters.</strong> The rubric guides assessment. AI feedback is provisional; your teacher decides and publishes the final grade.</p></div>
         </section>
 
         <footer className="frontpage-footer"><span className="frontpage-brand"><ExplainLogo size={24} />Explain.az</span><span>Ideas made visible.</span><Link to="/teacher">Teacher workspace <ArrowRight size={14} /></Link></footer>

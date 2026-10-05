@@ -95,9 +95,6 @@
 .frontpage-process li>span {font-size:10px;color:#ab91bd;font-variant-numeric:tabular-nums;font-weight:650;border:1px solid #e2d8eb;border-radius:50%;width:27px;height:27px;flex:0 0 27px;display:grid;place-items:center;margin-top:1px;background:#fff}
 .frontpage-process li h3 {font-size:12px;color:#6d547e;font-weight:650;margin:3px 0 5px}
 .frontpage-process li p {font-size:11px;line-height:1.8;color:#796b87}
-.frontpage-review-note {display:flex;align-items:center;gap:9px;margin-top:14px;background:#eeebf6;border-radius:7px;padding:9px 12px;color:#9580a7}
-.frontpage-review-note p {font-size:10px;line-height:1.7;color:#6f5f7d}
-.frontpage-review-note strong {font-weight:600;color:#79618b}
 .frontpage-footer {display:flex;align-items:center;gap:18px;border-top:1px solid var(--line);padding:12px 0 14px;font-size:10px;color:#796b87}
 .frontpage-footer .frontpage-brand {font-size:14px;color:#867196;gap:7px;letter-spacing:-.3px}
 .frontpage-footer>a {margin-left:auto;display:flex;align-items:center;gap:6px}
@@ -164,7 +161,6 @@
   .frontpage-process ol {grid-template-columns:1fr;gap:14px}
   .frontpage-process .frontpage-section-heading>a {display:none}
   .frontpage-process li {gap:12px}
-  .frontpage-review-note {align-items:flex-start}
   .frontpage-footer {gap:10px;font-size:9px}
   .frontpage-footer>span:nth-child(2) {display:none}
 }

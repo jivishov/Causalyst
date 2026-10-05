@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { AI_MODEL_ROLES, modelCapabilityForRole, type TeacherAiSettings } from "../shared/src/index";
+import { AI_MODEL_ROLES, modelCapabilityForRole, type TeacherAiSettings, type TeacherAssessment } from "../shared/src/index";
 
 const generated = { title: "Boyle's law investigation", prompt: "Explain why pressure rises as volume falls for a fixed amount of gas at constant temperature. Predict the pressure when volume halves, test your model, and describe its limits.", expectedAnswer: "At fixed temperature and gas amount, P1V1=P2V2; halving volume doubles pressure.",
   rubric: [{ name: "Scientific reasoning", maxPoints: 10, description: "Full credit: explains the inverse relationship and controlled conditions. Partial: gives the trend only. None: gives the wrong trend." }, { name: "Prediction and reflection", maxPoints: 10, description: "Full credit: correct prediction with observations and model limits. Partial: prediction without reflection. None: unsupported prediction." }] };
@@ -21,6 +21,7 @@ async function fixture(page: Page) {
     codeModels: [providerModels[0]], defaultSimulationModelId: "openai:sol", forceDefaultSimulationModel: false,
     roleModels: Object.fromEntries(AI_MODEL_ROLES.map(role => { const model = providerModels.find(model => model.capability === modelCapabilityForRole(role))!; return [role, { id: model.modelId, catalogModelId: model.id, reasoningEffort: model.reasoningEffort, maxOutputTokens: model.maxOutputTokens }]; })) as TeacherAiSettings["roleModels"] };
   const requests: any[] = [];
+  const assessments: TeacherAssessment[] = [];
   let saves = 0;
   let fail = false;
   await page.route("http://127.0.0.1:8787/api/**", async route => {
@@ -39,15 +40,20 @@ async function fixture(page: Page) {
       json = { action: input.action, draft: input.action === "assessment" ? generated : null, rubric, feedback: input.action === "assessment" ? [] : ["Clarified partial credit and alignment with the assessment."], model: { provider: "openai", id: "gpt-6.1-sol", reasoningEffort: "medium", maxOutputTokens: 16000, fastMode: false } };
     }
     else if (path === "/api/teacher/assessments") {
-      if (route.request().method() === "POST") { saves++; json = { assessment: { ...route.request().postDataJSON(), id: "new", createdAt: "2026-10-05", updatedAt: "2026-10-05", archivedAt: null } }; }
-      else json = { assessments: [] };
+      if (route.request().method() === "POST") {
+        saves++;
+        const assessment = { ...route.request().postDataJSON(), id: "new", createdAt: "2026-10-05", updatedAt: "2026-10-05", archivedAt: null };
+        assessments.push(assessment);
+        json = { assessment };
+      }
+      else json = { assessments };
     }
     else if (path === "/api/teacher/assignments") json = { assignments: [] };
     else if (path === "/api/teacher/attempts") json = { attempts: [] };
     else if (path === "/api/teacher/gradebook") json = { entries: [] };
     await route.fulfill({ headers, json });
   });
-  return { requests, get saves() { return saves; }, setFail() { fail = true; } };
+  return { requests, get saves() { return saves; }, get savedAssessment() { return assessments[0]; }, setFail() { fail = true; } };
 }
 
 test("AI fills an editable draft, preserves the request, reviews rubrics before applying, and saves only on Create", async ({ page }, testInfo) => {
@@ -95,6 +101,8 @@ test("AI fills an editable draft, preserves the request, reviews rubrics before 
   await page.getByRole("button", { name: "Create assessment", exact: true }).click();
   await expect(page.getByRole("article", { name: generated.title, exact: true })).toBeVisible();
   expect(state.saves).toBe(1);
+  expect(state.savedAssessment.prompt).toBe(generated.prompt);
+  expect(JSON.stringify(state.savedAssessment)).not.toContain(request);
 });
 
 test("provider errors preserve the draft and AI request", async ({ page }) => {

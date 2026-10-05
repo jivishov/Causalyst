@@ -1,4 +1,4 @@
-name: Release student preview recovery
+name: Release student assignment layouts
 
 on:
   push:
@@ -22,26 +22,28 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Verify the reviewed frontend and deployed backend
+      - name: Verify the tested frontend and deployed backend
         env:
-          REVIEWED_SHA: 80e93fd252122f676ca712b9391df8b7be255a1e
-          BACKEND_SHA: 68580db7631e474b67fa3c008cbc2c95f41e2d6b
+          REVIEWED_SHA: d36c2b718dc25ac625c19c994cd996e782237828
+          VALIDATED_SHA: 02705a765d9c8d904ad41b3ad67b74c98a082323
+          BACKEND_SHA: afca1470f231de9f29e1e1aa2457809f49a1904d
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
           test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = ".github/workflows/release-student-layout.yml"
+          git diff --quiet "$VALIDATED_SHA" "$REVIEWED_SHA" -- frontend e2e
           git diff --quiet "$BACKEND_SHA" "$REVIEWED_SHA" -- worker shared supabase package.json package-lock.json scripts .github/workflows/deploy-frontend.yml
       - name: Verify successful validation and production backend release
         uses: actions/github-script@v8
         with:
           script: |
-            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36966927797 });
-            const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 36965621174 });
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37376650682 });
+            const deployed = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37358329005 });
             for (const [run, sha] of [
-              [checked.data, "80e93fd252122f676ca712b9391df8b7be255a1e"],
-              [deployed.data, "68580db7631e474b67fa3c008cbc2c95f41e2d6b"]
+              [checked.data, "02705a765d9c8d904ad41b3ad67b74c98a082323"],
+              [deployed.data, "afca1470f231de9f29e1e1aa2457809f49a1904d"]
             ]) {
               if (run.head_sha !== sha || run.status !== "completed" || run.conclusion !== "success") {
-                throw new Error("The reviewed checks or deployed backend do not match this release.");
+                throw new Error("The tested frontend or deployed backend does not match this release.");
               }
             }
 

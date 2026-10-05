@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, ArrowRight, AudioLines, Check, FileText, FlaskConical, MessageCircle, Orbit } from "lucide-react";
+import { ArrowDown, ArrowRight, AudioLines, Check, FileText, MessageCircle, Orbit } from "lucide-react";
 import { Link } from "react-router-dom";
+import { ExplainLogo } from "./ExplainLogo";
 import { GasExample } from "./GasExample";
 
 const FORMATS = [
@@ -31,7 +32,7 @@ export function StudentFrontpage({ children }: { children: ReactNode }) {
       <a className="frontpage-skip" href="#student-sign-in">Skip to student sign-in</a>
       <div className="frontpage-wrap">
         <header className="frontpage-nav">
-          <Link to="/" className="frontpage-brand" aria-label="Causalyst home"><span><FlaskConical size={21} /></span>Causalyst</Link>
+          <Link to="/" className="frontpage-brand" aria-label="Explain.az home"><ExplainLogo size={36} />Explain.az</Link>
           <nav aria-label="Frontpage navigation"><a href="#assessment-formats">Assessment formats</a><a href="#how-it-works">How it works</a><Link className="frontpage-teacher-link" to="/teacher">For teachers <ArrowRight size={15} /></Link></nav>
         </header>
 
@@ -64,7 +65,7 @@ export function StudentFrontpage({ children }: { children: ReactNode }) {
           <div className="frontpage-review-note"><Check size={17} /><p><strong>Your reasoning matters.</strong> The assignment rubric guides assessment; your teacher reviews the work and finalizes your grade.</p></div>
         </section>
 
-        <footer className="frontpage-footer"><span className="frontpage-brand"><FlaskConical size={17} />Causalyst</span><span>Ideas made visible.</span><Link to="/teacher">Teacher workspace <ArrowRight size={14} /></Link></footer>
+        <footer className="frontpage-footer"><span className="frontpage-brand"><ExplainLogo size={24} />Explain.az</span><span>Ideas made visible.</span><Link to="/teacher">Teacher workspace <ArrowRight size={14} /></Link></footer>
       </div>
     </main>
   );

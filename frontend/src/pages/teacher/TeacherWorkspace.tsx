@@ -7,8 +7,6 @@ import {
   ClipboardList,
   ChevronLeft,
   ChevronRight,
-  FlaskConical,
-  KeyRound,
   LogIn,
   LogOut,
   Mail,
@@ -31,6 +29,7 @@ import {
 } from "../../lib/api";
 import { completeTeacherAuthCallbackIfPresent, isSupabaseConfigured, teacherSupabase } from "../../lib/supabase";
 import { TeacherWorkspaceDataProvider, useTeacherWorkspaceData } from "./TeacherWorkspaceData";
+import { ExplainLogo } from "../../components/ExplainLogo";
 
 type Mode = "signin" | "setup";
 type TeacherAuthStatus = "checking" | "signed_out" | "authenticated";
@@ -147,8 +146,9 @@ export function TeacherWorkspace() {
         <Link className="teacher-student-return" to="/"><ArrowLeft size={15} /> Student frontpage</Link>
         <header className="teacher-page-header">
           <div className="teacher-page-header-main">
-            <span className="login-mark teacher-mark"><KeyRound size={24} /></span>
+            <span className="login-mark teacher-mark"><ExplainLogo size={44} /></span>
             <div>
+              <span className="teacher-brand-name">Explain.az</span>
               <h1>Teacher Workspace</h1>
               <p>Sign in with your teacher Google or email account.</p>
             </div>
@@ -254,7 +254,7 @@ function TeacherWorkspaceShell({ profile, onSignOut }: { profile: TeacherProfile
       <a className="skip-link" href="#teacher-content">Skip to content</a>
       <aside className="side-rail" aria-label="Teacher navigation">
         <div className="rail-top">
-          <Link to="/teacher" className="brand-lockup" aria-label="Causalyst teacher home"><span className="brand-mark"><FlaskConical size={20} /></span><span className="brand-copy"><strong>Causalyst</strong><small>Teacher workspace</small></span></Link>
+          <Link to="/teacher" className="brand-lockup" aria-label="Explain.az teacher home"><ExplainLogo size={34} /><span className="brand-copy"><strong>Explain.az</strong><small>Teacher workspace</small></span></Link>
           <button className="icon-button rail-toggle" type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} onClick={() => setCollapsed(!collapsed)} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>{collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}</button>
         </div>
         <div className="nav-section-label">Classroom</div>

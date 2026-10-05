@@ -19,7 +19,7 @@ test("teacher demo keeps assessment edits and assigned settings after reload", a
   await page.getByRole("button", { name: "Demo controls", exact: true }).click();
   const htmlDownloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /Download the HTML mockup/ }).click();
-  expect((await htmlDownloadPromise).suggestedFilename()).toBe("Causalyst_Teacher_UI_Demo.html");
+  expect((await htmlDownloadPromise).suggestedFilename()).toBe("Explain_Teacher_UI_Demo.html");
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await page.getByLabel("Assessment title", { exact: true }).fill("Atomic fingerprint — revised");
   await page.getByLabel("Student instructions", { exact: true }).fill("Use sodium to explain electron configuration, subshell occupancy, relative binding energy, and the limitations of a schematic spectrum.");
@@ -76,7 +76,7 @@ test("teacher demo creates an assignment and publishes a reviewed grade", async 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export demo CSV", exact: true }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("Causalyst_Demo_Gradebook.csv");
+  expect(download.suggestedFilename()).toBe("Explain_Demo_Gradebook.csv");
   await page.reload();
   await expect(page.locator("tbody tr").filter({ hasText: "Maya Rivera" })).toContainText("100%");
 });

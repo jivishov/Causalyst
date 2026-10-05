@@ -8,7 +8,7 @@ const providerNames = { openai: "OpenAI", kimi: "Kimi / Moonshot", zai: "Z.AI" }
 const roleNames: Record<AiModelRole, string> = {
   grading: "Voice grading", visionGrading: "Writing grading", transcription: "Audio transcription",
   simulationSpec: "Simulation specification", simulationHtml: "Interactive simulation HTML", simulationSketchImage: "Simulation sketch image",
-  simulationReadinessClassifier: "Description readiness check", fidelityReview: "Fidelity review", realtimeVoice: "Live voice conversation"
+  simulationReadinessClassifier: "Description readiness check", fidelityReview: "Fidelity review", realtimeVoice: "Live voice conversation", assessmentBuilder: "Assessment Builder"
 };
 const textRoles = new Set(AI_TEXT_MODEL_ROLES);
 const capabilityNames = { text: "Text / simulation", transcription: "Audio transcription", image: "Image generation", realtime: "Live voice" };
@@ -101,7 +101,8 @@ export function TeacherAiSettingsPage() {
   function assignRoleModel(role: AiModelRole, id: string) {
     if (!settings) return;
     const model = teacherProviderModels(settings).find(entry => entry.id === id)!;
-    editRoleModel(role, { id: model.modelId, catalogModelId: model.id, reasoningEffort: model.reasoningEffort, maxOutputTokens: model.maxOutputTokens });
+    editRoleModel(role, { id: model.modelId, catalogModelId: model.id, reasoningEffort: model.reasoningEffort, maxOutputTokens: model.maxOutputTokens,
+      ...(role === "assessmentBuilder" ? { fastMode: model.provider === "openai" && settings.roleModels.assessmentBuilder.fastMode === true } : {}) });
   }
 
   function editRoleModel(role: AiModelRole, patch: Partial<TeacherRoleModel>) {
@@ -211,21 +212,24 @@ export function TeacherAiSettingsPage() {
       </section>
       <section className="course-list-panel">
         <h2>Assessment model assignments</h2>
-        <p className="panel-description">Choose from your provider model lists. OpenAI supports grading, transcription, images, and live voice; Kimi and Z.AI are available for student simulation code. Each list shows models with the matching capability.</p>
+        <p className="panel-description">Choose from your provider model lists. OpenAI supports all assessment tasks; Kimi and Z.AI are available for student simulation code and the Assessment Builder. Each list shows models with the matching capability.</p>
         <p className="field-help">Interactive simulation HTML controls student previews. Simulation specification is a separate step. HTML reasoning, token limits, and Fast mode are saved per selected model. Fast mode keeps your reasoning effort, costs more per token, and depends on provider availability.</p>
         <p className="field-help">Token limits for OpenAI text models cover reasoning and the answer together, from {AI_MIN_OUTPUT_TOKENS.toLocaleString()} to {AI_MAX_OUTPUT_TOKENS.toLocaleString()}. Leave blank to use the app default.</p>
+        <p className="field-help">Assessment Builder handles assessment drafts, rubric generation, and rubric review. Its model, reasoning, token limit, and Fast mode are independent of student simulation settings.</p>
         <div className="ai-model-list">{AI_MODEL_ROLES.map(role => {
           const isHtml = role === "simulationHtml";
+          const isBuilder = role === "assessmentBuilder";
           const assigned = isHtml ? { id: htmlModel.modelId, catalogModelId: htmlModel.id, reasoningEffort: htmlModel.reasoningEffort, maxOutputTokens: htmlModel.maxOutputTokens } : settings.roleModels[role];
-          return <div className={`ai-role-model-row${isHtml ? " ai-html-model-row" : ""}`} key={role}>
+          const assignedProvider = isHtml ? htmlModel.provider : models.find(model => assigned.catalogModelId ? model.id === assigned.catalogModelId : model.provider === "openai" && model.modelId === assigned.id)?.provider ?? "openai";
+          return <div className={`ai-role-model-row${isHtml ? " ai-html-model-row" : isBuilder ? " ai-builder-model-row" : ""}`} key={role}>
           <label htmlFor={`ai-role-${role}`}>{roleNames[role]}</label>
           <select id={`ai-role-${role}`} value={assigned.catalogModelId ?? models.find(model => model.provider === "openai" && model.modelId === assigned.id)?.id ?? ""}
             onChange={event => isHtml ? setSettings(current => current && ({ ...current, defaultSimulationModelId: event.target.value as typeof current.defaultSimulationModelId })) : assignRoleModel(role, event.target.value)}>
-            {(isHtml ? AI_PROVIDERS : ["openai"] as const).map(provider => <optgroup key={provider} label={providerNames[provider]}>
+            {(isHtml || isBuilder ? AI_PROVIDERS : ["openai"] as const).map(provider => <optgroup key={provider} label={providerNames[provider]}>
               {models.filter(model => model.provider === provider && model.capability === modelCapabilityForRole(role) && (!isHtml || model.enabled)).map(model => <option key={model.id} value={model.id}>{model.label} ({model.modelId})</option>)}
             </optgroup>)}
           </select>
-          {textRoles.has(role) && (!isHtml || htmlModel.provider === "openai") ?
+          {textRoles.has(role) && assignedProvider === "openai" ?
             <label>Reasoning effort<select aria-label={`${roleNames[role]} reasoning`} value={assigned.reasoningEffort}
               onChange={event => isHtml ? editProviderModel(htmlModel.id, { reasoningEffort: event.target.value as AiReasoningEffort }) : editRoleModel(role, { reasoningEffort: event.target.value as AiReasoningEffort })}>
               {reasoningEffortsForModel(assigned.id).map(effort => <option key={effort} value={effort}>{effort === "none" ? "Provider default" : effort}</option>)}
@@ -237,6 +241,11 @@ export function TeacherAiSettingsPage() {
             <label className="checkbox-label"><input type="checkbox" aria-label="Interactive simulation HTML fast mode" checked={htmlModel.provider === "openai" && htmlModel.fastMode === true} disabled={htmlModel.provider !== "openai"}
               onChange={event => editProviderModel(htmlModel.id, { fastMode: event.target.checked })} />Fast mode</label>
             <span className="field-help">{htmlModel.provider === "openai" ? "Higher API cost" : "OpenAI only"}</span>
+          </div>}
+          {isBuilder && <div className="ai-html-fast-mode" title="Fast mode applies to assessment drafts and rubric assistance. Higher API cost; subject to provider availability.">
+            <label className="checkbox-label"><input type="checkbox" aria-label="Assessment Builder fast mode" checked={assignedProvider === "openai" && settings.roleModels.assessmentBuilder.fastMode === true} disabled={assignedProvider !== "openai"}
+              onChange={event => editRoleModel(role, { fastMode: event.target.checked })} />Fast mode</label>
+            <span className="field-help">{assignedProvider === "openai" ? "Higher API cost" : "OpenAI only"}</span>
           </div>}
         </div>})}</div>
       </section>

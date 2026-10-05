@@ -4,3 +4,4 @@ export * from "./simulation";
 export * from "./assessmentConfig";
 export * from "./assessmentTemplates";
 export * from "./aiSettings";
+export * from "./assessmentBuilder";

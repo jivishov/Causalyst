@@ -92,7 +92,9 @@ test("layout switches preserve simulation state, enlarge text, and persist acros
   expect(await page.evaluate(key => localStorage.getItem(key), layoutKey)).toBe("vertical");
   await page.reload();
   await expect(group.getByRole("button", { name: "Vertical", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(editor).toHaveValue(edited);
+  // A reload returns the server-saved draft. Unsaved typing stays in memory;
+  // the layout preference must survive independently of that draft version.
+  await expect(editor).toHaveValue(description);
 
   await page.goto("./assignment/writing");
   await expect(group.getByRole("button", { name: "Vertical", exact: true })).toHaveAttribute("aria-pressed", "true");

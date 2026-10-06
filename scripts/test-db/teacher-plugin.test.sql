@@ -34,7 +34,17 @@ end $$;
 rollback;
 
 begin;
-set local role supabase_auth_admin;
+do $$ begin
+  if not has_function_privilege('supabase_auth_admin','public.explain_teacher_plugin_access_token_hook(jsonb)','execute') then
+    raise exception 'Supabase Auth cannot invoke the access-token hook';
+  end if;
+  -- Native PostgreSQL can impersonate the auth service. The disposable
+  -- Supabase postgres login intentionally cannot; verify its exact grants
+  -- here and run the claims assertions as the function owner in that stack.
+  if pg_has_role(current_user,'supabase_auth_admin','SET') then
+    execute 'set local role supabase_auth_admin';
+  end if;
+end $$;
 do $$ declare original jsonb; result jsonb; begin
   original:='{"aud":"authenticated","sub":"teacher","exp":9999999999,"client_id":"90000000-0000-4000-8000-000000000004","scope":"openid email profile","role":"authenticated"}';
   result:=public.explain_teacher_plugin_access_token_hook(jsonb_build_object('claims',original,'authentication_method','oauth_provider/authorization_code'));

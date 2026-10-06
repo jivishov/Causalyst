@@ -41,7 +41,7 @@ test("teacher ChatGPT consent, cancellation, and disconnection work on desktop a
   await page.goto("./teacher/chatgpt-plugin");
   await expect(page.getByLabel("Plugin server URL")).toHaveValue(endpoint);
   await page.getByRole("button", { name: "Disconnect", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("ChatGPT access to this teacher account has been disconnected.");
+  await expect(page.getByRole("status")).toHaveText("Plugin access to this teacher account has been disconnected.");
   expect(revoked).toBe(true);
 
   await page.goto("./teacher/chatgpt-plugin?authorization_id=synthetic-authorization");

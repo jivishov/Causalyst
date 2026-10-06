@@ -8,7 +8,7 @@
       "name": "explain-teacher",
       "source": {
         "source": "local",
-        "path": "./plugins/explain-teacher"
+        "path": "./plugins/explain-teacher-codex"
       },
       "policy": {
         "installation": "AVAILABLE",

@@ -20,7 +20,7 @@ function show(path = "/teacher/chatgpt-plugin") { render(<MemoryRouter initialEn
 it("shows setup and usage boundaries without changing API model settings", async () => {
   show();
   expect((await screen.findByRole("textbox", { name: "Plugin server URL" })).getAttribute("value")).toBe(config.endpoint);
-  expect(screen.getByText(/AI work happens in your ChatGPT conversation/)).toBeTruthy();
+  expect(screen.getByText(/Sign in to Codex with ChatGPT to use your subscription allowance.*Codex configured with an API key uses API billing/)).toBeTruthy();
   expect(oauth.approveAuthorization).not.toHaveBeenCalled();
 });
 it("shows teacher consent and rejects unapproved clients", async () => {
@@ -45,7 +45,7 @@ it("allows revocation of a previously connected account", async () => {
   vi.mocked(oauth.revokeGrant).mockResolvedValue({ data: null, error: null } as never);
   show();
   fireEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
-  await screen.findByText("ChatGPT access to this teacher account has been disconnected.");
+  await screen.findByText("Plugin access to this teacher account has been disconnected.");
   expect(oauth.revokeGrant).toHaveBeenCalledWith({ clientId: "client-1" });
   await waitFor(() => expect(screen.queryByRole("button", { name: "Disconnect" })).toBeNull());
 });

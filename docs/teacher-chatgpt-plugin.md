@@ -28,13 +28,22 @@ The integration stays disabled until the administrator registers and explicitly 
 
 ## Codex desktop installation
 
-The repository now contains a local marketplace named `explain-local`, displayed as **Explain Teacher**. Its entry points at the portable package in `plugins/explain-teacher`. This is installation metadata, not evidence that a desktop client has installed the plugin or authenticated it.
+The repository contains a marketplace named `explain-local`, displayed as **Explain Teacher**. Its entry points at `plugins/explain-teacher-codex`, a native Codex package with a compatibility manifest and `.mcp.json`. The portable package remains in `plugins/explain-teacher`. Codex 0.160.1's portable MCP parser does not accept native OAuth fields, so the desktop catalog uses the native package. Both packages include the same teacher workflow skill. Installation metadata does not establish that another computer has installed or authenticated the plugin.
 
-1. Finish the hosted deployment and OAuth setup above. For native Codex, register a separate public client and include its UUID in both `TEACHER_PLUGIN_CLIENT_IDS` and the audience hook. Do not reuse a ChatGPT-only client's callback registration.
-2. Configure that pre-registered client in Codex's supported bundled-MCP OAuth format. The documented native fields are `clientId`, `callbackUrl`, and `callbackPort`. The shared portable package currently contains the MCP URL only; it does **not** contain a registered Codex client ID. That wiring must be completed with the real registration before native authentication can work. Do not add secrets, API keys, or placeholder credentials to the package.
-3. Register the exact callback shown by the installed Codex version. For an auth server that requires exact redirect matches, use a fixed listener port and match it in both the callback URL and listener configuration. Codex may append a server-specific callback ID when the provider does not support issuer-bound authorization responses; preserve that suffix. This page supports the default Codex callback path, not arbitrary local or remote callback URLs.
-4. Open this repository's checkout in Codex desktop, restart the desktop app, open Plugins, select the **Explain Teacher** local source, and install **Explain Teacher**. Local catalogs depend on the supported client and the checkout being on that computer; editing this cloud workspace does not install anything on another computer.
-5. Complete the teacher-account OAuth consent and start a new conversation. Verify that the connected teacher profile and all 13 tools are available, then test with synthetic evidence before saving classroom grades.
+The approved native client is `604811c9-433a-455c-b52d-5b1802c09496`, named **Explain Teacher for Codex**. It is manually registered as a public PKCE client with token endpoint authentication `none`; no client secret exists in the package. Its only redirect is `http://127.0.0.1:49152/callback/GvVY5xemsnpI`. Native `.mcp.json` sets both this callback and listener port 49152. The callback suffix follows the official Codex 0.160.1 implementation: URL-safe base64 of the first nine SHA-256 bytes of the complete MCP URL without a fragment. Preserve the suffix, endpoint, and listener port together when updating the connection.
+
+1. Finish the hosted deployment and OAuth setup above. Keep the client UUID consistent in the native package, `TEACHER_PLUGIN_CLIENT_IDS`, and the audience hook. Dynamic OAuth app registration stays disabled. A ChatGPT web connection requires its own separately approved client and registered HTTPS callback; the native client must not be reused there.
+2. On the computer running Codex, register this repository as a marketplace and install its plugin with a current Codex CLI:
+
+   ```bash
+   codex plugin marketplace add jivishov/Causalyst --ref main
+   codex plugin add explain-teacher@explain-local
+   ```
+
+   Alternatively, open an updated checkout in Codex desktop, restart the app, open Plugins, select the **Explain Teacher** local source, and install **Explain Teacher**. Editing a cloud workspace does not install anything on another computer.
+3. Restart Codex desktop and complete the Explain teacher-account OAuth connection from the plugin. Sign in through the normal browser flow; never paste credentials or tokens into chat. Start a new conversation and verify the connected teacher profile and all 13 tools, then test with synthetic evidence before saving classroom grades.
+
+If port 49152 is already in use, resolve the local port conflict or register a newly reviewed callback and update both native callback fields. Do not remove callback validation or enable unrestricted app registration as a workaround.
 
 Use Codex signed in with the teacher's ChatGPT account for subscription usage. Codex configured with an API key instead uses API billing. The plugin makes no inference API calls and cannot change the host's billing mode.
 
@@ -69,7 +78,7 @@ Reading a submission does not create or reconcile gradebook rows. Evidence downl
 
 ## Verification
 
-The automated MCP tests use the real MCP SDK client and transports without model calls. They cover initialization, subsequent stateless requests, tool schemas, OAuth challenges, resource-audience checks, approved clients, revocation, teacher roles, origin checks, roster identity omission, artifact handling, and grade/rubric write guards. PostgreSQL tests cover live session lookup, user mismatch, revocation, and function privileges. Existing app checks cover the ordinary teacher/student routes.
+The automated MCP tests use the real MCP SDK client and transports without model calls. They cover initialization, subsequent stateless requests, tool schemas, OAuth challenges, resource-audience checks, approved clients, revocation, teacher roles, origin checks, roster identity omission, artifact handling, and grade/rubric write guards. Native PostgreSQL and real disposable Supabase tests cover live session lookup, user mismatch, revocation, role privileges, direct Data API restrictions, and atomic grade saves. Existing app checks cover ordinary teacher/student routes. Production release checks verify MCP discovery, an OAuth challenge for unauthenticated requests, and rejection of an unapproved origin without reading account data or invoking a model.
 
 Run `npm run typecheck`, `npm test`, `npm run test:db`, `npm run build`, `npm run security`, `npm run build:worker`, `npm run audit`, and relevant browser tests. The hosted Supabase OAuth round trip and actual ChatGPT media handling require the configured account connection and are separate acceptance checks; automated tests do not establish that they work on a particular subscription.
 

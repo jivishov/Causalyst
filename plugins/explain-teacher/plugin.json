@@ -1,18 +1,32 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "explain-teacher",
-  "version": "1.0.0",
-  "description": "Create assessments, review rubrics, and evaluate student evidence in ChatGPT, then save teacher-approved results to Explain.",
-  "author": { "name": "Explain", "url": "https://explain.az" },
+  "version": "1.0.1",
+  "description": "Create assessments, review rubrics, and evaluate student evidence in ChatGPT or Codex, then save teacher-approved results to Explain.",
+  "author": {
+    "name": "Explain",
+    "url": "https://explain.az"
+  },
   "homepage": "https://explain.az/teacher/chatgpt-plugin",
   "repository": "https://github.com/jivishov/Causalyst",
-  "keywords": ["education", "assessment", "chemistry"],
-  "extensions": { "com.openai": { "interface": {
-    "displayName": "Explain Teacher",
-    "shortDescription": "Create and review classroom assessments in ChatGPT",
-    "longDescription": "Draft assessments, review rubrics, inspect student evidence, and save approved results to your Explain teacher account. The plugin makes no paid inference calls. ChatGPT tools and plan limits apply.",
-    "developerName": "Explain",
-    "category": "Education",
-    "capabilities": ["Read", "Write"]
-  } } }
+  "keywords": [
+    "education",
+    "assessment",
+    "chemistry"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Explain Teacher",
+        "shortDescription": "Create and review classroom assessments in ChatGPT or Codex",
+        "longDescription": "Draft assessments, review rubrics, inspect student evidence, and save approved results to your Explain teacher account. The plugin makes no paid inference calls. Host tools and account limits apply.",
+        "developerName": "Explain",
+        "category": "Education",
+        "capabilities": [
+          "Read",
+          "Write"
+        ]
+      }
+    }
+  }
 }

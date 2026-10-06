@@ -28,6 +28,9 @@
     "db:types:check": "node scripts/supabase-local.mjs check-types",
     "test:supabase": "npm exec --workspace worker -- vitest run --config vitest.integration.config.ts"
   },
+  "overrides": {
+    "sharp": "0.35.5"
+  },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "1.63.0",

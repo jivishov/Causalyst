@@ -1,5 +1,5 @@
 import { reconcileFixture } from "./helpers/rpcFixtures";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SIMULATION_HTML_VIEWPORT } from "@alt-assessment/shared";
 import type { Env } from "../src/lib/env";
 import { downloadTeacherArtifact, listTeacherAttempts, previewTeacherArtifact, teacherAttemptDetail } from "../src/routes/teacherReview";
@@ -150,6 +150,35 @@ describe("teacher review routes", () => {
       status: 403,
       message: "Teacher does not own this assignment"
     });
+  });
+  it("keeps plugin submission reads free of gradebook writes and blocks drafts", async () => {
+    const state = createState();
+    state.gradebook_entries = [];
+    const db = createDb(state);
+    const rpc = vi.spyOn(db, "rpc");
+    const detail = await teacherAttemptDetail(db as never, "teacher-1", "attempt-owned", { reconcileGradebook: false, submittedOnly: true });
+    expect(detail.attempt.gradebookEntry).toBeNull();
+    expect(rpc).not.toHaveBeenCalled();
+    expect(state.gradebook_entries).toEqual([]);
+    state.attempts[0].status = "draft";
+    await expect(teacherAttemptDetail(db as never, "teacher-1", "attempt-owned", { reconcileGradebook: false, submittedOnly: true })).rejects.toMatchObject({ status: 409 });
+  });
+  it("rejects unfrozen, mismatched, and oversized plugin evidence before download", async () => {
+    const state = createState();
+    const db = createDb(state);
+    const from = vi.spyOn(db.storage, "from");
+    const download = () => downloadTeacherArtifact(new Request("https://worker.test"), env, db as never, "teacher-1", "artifact-owned", { submissionAttemptId: "attempt-owned", maxBytes: 100 });
+    await expect(download()).rejects.toMatchObject({ status: 413 });
+    expect(from).not.toHaveBeenCalled();
+    state.attempt_artifacts[0].byte_size = 10;
+    state.attempt_artifacts[0].frozen_at = null;
+    await expect(download()).rejects.toMatchObject({ status: 409 });
+    state.attempt_artifacts[0].frozen_at = "2026-05-01T12:00:00.000Z";
+    await expect(downloadTeacherArtifact(new Request("https://worker.test"), env, db as never, "teacher-1", "artifact-owned", { submissionAttemptId: "attempt-late", maxBytes: 100 })).rejects.toMatchObject({ status: 409 });
+    expect(from).not.toHaveBeenCalled();
+    await expect(download()).resolves.toHaveProperty("status", 200);
+    from.mockImplementation(() => ({ download: async () => ({ data: new Blob([new Uint8Array(101)]), error: null }) }));
+    await expect(download()).rejects.toMatchObject({ status: 413 });
   });
 
   it("mediates teacher artifact preview through ownership checks", async () => {

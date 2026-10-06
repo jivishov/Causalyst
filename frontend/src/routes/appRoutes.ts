@@ -16,7 +16,8 @@ export const TEACHER_CHILD_ROUTES = [
   { label: "review", path: "review", auth: "teacher" },
   { label: "attemptReview", path: "review/:attemptId", auth: "teacher" },
   { label: "gradebook", path: "gradebook", auth: "teacher" },
-  { label: "aiSettings", path: "ai-settings", auth: "teacher" }
+  { label: "aiSettings", path: "ai-settings", auth: "teacher" },
+  { label: "chatgptPlugin", path: "chatgpt-plugin", auth: "teacher" }
 ] as const;
 
 export type StudentPublicRouteLabel = (typeof STUDENT_PUBLIC_ROUTES)[number]["label"];

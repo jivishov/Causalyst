@@ -3,12 +3,13 @@ import { routeMetadata, studentRoute, teacherRoute } from "../src/index";
 import type { Env } from "../src/lib/env";
 
 describe("Worker route auth metadata", () => {
-  it("keeps only health and teacher setup status public", () => {
+  it("keeps only OAuth discovery, health and teacher setup status public", () => {
     const publicRoutes = routeMetadata
       .filter((route) => route.auth === "public")
       .map((route) => `${route.method} ${route.path}`);
 
     expect(publicRoutes).toEqual([
+      "GET /.well-known/oauth-protected-resource/mcp/teacher",
       "GET /api/health",
       "GET /api/teacher/setup-status"
     ]);

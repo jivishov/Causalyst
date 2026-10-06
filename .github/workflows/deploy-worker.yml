@@ -70,6 +70,7 @@ jobs:
             --var SUPABASE_URL:${{ vars.SUPABASE_URL }}
             --var SUPABASE_JWKS_URL:${{ vars.SUPABASE_JWKS_URL }}
             --var APP_ENV:${{ vars.APP_ENV }}
+            --var TEACHER_PLUGIN_CLIENT_IDS:${{ vars.TEACHER_PLUGIN_CLIENT_IDS }}
             --var ALLOWED_ORIGINS:${{ format('{0},https://explain.az,https://www.explain.az', vars.ALLOWED_ORIGINS) }}
           secrets: |
             SUPABASE_SERVICE_ROLE_KEY

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Explain Teacher"
+  short_description: "Create and review classroom assessments in ChatGPT"
+  default_prompt: "Use $explain-teacher to create an assessment, review its rubric, or evaluate student evidence."

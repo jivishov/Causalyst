@@ -72,6 +72,25 @@ describe("teacher gradebook reconciliation", () => {
 });
 
 describe("teacher gradebook finalization", () => {
+  it("rejects stale plugin grades and published grades, then accepts a fresh unpublished revision", async () => {
+    const stamp = "2026-10-06T00:00:00.000Z";
+    const state = createState({
+      classes: [{ id: "class-1", teacher_id: "teacher-1", code: "CHEM", name: "Chemistry" }],
+      assessments: [{ id: "assessment-1", type: "writing", title: "Evidence", created_by: "teacher-1" }],
+      assessment_assignments: [{ id: "assignment-1", class_id: "class-1", assessment_id: "assessment-1", archived_at: null }],
+      roster_students: [{ id: "roster-1", class_id: "class-1", display_name: "Student", claimed_by: "student-1", deactivated_at: null }],
+      gradebook_entries: [{ id: "entry-1", assignment_id: "assignment-1", roster_student_id: "roster-1", teacher_override_score: null, published_at: null, updated_at: stamp }]
+    });
+    const db = createDb(state);
+    const write = (timestamp: string) => setTeacherGradebookOverride(jsonRequest({ score: 85, note: "Reviewed evidence", expectedUpdatedAt: timestamp, requireUnpublished: true }), db as never, "teacher-1", "entry-1");
+    await expect(write("2026-10-05T00:00:00.000Z")).rejects.toMatchObject({ status: 409 });
+    expect(state.gradebook_entries[0].teacher_override_score).toBeNull();
+    state.gradebook_entries[0].published_at = stamp;
+    await expect(write(stamp)).rejects.toMatchObject({ status: 409 });
+    state.gradebook_entries[0].published_at = null;
+    expect((await write(stamp)).entry.finalScore).toBe(85);
+    await expect(write(stamp)).rejects.toMatchObject({ status: 409 });
+  });
   it("keeps approved score stable after later attempts and respects precedence", async () => {
     const state = createState({
       classes: [{ id: "class-1", code: "BIO101", name: "Biology", teacher_id: "teacher-1" }],

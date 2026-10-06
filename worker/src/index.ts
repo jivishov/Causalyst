@@ -8,6 +8,7 @@ import type { Env } from "./lib/env";
 import { validateWorkerSecrets } from "./lib/env";
 import { getTeacherAiSettings, updateTeacherAiSettings, testTeacherAiSettings } from "./routes/teacherAiSettings";
 import { generateTeacherAssessmentDraft } from "./routes/teacherAssessmentBuilder";
+import { teacherPluginConfig, teacherPluginMcp, teacherPluginResourceMetadata, TEACHER_MCP_PATH, TEACHER_MCP_METADATA_PATH } from "./lib/teacherPlugin";
 import { studentLogin, studentSession } from "./routes/student";
 import { listStudentSubmissions } from "./routes/studentSubmissions";
 import { attemptResult, publishedFinalResult, startAttempt } from "./routes/attempts";
@@ -22,6 +23,7 @@ import {
   deleteTeacherRoster,
   listTeacherCourses,
   listTeacherRoster,
+  requireTeacherProfile,
   previewTeacherRosterImport,
   setTeacherCourseArchived,
   setupTeacher,
@@ -78,6 +80,13 @@ export interface RouteMetadata {
 }
 
 const routes: readonly RouteDefinition[] = [
+  publicRoute("GET", TEACHER_MCP_METADATA_PATH, /^\/\.well-known\/oauth-protected-resource\/mcp\/teacher$/, (request, env) => jsonResponse(request, env, teacherPluginResourceMetadata(request, env), { headers: { "Cache-Control": "no-store" } })),
+  { method: "POST", path: TEACHER_MCP_PATH, pattern: /^\/mcp\/teacher$/, auth: "teacher", handler: teacherPluginMcp },
+  { method: "GET", path: TEACHER_MCP_PATH, pattern: /^\/mcp\/teacher$/, auth: "teacher", handler: teacherPluginMcp },
+  teacherRoute("GET", "/api/teacher/chatgpt-plugin", /^\/api\/teacher\/chatgpt-plugin$/, async (request, env, _match, auth) => {
+    await requireTeacherProfile(serviceSupabase(env), auth.userId);
+    return jsonResponse(request, env, teacherPluginConfig(request, env), { headers: { "Cache-Control": "no-store" } });
+  }),
   teacherRoute("POST", "/api/teacher/assessments/generate", /^\/api\/teacher\/assessments\/generate$/, async (request, env, _match, auth) =>
     jsonResponse(request, env, await generateTeacherAssessmentDraft(request, serviceSupabase(env), env, auth.userId), { headers: { "Cache-Control": "no-store" } })),
   teacherRoute("GET", "/api/teacher/ai-settings", /^\/api\/teacher\/ai-settings$/, async (request, env, _match, auth) =>

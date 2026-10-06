@@ -12,9 +12,12 @@ export interface AuthContext {
   authProvider: string | null;
   authProviders: string[];
   authMethods: string[];
+  oauthClientId?: string | null;
+  sessionId?: string | null;
+  oauthScopes?: string[];
 }
 
-export async function requireUser(request: Request, env: Env): Promise<AuthContext> {
+export async function requireUser(request: Request, env: Env, audience = "authenticated"): Promise<AuthContext> {
   const header = request.headers.get("Authorization");
   if (!header?.startsWith("Bearer ")) {
     throw new HttpError(401, "Missing bearer token");
@@ -29,7 +32,9 @@ export async function requireUser(request: Request, env: Env): Promise<AuthConte
   }
 
   const issuer = `${env.SUPABASE_URL}/auth/v1`;
-  const result = await jwtVerify(token, jwks, { issuer, audience: "authenticated" }).catch(() => {
+  const result = await jwtVerify(token, jwks, { issuer, audience,
+    ...(audience === "authenticated" ? {} : { requiredClaims: ["exp", "sub", "session_id", "client_id"] })
+  }).catch(() => {
     throw new HttpError(401, "Invalid bearer token");
   });
 
@@ -39,6 +44,12 @@ export async function requireUser(request: Request, env: Env): Promise<AuthConte
   if (result.payload.role !== "authenticated") {
     throw new HttpError(403, "Authenticated Supabase session required");
   }
+  if (audience !== "authenticated") {
+    const audiences = Array.isArray(result.payload.aud) ? result.payload.aud : [result.payload.aud];
+    if (audiences.length !== 1 || audiences[0] !== audience) throw new HttpError(401, "Token must target only the teacher plugin resource");
+  } else if (readString(result.payload.client_id)) {
+    throw new HttpError(403, "A website session is required for this route");
+  }
 
   return {
     userId: result.payload.sub,
@@ -47,7 +58,10 @@ export async function requireUser(request: Request, env: Env): Promise<AuthConte
     email: typeof result.payload.email === "string" ? result.payload.email : null,
     authProvider: readAuthProvider(result.payload),
     authProviders: readAuthProviders(result.payload),
-    authMethods: readAuthMethods(result.payload)
+    authMethods: readAuthMethods(result.payload),
+    oauthClientId: readString(result.payload.client_id),
+    sessionId: readString(result.payload.session_id),
+    oauthScopes: readString(result.payload.scope)?.split(/\s+/) ?? []
   };
 }
 

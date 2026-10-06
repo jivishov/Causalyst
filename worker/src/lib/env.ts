@@ -12,6 +12,7 @@ export interface Env {
   TEACHER_SETUP_CODE?: string;
   APP_ENV?: string;
   ALLOWED_ORIGINS?: string;
+  TEACHER_PLUGIN_CLIENT_IDS?: string;
   AI_SETTINGS?: import("./aiSettings").StoredAiSettings;
 }
 

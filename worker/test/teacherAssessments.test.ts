@@ -1,9 +1,15 @@
 import { reconcileFixture } from "./helpers/rpcFixtures";
 import { describe, expect, it } from "vitest";
 import { listStudentCourseAssignments, requireAssignedAssignment } from "../src/lib/db";
-import { createTeacherAssessment, createTeacherAssignment, setTeacherAssignmentArchived } from "../src/routes/teacherAssessments";
+import { createTeacherAssessment, createTeacherAssignment, setTeacherAssignmentArchived, updateTeacherAssessment } from "../src/routes/teacherAssessments";
 
 describe("teacher assessment assignments", () => {
+  it("rejects a stale assessment revision without replacing the rubric", async () => {
+    const originalRubric = [{ name: "Accuracy", description: "Observable", maxPoints: 10 }];
+    const state = createState({ assessments: [{ id: "assessment-1", type: "writing", title: "Draft", prompt: "Explain", rubric: originalRubric, config: {}, created_by: "teacher-1", updated_at: "2026-10-06T00:00:00.000Z" }] });
+    await expect(updateTeacherAssessment(jsonRequest({ expectedUpdatedAt: "2026-10-05T00:00:00.000Z", rubric: [{ name: "New", description: "Revised", maxPoints: 10 }] }), createDb(state) as never, "teacher-1", "assessment-1")).rejects.toMatchObject({ status: 409 });
+    expect(state.assessments[0].rubric).toEqual(originalRubric);
+  });
   it("defaults simulation assessments to the OpenAI simulation code model", async () => {
     const state = createState();
     const db = createDb(state);

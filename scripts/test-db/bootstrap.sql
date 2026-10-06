@@ -12,7 +12,8 @@ create table auth.users (
 );
 create function auth.uid() returns uuid language sql stable as
 $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-create table auth.sessions (id uuid primary key, user_id uuid not null references auth.users(id), oauth_client_id uuid, not_after timestamptz, scopes text);
+create table auth.oauth_clients (id uuid primary key, registration_type text not null, redirect_uris text not null, grant_types text not null, client_type text not null, token_endpoint_auth_method text not null);
+create table auth.sessions (id uuid primary key, user_id uuid not null references auth.users(id), oauth_client_id uuid references auth.oauth_clients(id), not_after timestamptz, scopes text);
 create function auth.jwt() returns jsonb language sql stable as
 $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
 create table storage.buckets (id text primary key, name text, public boolean);
@@ -21,6 +22,5 @@ alter table storage.objects enable row level security;
 grant usage on schema storage to authenticated, service_role;
 grant all on storage.objects to authenticated, service_role;
 grant usage on schema public, auth to anon, authenticated, service_role;
-grant all on all tables in schema auth to service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to service_role;

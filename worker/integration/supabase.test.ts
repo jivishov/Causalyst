@@ -141,9 +141,21 @@ describe('real Supabase service boundaries', () => {
   });
 
   it('replays role and transaction assertions against Supabase-owned schemas', async () => {
+    // Install the same administrator hook template tested by the native SQL
+    // runner. This stack is localhost-only and is deleted after the test job.
+    const pluginDocs = await readFile(new URL('../../docs/teacher-chatgpt-plugin.md', import.meta.url), 'utf8');
+    const hook = pluginDocs.match(/```sql\n([\s\S]*?)\n```/);
+    if (!hook) throw new Error('Teacher plugin access-token hook template is missing');
+    await sql.query(hook[1].replaceAll('REGISTERED_PUBLIC_CLIENT_UUID', '90000000-0000-4000-8000-000000000004'));
     const location = new URL('../../scripts/test-db/', import.meta.url);
     for (const name of (await readdir(location)).filter(name => name.endsWith('.test.sql')).sort()) {
-      await sql.query(await readFile(new URL(name, location), 'utf8'));
+      try {
+        await sql.query(await readFile(new URL(name, location), 'utf8'));
+      } catch (error) {
+        // Failed transactional fixtures must not contaminate subsequent tests.
+        await sql.query('rollback; reset role;');
+        throw new Error(`SQL suite ${name} failed`, { cause: error });
+      }
     }
     await runConcurrency(localCredentials().DB_URL);
   });

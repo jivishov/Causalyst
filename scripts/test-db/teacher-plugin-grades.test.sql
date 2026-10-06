@@ -1,5 +1,4 @@
 begin;
-set local role service_role;
 do $$
 declare teacher uuid:=gen_random_uuid(); student uuid:=gen_random_uuid(); stranger uuid:=gen_random_uuid(); course uuid:=gen_random_uuid();
  assessment uuid:=gen_random_uuid(); assignment uuid:=gen_random_uuid(); attempt uuid:=gen_random_uuid(); newer uuid:=gen_random_uuid();
@@ -15,6 +14,9 @@ begin
  insert into public.attempts(id,assessment_id,assignment_id,student_id,status,submitted_at,updated_at)
  values(attempt,assessment,assignment,student,'submitted',stamp,stamp);
  insert into public.gradebook_entries(id,assignment_id,roster_student_id,updated_at) values(entry,assignment,roster,stamp);
+ -- Auth fixtures belong to the schema owner; exercise the grade writer with
+ -- the production service role only after those fixtures have been created.
+ execute 'set local role service_role';
  result:=public.save_teacher_plugin_grade(stranger,attempt,stamp,entry,stamp,85,'Reviewed');
  if result->>'status'='saved' then raise exception 'Another teacher saved the grade'; end if;
  result:=public.save_teacher_plugin_grade(teacher,attempt,stamp-interval '1 second',entry,stamp,85,'Reviewed');

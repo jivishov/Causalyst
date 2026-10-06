@@ -1,5 +1,7 @@
 begin;
 insert into auth.users (id, email) values ('90000000-0000-4000-8000-000000000001', 'teacher-plugin@example.test');
+insert into auth.oauth_clients(id,registration_type,redirect_uris,grant_types,client_type,token_endpoint_auth_method)
+values('90000000-0000-4000-8000-000000000004','manual','http://127.0.0.1:49152/callback','authorization_code,refresh_token','public','none');
 insert into auth.sessions (id, user_id, oauth_client_id, scopes) values ('90000000-0000-4000-8000-000000000002', '90000000-0000-4000-8000-000000000001', '90000000-0000-4000-8000-000000000004', 'openid email profile');
 set local role service_role;
 do $$ begin
@@ -7,11 +9,15 @@ do $$ begin
   if public.teacher_plugin_session_active('90000000-0000-4000-8000-000000000002', '90000000-0000-4000-8000-000000000003', '90000000-0000-4000-8000-000000000004') then raise exception 'wrong user accepted'; end if;
   if public.teacher_plugin_session_active('90000000-0000-4000-8000-000000000002', '90000000-0000-4000-8000-000000000001', '90000000-0000-4000-8000-000000000003') then raise exception 'wrong client accepted'; end if;
 end $$;
+reset role;
 update auth.sessions set not_after=now()-interval '1 second';
+set local role service_role;
 do $$ begin
   if public.teacher_plugin_session_active('90000000-0000-4000-8000-000000000002', '90000000-0000-4000-8000-000000000001', '90000000-0000-4000-8000-000000000004') then raise exception 'expired session accepted'; end if;
 end $$;
+reset role;
 update auth.sessions set not_after=null, scopes='email';
+set local role service_role;
 do $$ begin
   if public.teacher_plugin_session_active('90000000-0000-4000-8000-000000000002', '90000000-0000-4000-8000-000000000001', '90000000-0000-4000-8000-000000000004') then raise exception 'missing scopes accepted'; end if;
 end $$;

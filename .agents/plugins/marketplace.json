@@ -1,0 +1,20 @@
+{
+  "name": "explain-local",
+  "interface": {
+    "displayName": "Explain Teacher"
+  },
+  "plugins": [
+    {
+      "name": "explain-teacher",
+      "source": {
+        "source": "local",
+        "path": "./plugins/explain-teacher-codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Education"
+    }
+  ]
+}

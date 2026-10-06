@@ -70,6 +70,7 @@ jobs:
             --var SUPABASE_URL:${{ vars.SUPABASE_URL }}
             --var SUPABASE_JWKS_URL:${{ vars.SUPABASE_JWKS_URL }}
             --var APP_ENV:${{ vars.APP_ENV }}
+            --var TEACHER_PLUGIN_CLIENT_IDS:${{ vars.TEACHER_PLUGIN_CLIENT_IDS }}
             --var ALLOWED_ORIGINS:${{ format('{0},https://explain.az,https://www.explain.az', vars.ALLOWED_ORIGINS) }}
           secrets: |
             SUPABASE_SERVICE_ROLE_KEY
@@ -85,6 +86,7 @@ jobs:
         env:
           WORKER_URL: ${{ steps.deploy.outputs.deployment-url }}
           FRONTEND_WORKER_URL: ${{ vars.VITE_WORKER_URL }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
         run: |
           node scripts/validate-worker-url.mjs "$WORKER_URL"
           node scripts/validate-worker-url.mjs "$FRONTEND_WORKER_URL"
@@ -99,6 +101,31 @@ jobs:
             throw new Error(`Worker health check failed with HTTP ${response.status}`);
           }
           console.log("Worker health check passed.");
+          const resource = `${process.env.WORKER_URL}/mcp/teacher`;
+          const metadataUrl = `${process.env.WORKER_URL}/.well-known/oauth-protected-resource/mcp/teacher`;
+          const metadataResponse = await fetch(metadataUrl);
+          const metadata = await metadataResponse.json();
+          if (!metadataResponse.ok || metadata.resource !== resource ||
+              metadata.authorization_servers?.length !== 1 ||
+              metadata.authorization_servers[0] !== `${process.env.SUPABASE_URL}/auth/v1` ||
+              !["openid", "email", "profile"].every(scope => metadata.scopes_supported?.includes(scope))) {
+            throw new Error("Teacher plugin OAuth discovery check failed.");
+          }
+          const request = {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json, text/event-stream" },
+            body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {
+              protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "release-verification", version: "1.0" }
+            } })
+          };
+          const unauthorized = await fetch(resource, request);
+          if (unauthorized.status !== 401 || !unauthorized.headers.get("www-authenticate")?.includes(metadataUrl)) {
+            throw new Error("Teacher plugin did not require OAuth authentication.");
+          }
+          const wrongOrigin = await fetch(resource, { ...request,
+            headers: { ...request.headers, Origin: "https://untrusted.example" } });
+          if (wrongOrigin.status !== 403) throw new Error("Teacher plugin origin restriction check failed.");
+          console.log("Teacher plugin discovery, authentication, and origin checks passed; no account data was read.");
           NODE
 
   deploy-frontend:

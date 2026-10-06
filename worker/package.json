@@ -12,13 +12,15 @@
   },
   "dependencies": {
     "@alt-assessment/shared": "file:../shared",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@supabase/supabase-js": "2.89.0",
     "@svgdotjs/svg.js": "3.2.5",
     "acorn": "8.18.0",
     "eslint-scope": "9.1.2",
     "jose": "6.1.3",
     "openai": "7.23.0",
-    "parse5": "8.0.1"
+    "parse5": "8.0.1",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260702.1",

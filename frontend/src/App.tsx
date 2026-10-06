@@ -15,6 +15,7 @@ const TeacherPasswordReset = lazy(() => import("./pages/teacher/TeacherPasswordR
 const TeacherReviewPage = lazy(() => import("./pages/teacher/TeacherReviewPage").then((module) => ({ default: module.TeacherReviewPage })));
 const TeacherWorkspace = lazy(() => import("./pages/teacher/TeacherWorkspace").then((module) => ({ default: module.TeacherWorkspace })));
 const TeacherAiSettingsPage = lazy(() => import("./pages/teacher/TeacherAiSettingsPage").then((module) => ({ default: module.TeacherAiSettingsPage })));
+const TeacherChatgptPluginPage = lazy(() => import("./pages/teacher/TeacherChatgptPluginPage").then((module) => ({ default: module.TeacherChatgptPluginPage })));
 import {
   STUDENT_PROTECTED_ROUTES,
   STUDENT_PUBLIC_ROUTES,
@@ -43,7 +44,8 @@ const teacherElements: Record<TeacherChildRouteLabel, ReactElement> = {
   review: <TeacherReviewPage />,
   attemptReview: <TeacherAttemptReviewPage />,
   gradebook: <TeacherGradebookPage />,
-  aiSettings: <TeacherAiSettingsPage />
+  aiSettings: <TeacherAiSettingsPage />,
+  chatgptPlugin: <TeacherChatgptPluginPage />
 };
 
 export default function App() {

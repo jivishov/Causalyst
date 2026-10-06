@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "explain-teacher": {
+      "type": "http",
+      "url": "https://alt-assessment-student-api.emil-jivishov.workers.dev/mcp/teacher",
+      "oauth": {
+        "clientId": "604811c9-433a-455c-b52d-5b1802c09496",
+        "callbackUrl": "http://127.0.0.1:49152/callback/GvVY5xemsnpI",
+        "callbackPort": 49152
+      }
+    }
+  }
+}

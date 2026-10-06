@@ -202,12 +202,13 @@ export async function listTeacherAttempts(request: Request, db: AppDatabaseClien
   return { attempts: reviewItems };
 }
 
-export async function teacherAttemptDetail(db: AppDatabaseClient, userId: string, attemptId: string): Promise<TeacherAttemptReviewDetailResponse> {
+export async function teacherAttemptDetail(db: AppDatabaseClient, userId: string, attemptId: string, options: { reconcileGradebook?: boolean; submittedOnly?: boolean } = {}): Promise<TeacherAttemptReviewDetailResponse> {
   await requireTeacherProfile(db, userId);
   const attempt = await loadAttemptById(db, attemptId);
   const assignmentId = attempt.assignment_id;
   if (!assignmentId) throw new HttpError(403, "Attempt is not available for teacher review");
   const assignment = await requireOwnedAssignment(db, userId, assignmentId);
+  if (options.submittedOnly && (attempt.status === "draft" || !attempt.submitted_at)) throw new HttpError(409, "Wait until the student submits this work before reviewing it in ChatGPT.");
   const assignmentCourse = firstRelation(assignment.classes);
   const assignmentAssessment = firstRelation(assignment.assessments);
   if (!assignmentCourse || !assignmentAssessment) {
@@ -219,7 +220,7 @@ export async function teacherAttemptDetail(db: AppDatabaseClient, userId: string
   const definition = attempt.assessment_versions?.definition;
   if (!definition) throw new HttpError(409, "Frozen assessment definition is unavailable");
   const assessment = toReviewAssessmentSummary(definition, assignment.due_at);
-  await reconcileGradebookForCourse(db, userId, assignmentCourse.id);
+  if (options.reconcileGradebook !== false) await reconcileGradebookForCourse(db, userId, assignmentCourse.id);
   const gradebookEntry = await loadAttemptGradebookEntry(db, userId, assignment.id, assignmentCourse.id, attempt.student_id);
 
   const artifacts = await listAttemptArtifacts(db, attempt.id);
@@ -286,16 +287,18 @@ export async function previewTeacherArtifact(request: Request, env: Env, db: App
   });
 }
 
-export async function downloadTeacherArtifact(request: Request, env: Env, db: AppDatabaseClient, userId: string, artifactId: string): Promise<Response> {
+export async function downloadTeacherArtifact(request: Request, env: Env, db: AppDatabaseClient, userId: string, artifactId: string, options: { maxBytes?: number; submissionAttemptId?: string } = {}): Promise<Response> {
   await requireTeacherProfile(db, userId);
-  const artifact = await requireTeacherArtifact(db, userId, artifactId);
+  const artifact = await requireTeacherArtifact(db, userId, artifactId, options.submissionAttemptId);
   if (artifact.upload_state !== "uploaded") {
     throw new HttpError(409, "Artifact is not available yet");
   }
+  if (options.maxBytes !== undefined && artifact.byte_size > options.maxBytes) throw new HttpError(413, "This evidence exceeds the plugin's 8 MiB limit. Open it in Explain's Response review.");
 
   const { data, error } = await db.storage.from(artifact.bucket).download(artifact.storage_key);
   if (error || !data) throw new HttpError(500, "Failed to download artifact", error?.message);
-  return new Response(await data.arrayBuffer(), {
+  if (options.maxBytes !== undefined && data.size > options.maxBytes) throw new HttpError(413, "This evidence exceeds the plugin's 8 MiB limit. Open it in Explain's Response review.");
+  return new Response(data.stream(), {
     status: 200,
     headers: {
       ...corsHeaders(request, env),
@@ -429,7 +432,7 @@ async function listAttemptRealtimeEvents(db: AppDatabaseClient, attemptId: strin
   return (data ?? []) as RealtimeEventRow[];
 }
 
-async function requireTeacherArtifact(db: AppDatabaseClient, userId: string, artifactId: string): Promise<ArtifactRow> {
+async function requireTeacherArtifact(db: AppDatabaseClient, userId: string, artifactId: string, submissionAttemptId?: string): Promise<ArtifactRow> {
   const { data, error } = await db
     .from("attempt_artifacts")
     .select(ARTIFACT_SELECT)
@@ -442,6 +445,7 @@ async function requireTeacherArtifact(db: AppDatabaseClient, userId: string, art
   const attempt = await loadAttemptById(db, artifact.attempt_id);
   if (!attempt.assignment_id) throw new HttpError(403, "Artifact is not available for teacher review");
   await requireOwnedAssignment(db, userId, attempt.assignment_id);
+  if (submissionAttemptId && (artifact.attempt_id !== submissionAttemptId || attempt.status === "draft" || !attempt.submitted_at || !artifact.frozen_at)) throw new HttpError(409, "This artifact is not frozen evidence for the selected submission.");
   return artifact;
 }
 

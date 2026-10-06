@@ -108,6 +108,8 @@ export async function updateTeacherAssessment(
   await requireTeacherProfile(db, userId);
   const current = await requireOwnedAssessment(db, userId, assessmentId);
   const body = await readJson<Record<string, unknown>>(request);
+  const expectedUpdatedAt = "expectedUpdatedAt" in body ? getRequiredString(body, "expectedUpdatedAt") : undefined;
+  if (expectedUpdatedAt && expectedUpdatedAt !== current.updated_at) throw new HttpError(409, "This assessment changed. Read it again before applying the revision.");
   const patch: TablesUpdate<"assessments"> = { updated_at: new Date().toISOString() };
 
   const type = "type" in body ? parseAssessmentType(body.type) : current.type;
@@ -122,15 +124,17 @@ export async function updateTeacherAssessment(
     patch.config = toJson(parseAssessmentConfig(type, current.config));
   }
 
-  const { data, error } = await db
+  let query = db
     .from("assessments")
     .update(patch)
     .eq("id", assessmentId)
-    .eq("created_by", userId)
+    .eq("created_by", userId);
+  if (expectedUpdatedAt) query = query.eq("updated_at", expectedUpdatedAt);
+  const { data, error } = await query
     .select(ASSESSMENT_SELECT)
     .maybeSingle();
   if (error) throw new HttpError(500, "Failed to update assessment", error.message);
-  if (!data) throw new HttpError(404, "Assessment not found");
+  if (!data) throw new HttpError(expectedUpdatedAt ? 409 : 404, expectedUpdatedAt ? "This assessment changed. Read it again before applying the revision." : "Assessment not found");
   return { assessment: toTeacherAssessment(data as AssessmentRow) };
 }
 

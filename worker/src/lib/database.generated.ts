@@ -1218,6 +1218,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      save_teacher_plugin_grade: {
+        Args: {
+          p_attempt_id: string
+          p_entry_id: string
+          p_expected_attempt_updated_at: string
+          p_expected_entry_updated_at: string
+          p_note: string
+          p_score: number
+          p_teacher_id: string
+        }
+        Returns: Json
+      }
       set_teacher_ai_settings: {
         Args: {
           p_expected_updated_at: string
@@ -1226,6 +1238,10 @@ export type Database = {
           p_teacher_id: string
         }
         Returns: Json
+      }
+      teacher_plugin_session_active: {
+        Args: { p_client_id: string; p_session_id: string; p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {

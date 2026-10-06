@@ -30,6 +30,7 @@ import {
 import { completeTeacherAuthCallbackIfPresent, isSupabaseConfigured, teacherSupabase } from "../../lib/supabase";
 import { TeacherWorkspaceDataProvider, useTeacherWorkspaceData } from "./TeacherWorkspaceData";
 import { ExplainLogo } from "../../components/ExplainLogo";
+const PLUGIN_PENDING_AUTH_KEY = "explain.teacher-plugin-authorization";
 
 type Mode = "signin" | "setup";
 type TeacherAuthStatus = "checking" | "signed_out" | "authenticated";
@@ -50,6 +51,10 @@ export function TeacherWorkspace() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (location.pathname === "/teacher/chatgpt-plugin") {
+      const authorizationId = new URLSearchParams(location.search).get("authorization_id");
+      if (authorizationId && /^[a-zA-Z0-9_-]{1,128}$/.test(authorizationId)) sessionStorage.setItem(PLUGIN_PENDING_AUTH_KEY, authorizationId);
+    }
     getTeacherSetupStatus()
       .then((status) => {
         setSetupAvailable(status.setupAvailable);
@@ -63,6 +68,8 @@ export function TeacherWorkspace() {
         .then((session) => {
           setProfile(session.profile);
           setAuthStatus("authenticated");
+          const pending = sessionStorage.getItem(PLUGIN_PENDING_AUTH_KEY);
+          if (pending && location.pathname === "/teacher") navigate(`/teacher/chatgpt-plugin?authorization_id=${encodeURIComponent(pending)}`, { replace: true });
         })
         .catch((err) => {
           setError(err instanceof Error ? err.message : "Teacher sign-in could not be completed.");
@@ -109,7 +116,8 @@ export function TeacherWorkspace() {
           throw err;
         }
       }
-      navigate(resolvePostAuthTeacherPath(location.pathname), { replace: true });
+      const nextPath = resolvePostAuthTeacherPath(location.pathname);
+      navigate(nextPath + (nextPath === "/teacher/chatgpt-plugin" ? location.search : ""), { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Teacher sign-in failed");
     } finally {
@@ -239,6 +247,7 @@ function TeacherWorkspaceShell({ profile, onSignOut }: { profile: TeacherProfile
     () => [
       { to: "/teacher", label: "Courses & roster", description: "Your classes, students, and enrollment in one place.", end: true, Icon: BookOpen },
       { to: "/teacher/ai-settings", label: "AI settings", description: "Provider keys, assessment models, and student model choices.", Icon: SlidersHorizontal },
+      { to: "/teacher/chatgpt-plugin", label: "ChatGPT plugin", description: "Create and review with your ChatGPT account.", Icon: MessageSquareText },
       { to: "/teacher/assessments", label: "Assessments", description: "Create thoughtful prompts and clear criteria for success.", end: false, Icon: ClipboardList },
       { to: "/teacher/assignments", label: "Assignments", description: "Choose what your students work on and when it is due.", end: false, Icon: ClipboardCheck },
       { to: "/teacher/review", label: "Response review", description: "Review student thinking, evidence, and provisional scores.", end: false, Icon: MessageSquareText },
@@ -313,7 +322,8 @@ function teacherIdentitySummary(profile: TeacherProfile): string {
   return email ? `${name} · ${email}` : name;
 }
 
-export function resolvePostAuthTeacherPath(pathname: string): "/teacher" | "/teacher/assessments" | "/teacher/assignments" | "/teacher/review" | "/teacher/gradebook" | "/teacher/ai-settings" {
+export function resolvePostAuthTeacherPath(pathname: string): "/teacher" | "/teacher/assessments" | "/teacher/assignments" | "/teacher/review" | "/teacher/gradebook" | "/teacher/ai-settings" | "/teacher/chatgpt-plugin" {
+  if (pathname === "/teacher/chatgpt-plugin") return "/teacher/chatgpt-plugin";
   if (pathname === "/teacher/ai-settings") return "/teacher/ai-settings";
   if (pathname === "/teacher/assessments" || pathname.startsWith("/teacher/assessments/")) {
     return "/teacher/assessments";

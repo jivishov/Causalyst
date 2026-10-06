@@ -27,6 +27,11 @@ try {
     if (!url) sql = sql.replace('create extension if not exists pgcrypto;', '');
     await exec(sql);
   }
+  // Verify the deployment hook itself, rather than an imitation in a fixture.
+  const pluginDocs = await readFile(new URL('../../docs/teacher-chatgpt-plugin.md', import.meta.url), 'utf8');
+  const hook = pluginDocs.match(/```sql\n([\s\S]*?)\n```/);
+  if (!hook) throw new Error('Teacher plugin access-token hook template is missing');
+  await exec(hook[1].replaceAll('REGISTERED_PUBLIC_CLIENT_UUID', '90000000-0000-4000-8000-000000000004'));
   const checks = (await readdir(new URL('./', import.meta.url))).filter(f => f.endsWith('.test.sql')).sort();
   for (const file of checks) {
     await exec(await readFile(new URL(file, import.meta.url), 'utf8'));

@@ -9,6 +9,7 @@ describe("teacher workspace routing", () => {
     expect(resolvePostAuthTeacherPath("/teacher/assignments")).toBe("/teacher/assignments");
     expect(resolvePostAuthTeacherPath("/teacher/review")).toBe("/teacher/review");
     expect(resolvePostAuthTeacherPath("/teacher/gradebook")).toBe("/teacher/gradebook");
+    expect(resolvePostAuthTeacherPath("/teacher/chatgpt-plugin")).toBe("/teacher/chatgpt-plugin");
   });
 
   it("normalizes unknown teacher paths to /teacher", () => {

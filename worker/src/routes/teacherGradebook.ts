@@ -283,9 +283,12 @@ export async function setTeacherGradebookOverride(request: Request, db: AppDatab
   const note = getOptionalString(body, "note") ?? null;
   if (!note?.trim()) throw new HttpError(400, "A reason is required for a teacher grade");
   const entry = await requireOwnedGradebookEntry(db, userId, entryId);
+  const expectedUpdatedAt = "expectedUpdatedAt" in body ? getOptionalString(body, "expectedUpdatedAt") : undefined;
+  if ("expectedUpdatedAt" in body && (!expectedUpdatedAt || expectedUpdatedAt !== entry.updated_at)) throw new HttpError(409, "This grade changed. Read the submission again before saving.");
+  if (body.requireUnpublished === true && entry.published_at) throw new HttpError(409, "This grade is already published. Review it in Explain before changing it.");
   const now = new Date().toISOString();
 
-  const { error } = await db
+  let query = db
     .from("gradebook_entries")
     .update({
       teacher_override_score: score,
@@ -294,7 +297,11 @@ export async function setTeacherGradebookOverride(request: Request, db: AppDatab
       updated_at: now
     })
     .eq("id", entry.id);
+  if (expectedUpdatedAt) query = query.eq("updated_at", expectedUpdatedAt);
+  if (body.requireUnpublished === true) query = query.is("published_at", null);
+  const { data, error } = await query.select("id");
   if (error) throw new HttpError(500, "Failed to set teacher override", error.message);
+  if (expectedUpdatedAt && (!data || data.length !== 1)) throw new HttpError(409, "This grade changed. Read the submission again before saving.");
 
   return { entry: await getTeacherGradebookEntryById(db, userId, entry.id) };
 }

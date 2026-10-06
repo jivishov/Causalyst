@@ -245,3 +245,7 @@
 @media (prefers-reduced-motion:reduce) {.teacher-design * {transition:none!important;scroll-behavior:auto!important}}
 
 .teacher-page.account-workspace.teacher-design :is(h1,h2,h3,h4) {font-family:inherit}
+.teacher-plugin-page .card {max-width:960px}
+.teacher-plugin-page .card p {line-height:1.6}
+.teacher-plugin-page .card input {width:100%;box-sizing:border-box;min-width:0}
+.teacher-plugin-actions {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}

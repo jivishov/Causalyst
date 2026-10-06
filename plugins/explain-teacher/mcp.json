@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "explain-teacher": {
+      "type": "streamable-http",
+      "url": "https://alt-assessment-student-api.emil-jivishov.workers.dev/mcp/teacher"
+    }
+  }
+}

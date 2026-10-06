@@ -82,6 +82,23 @@ describe("Supabase bearer token verification", () => {
       message: "Invalid bearer token"
     });
   });
+  it("validates real signed resource tokens, expiry, and exclusive audience", async () => {
+    const jose = await vi.importActual<typeof import("jose")>("jose");
+    const { publicKey, privateKey } = await jose.generateKeyPair("ES256");
+    vi.doMock("jose", () => ({ ...jose, createRemoteJWKSet: vi.fn(() => publicKey) }));
+    const { requireUser } = await import("../src/lib/auth");
+    const resource = "https://worker.example/mcp/teacher";
+    const now = Math.floor(Date.now() / 1000);
+    const claims = { sub: "teacher-1", iss: `${env.SUPABASE_URL}/auth/v1`, aud: resource, exp: now + 60, iat: now,
+      role: "authenticated", email: "teacher@example.test", client_id: "client-1", session_id: "session-1", scope: "openid email profile" };
+    const sign = (changes: Record<string, unknown> = {}) => new jose.SignJWT({ ...claims, ...changes }).setProtectedHeader({ alg: "ES256" }).sign(privateKey);
+    await expect(requireUser(bearerRequest(await sign()), env, resource)).resolves.toMatchObject({ userId: "teacher-1", oauthClientId: "client-1", sessionId: "session-1", oauthScopes: ["openid", "email", "profile"] });
+    for (const invalid of [{ exp: undefined }, { exp: now - 1 }, { iss: "https://foreign.example" }, { aud: "authenticated" },
+      { aud: [resource, "authenticated"] }, { session_id: undefined }, { client_id: undefined }, { nbf: now + 600 }]) {
+      await expect(requireUser(bearerRequest(await sign(invalid)), env, resource)).rejects.toMatchObject({ status: 401 });
+    }
+    await expect(requireUser(bearerRequest(await sign({ aud: "authenticated" })), env)).rejects.toMatchObject({ status: 403 });
+  });
 });
 
 function bearerRequest(token: string): Request {

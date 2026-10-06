@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { routeMetadata, studentRoute, teacherRoute } from "../src/index";
+import worker, { routeMetadata, studentRoute, teacherRoute } from "../src/index";
 import type { Env } from "../src/lib/env";
 
 describe("Worker route auth metadata", () => {
@@ -50,6 +50,23 @@ describe("Worker route auth helpers", () => {
       ["/api/teacher/probe"] as unknown as RegExpMatchArray
     )).rejects.toThrow("Missing bearer token");
     expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe("deployed teacher MCP boundary", () => {
+  const env = { SUPABASE_URL: "https://auth.example.test", PIN_PEPPER: "test-pepper", TEACHER_PLUGIN_CLIENT_IDS: "approved-client" } as Env;
+  const resource = "https://worker.example.test/mcp/teacher";
+
+  it.each(["GET", "POST"])("returns the OAuth discovery challenge through the Worker %s entry point", async method => {
+    const response = await worker.fetch(new Request(resource, { method }), env);
+    expect(response.status).toBe(401);
+    expect(response.headers.get("WWW-Authenticate")).toContain('resource_metadata="https://worker.example.test/.well-known/oauth-protected-resource/mcp/teacher"');
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("rejects an unapproved origin through the Worker entry point", async () => {
+    const response = await worker.fetch(new Request(resource, { method: "POST", headers: { Origin: "https://untrusted.example" } }), env);
+    expect(response.status).toBe(403);
   });
 });
 

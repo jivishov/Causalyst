@@ -54,7 +54,7 @@ function request(body: unknown, origin?: string) {
 
 describe("teacher plugin authorization", () => {
   it("publishes only resource and OAuth discovery information", () => {
-    expect(teacherPluginResourceMetadata(new Request(base), env)).toEqual({ resource: base, authorization_servers: ["https://project.supabase.co/auth/v1"], scopes_supported: ["openid", "email", "profile"], bearer_methods_supported: ["header"], resource_name: "Explain Teacher" });
+    expect(teacherPluginResourceMetadata(new Request(base), env)).toEqual({ resource: base, authorization_servers: ["https://project.supabase.co/auth/v1"], scopes_supported: ["openid", "email", "profile"], bearer_methods_supported: ["header"], resource_name: "Explain" });
   });
   it("fails closed before administrator setup", async () => {
     await expect(requireTeacherPluginAuth(new Request(base), { ...env, TEACHER_PLUGIN_CLIENT_IDS: "" })).rejects.toMatchObject({ status: 503 });

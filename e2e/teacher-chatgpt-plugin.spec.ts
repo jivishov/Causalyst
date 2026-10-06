@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test("teacher ChatGPT consent, cancellation, and disconnection work on desktop and mobile", async ({ page }, testInfo) => {
   const user = { id: "11111111-1111-4111-8111-111111111111", email: "teacher@test.invalid", is_anonymous: false, role: "authenticated", app_metadata: { provider: "google" }, user_metadata: {} };
-  const client = { id: "22222222-2222-4222-8222-222222222222", name: "Explain Teacher" };
+  const client = { id: "22222222-2222-4222-8222-222222222222", name: "Explain" };
   const endpoint = "https://alt-assessment-student-api.emil-jivishov.workers.dev/mcp/teacher";
   let revoked = false;
   const decisions: string[] = [];

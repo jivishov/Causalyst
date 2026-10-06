@@ -48,7 +48,7 @@ export function TeacherChatgptPluginPage() {
           setConsent({ authorizationId, redirectUrl: teacherPluginCallbackUrl(data.redirect_url) });
           return;
         }
-        if (!data.client || !setup.clientIds.includes(data.client.id)) throw new Error("This app is not an approved Explain Teacher connection.");
+        if (!data.client || !setup.clientIds.includes(data.client.id)) throw new Error("This app is not an approved Explain connection.");
         const scopes = new Set((data.scope ?? "").split(/\s+/));
         if (!scopes.has("openid") || !scopes.has("email") || !scopes.has("profile")) throw new Error("This request is missing the required account permissions. Start the connection again in the requesting app.");
         setConsent({ authorizationId, details: data });
@@ -90,8 +90,8 @@ export function TeacherChatgptPluginPage() {
   }
 
   return <div className="page-stack teacher-plugin-page">
-    <header className="teacher-page-header"><div><h1>Teacher AI plugin</h1><p>Create and review assessments in ChatGPT or Codex.</p></div></header>
-    <section className="card"><h2>{authorizationId ? "Connect your teacher account" : "Explain Teacher"}</h2>
+    <header className="teacher-page-header"><div><h1>Explain plugin</h1><p>Create assessments, refine rubrics, and review student work with your Explain teacher account.</p></div></header>
+    <section className="card"><h2>{authorizationId ? "Connect your teacher account" : "Explain"}</h2>
       <p>Ask ChatGPT or Codex to create an assessment, improve its rubric, or evaluate submitted work. The plugin reads your selected Explain records and saves the results you approve.</p>
       <p>AI work happens in your conversation. Sign in to Codex with ChatGPT to use your subscription allowance. Codex configured with an API key uses API billing. Your selected conversation model controls the reasoning; Explain’s API model settings apply to in-app requests.</p>
       <p>Image creation and audio review depend on the tools available in the requesting app. Students continue using their current assignment workflow.</p>
@@ -110,8 +110,8 @@ export function TeacherChatgptPluginPage() {
       </>}
       {config && !authorizationId && <>
         <p><strong>Plugin server URL</strong></p><input aria-label="Plugin server URL" readOnly value={config.endpoint} onFocus={event => event.currentTarget.select()} />
-        <p>In ChatGPT on the web, open Plugins → Add custom MCP server, use this URL, and choose OAuth. Connect your Explain teacher account, then select Explain Teacher in a conversation.</p>
-        <p>In Codex desktop, install Explain Teacher from its repository marketplace and complete the teacher-account connection from the plugin.</p>
+        <p>In ChatGPT on the web, open Plugins → Add custom MCP server, use this URL, and choose OAuth. Connect your Explain teacher account, then select Explain in a conversation.</p>
+        <p>In Codex desktop, install Explain from its repository marketplace and complete the teacher-account connection from the plugin.</p>
         <p>Try: “Create a 10th-grade chemistry simulation assessment about gas pressure, with a 20-point rubric. Show me the draft before saving it.”</p>
         {grants.map(grant => <div className="teacher-plugin-actions" key={grant.client.id}><span>{grant.client.name}</span><button className="secondary-button" disabled={busy} onClick={() => void revoke(grant.client.id)}>Disconnect</button></div>)}
       </>}

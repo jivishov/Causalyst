@@ -1,7 +1,7 @@
 {
   "name": "explain-local",
   "interface": {
-    "displayName": "Explain Teacher"
+    "displayName": "Explain"
   },
   "plugins": [
     {

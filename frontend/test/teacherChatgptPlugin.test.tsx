@@ -26,12 +26,12 @@ it("shows setup and usage boundaries without changing API model settings", async
 it("shows teacher consent and rejects unapproved clients", async () => {
   vi.mocked(oauth.getAuthorizationDetails).mockResolvedValue({ data: { client: { id: "other-client", name: "Other app" } }, error: null } as never);
   show("/teacher/chatgpt-plugin?authorization_id=request-1");
-  await screen.findByText("This app is not an approved Explain Teacher connection.");
+  await screen.findByText("This app is not an approved Explain connection.");
   expect(screen.queryByRole("button", { name: "Connect teacher account" })).toBeNull();
   expect(oauth.approveAuthorization).not.toHaveBeenCalled();
 });
 it("requires an explicit click before accepting the requesting app", async () => {
-  vi.mocked(oauth.getAuthorizationDetails).mockResolvedValue({ data: { authorization_id: "request-1", client: { id: "client-1", name: "Explain Teacher" }, user: { email: "teacher@example.test" }, scope: "openid email profile" }, error: null } as never);
+  vi.mocked(oauth.getAuthorizationDetails).mockResolvedValue({ data: { authorization_id: "request-1", client: { id: "client-1", name: "Explain" }, user: { email: "teacher@example.test" }, scope: "openid email profile" }, error: null } as never);
   vi.mocked(oauth.approveAuthorization).mockResolvedValue({ data: { redirect_url: "https://foreign.example/callback" }, error: null });
   show("/teacher/chatgpt-plugin?authorization_id=request-1");
   await screen.findByText("teacher@example.test");
@@ -41,7 +41,7 @@ it("requires an explicit click before accepting the requesting app", async () =>
   expect(oauth.approveAuthorization).toHaveBeenCalledWith("request-1", { skipBrowserRedirect: true });
 });
 it("allows revocation of a previously connected account", async () => {
-  vi.mocked(oauth.listGrants).mockResolvedValue({ data: [{ client: { id: "client-1", name: "Explain Teacher" } }], error: null } as never);
+  vi.mocked(oauth.listGrants).mockResolvedValue({ data: [{ client: { id: "client-1", name: "Explain" } }], error: null } as never);
   vi.mocked(oauth.revokeGrant).mockResolvedValue({ data: null, error: null } as never);
   show();
   fireEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
@@ -79,14 +79,14 @@ it("does not allow consent when administrator setup is incomplete", async () => 
   expect(oauth.approveAuthorization).not.toHaveBeenCalled();
 });
 it("rejects a request that lacks the permissions advertised by the plugin", async () => {
-  vi.mocked(oauth.getAuthorizationDetails).mockResolvedValue({ data: { client: { id: "client-1", name: "Explain Teacher" }, user: { email: "teacher@example.test" }, scope: "email" }, error: null } as never);
+  vi.mocked(oauth.getAuthorizationDetails).mockResolvedValue({ data: { client: { id: "client-1", name: "Explain" }, user: { email: "teacher@example.test" }, scope: "email" }, error: null } as never);
   show("/teacher/chatgpt-plugin?authorization_id=request-1");
   await screen.findByText(/This request is missing the required account permissions/);
   expect(screen.queryByRole("button", { name: "Connect teacher account" })).toBeNull();
 });
 it("clears old consent details while a changed authorization request loads", async () => {
   vi.mocked(oauth.getAuthorizationDetails).mockImplementation(async id => id === "request-1"
-    ? { data: { client: { id: "client-1", name: "Explain Teacher" }, user: { email: "teacher@example.test" }, scope: "openid email profile" }, error: null } as never
+    ? { data: { client: { id: "client-1", name: "Explain" }, user: { email: "teacher@example.test" }, scope: "openid email profile" }, error: null } as never
     : new Promise(() => {}));
   function Fixture() { const navigate = useNavigate(); return <><button onClick={() => navigate("/teacher/chatgpt-plugin?authorization_id=request-2")}>Change request</button><TeacherChatgptPluginPage /></>; }
   render(<MemoryRouter initialEntries={["/teacher/chatgpt-plugin?authorization_id=request-1"]}><Fixture /></MemoryRouter>);
@@ -98,7 +98,7 @@ it("clears old consent details while a changed authorization request loads", asy
 });
 it("ignores an old consent response after the connection request changes", async () => {
   vi.mocked(oauth.getAuthorizationDetails).mockImplementation(async id => id === "request-1"
-    ? { data: { client: { id: "client-1", name: "Explain Teacher" }, user: { email: "teacher@example.test" }, scope: "openid email profile" }, error: null } as never
+    ? { data: { client: { id: "client-1", name: "Explain" }, user: { email: "teacher@example.test" }, scope: "openid email profile" }, error: null } as never
     : new Promise(() => {}));
   let resolveApproval!: (result: Awaited<ReturnType<typeof oauth.approveAuthorization>>) => void;
   vi.mocked(oauth.approveAuthorization).mockReturnValue(new Promise(resolve => { resolveApproval = resolve; }));

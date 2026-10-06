@@ -43,7 +43,7 @@ export function teacherPluginResourceMetadata(request: Request, env: Env) {
     authorization_servers: [`${env.SUPABASE_URL}/auth/v1`],
     scopes_supported: SCOPES,
     bearer_methods_supported: ["header"],
-    resource_name: "Explain Teacher"
+    resource_name: "Explain"
   };
 }
 
@@ -59,7 +59,7 @@ export async function requireTeacherPluginAuth(request: Request, env: Env): Prom
   const audience = new URL(TEACHER_MCP_PATH, request.url).href;
   const auth = requireTeacherAuthSession(await requireUser(request, env, audience));
   if (!auth.oauthClientId || !clients.includes(auth.oauthClientId) || !auth.sessionId) {
-    throw new HttpError(401, "Sign in with the authorized Explain Teacher connection.");
+    throw new HttpError(401, "Sign in with the authorized Explain connection.");
   }
   if (!SCOPES.every(scope => auth.oauthScopes?.includes(scope))) throw new HttpError(403, "Reconnect with the required account permissions.", undefined, "insufficient_scope");
   // OAuth revocation deletes its sessions. Check live session state so revocation
@@ -212,7 +212,7 @@ export function createTeacherPluginServer(db: AppDatabaseClient, env: Env, auth:
 }
 
 function oauthChallenge(baseUrl: string, error: "invalid_token" | "insufficient_scope") {
-  return `Bearer resource_metadata="${new URL(TEACHER_MCP_METADATA_PATH, baseUrl).href}", error="${error}", error_description="Reconnect the Explain Teacher account", scope="${SCOPES.join(" ")}"`;
+  return `Bearer resource_metadata="${new URL(TEACHER_MCP_METADATA_PATH, baseUrl).href}", error="${error}", error_description="Reconnect the Explain account", scope="${SCOPES.join(" ")}"`;
 }
 
 function encodeBase64(bytes: Uint8Array) {

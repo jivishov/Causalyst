@@ -1,4 +1,4 @@
 interface:
-  display_name: "Explain Teacher"
-  short_description: "Create and review classroom assessments in ChatGPT or Codex"
+  display_name: "Explain"
+  short_description: "Assessments, rubrics, and student work review for teachers"
   default_prompt: "Use $explain-teacher to create an assessment, review its rubric, or evaluate student evidence."

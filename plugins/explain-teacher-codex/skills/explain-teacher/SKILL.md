@@ -1,9 +1,9 @@
 ---
 name: explain-teacher
-description: Create and revise classroom assessments and rubrics, review student submissions and scientific fidelity, and save approved assessments or unpublished teacher grades to an authenticated Explain teacher account. Use when the teacher invokes Explain Teacher in ChatGPT or Codex. Perform AI work in the current conversation rather than calling paid AI APIs.
+description: Create and revise classroom assessments and rubrics, review student submissions and scientific fidelity, and save approved assessments or unpublished teacher grades to an authenticated Explain teacher account. Use when the teacher invokes the Explain plugin in ChatGPT or Codex. Perform AI work in the current conversation rather than calling paid AI APIs.
 ---
 
-# Explain Teacher
+# Explain
 
 Use the connected teacher's MCP tools. Call `get_teacher_profile` before saving changes. If tools are unavailable, explain that the connection must be installed; do not ask for credentials, bearer tokens, or API keys in chat.
 

@@ -19,6 +19,7 @@ import { toJson, type TablesUpdate } from "../lib/database";
 import { HttpError, getRequiredString, readJson } from "../lib/http";
 import { requireTeacherProfile } from "./teacher";
 import { reconcileGradebookForCourse } from "./teacherGradebook";
+import { parsePromptOverrides, savePromptResource } from "../lib/aiPrompts";
 
 interface AssessmentRow {
   id: string;
@@ -81,6 +82,13 @@ export async function createTeacherAssessment(request: Request, db: AppDatabaseC
   const config = parseAssessmentConfig(type, body.config);
   const now = new Date().toISOString();
 
+  if ("aiPrompts" in body) {
+    const row = await savePromptResource(db, { teacherId: userId, scope: "assessment", id: null,
+      patch: { type, title, prompt, expected_answer: expectedAnswer, rubric, config },
+      prompts: parsePromptOverrides(body.aiPrompts, type), expectedPromptUpdatedAt: promptNonce(body) });
+    return { assessment: toTeacherAssessment(row as unknown as AssessmentRow) };
+  }
+
   const { data, error } = await db
     .from("assessments")
     .insert({
@@ -122,6 +130,13 @@ export async function updateTeacherAssessment(
     patch.config = toJson(parseAssessmentConfig(type, body.config));
   } else if ("type" in body) {
     patch.config = toJson(parseAssessmentConfig(type, current.config));
+  }
+
+  if ("aiPrompts" in body) {
+    const row = await savePromptResource(db, { teacherId: userId, scope: "assessment", id: assessmentId, patch,
+      prompts: parsePromptOverrides(body.aiPrompts, type), expectedUpdatedAt: expectedUpdatedAt ?? current.updated_at,
+      expectedPromptUpdatedAt: promptNonce(body) });
+    return { assessment: toTeacherAssessment(row as unknown as AssessmentRow) };
   }
 
   let query = db
@@ -220,6 +235,16 @@ export async function createTeacherAssignment(
     throw new HttpError(409, "Cannot assign to an archived course");
   }
 
+  if ("aiPrompts" in body) {
+    const row = await savePromptResource(db, { teacherId: userId, scope: "assignment", id: null,
+      patch: { assessment_id: assessmentId, class_id: courseId, opens_at: opensAt, due_at: dueAt },
+      prompts: parsePromptOverrides(body.aiPrompts, assessment.type), expectedPromptUpdatedAt: promptNonce(body) });
+    const assignment = toTeacherAssignment(row as unknown as AssignmentRow, course, assessment);
+    if (!assignment) throw new HttpError(500, "Failed to resolve assignment details");
+    await reconcileGradebookForCourse(db, userId, courseId);
+    return { assignment };
+  }
+
   const { data, error } = await db
     .from("assessment_assignments")
     .insert({
@@ -281,6 +306,20 @@ export async function updateTeacherAssignment(
   validateAssignmentDateOrder(opensAt, dueAt);
   if ("opensAt" in body) patch.opens_at = opensAt;
   if ("dueAt" in body) patch.due_at = dueAt;
+
+  if ("aiPrompts" in body) {
+    const course = await requireOwnedCourse(db, userId, nextCourseId);
+    const assessment = await requireOwnedAssessment(db, userId, nextAssessmentId);
+    const row = await savePromptResource(db, { teacherId: userId, scope: "assignment", id: assignmentId, patch,
+      prompts: parsePromptOverrides(body.aiPrompts, assessment.type),
+      expectedUpdatedAt: "expectedUpdatedAt" in body ? getRequiredString(body, "expectedUpdatedAt") : current.updated_at,
+      expectedPromptUpdatedAt: promptNonce(body) });
+    const assignment = toTeacherAssignment(row as unknown as AssignmentRow, course, assessment);
+    if (!assignment) throw new HttpError(500, "Failed to resolve assignment details");
+    await reconcileGradebookForCourse(db, userId, current.class_id);
+    if (nextCourseId !== current.class_id) await reconcileGradebookForCourse(db, userId, nextCourseId);
+    return { assignment };
+  }
 
   const { data, error } = await db
     .from("assessment_assignments")
@@ -345,6 +384,12 @@ export async function setTeacherAssignmentArchived(
 
 export function archiveTeacherAssessment(db: AppDatabaseClient, userId: string, assessmentId: string) {
   return setTeacherAssessmentArchived(db, userId, assessmentId, true);
+}
+
+function promptNonce(body: Record<string, unknown>): string | null {
+  if (body.expectedPromptUpdatedAt === null) return null;
+  if (typeof body.expectedPromptUpdatedAt === "string" && Number.isFinite(Date.parse(body.expectedPromptUpdatedAt))) return body.expectedPromptUpdatedAt;
+  throw new HttpError(400, "Read AI prompts before saving this assignment.");
 }
 
 export function unarchiveTeacherAssessment(db: AppDatabaseClient, userId: string, assessmentId: string) {

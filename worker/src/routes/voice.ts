@@ -33,7 +33,7 @@ export async function gradeVoiceAttempt(request: Request, env: Env, db: AppDatab
     const { data, error } = await db.storage.from(artifact.bucket).download(artifact.storage_key);
     if (error || !data) throw new HttpError(500, "Failed to download audio artifact", error?.message);
 
-    const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+    const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS);
     const audioFile = new File([await data.arrayBuffer()], artifact.original_filename, { type: artifact.mime_type });
     const transcript = await transcribeAudio(client, audioFile);
     const finalTranscript = transcript.trim();
@@ -57,7 +57,7 @@ export async function gradeVoiceAttempt(request: Request, env: Env, db: AppDatab
 
     const { error: updateError } = await db.from("attempts").update({
       status: "graded",
-      grading_metadata: { model: getModel("grading", env.AI_SETTINGS).id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() },
+      grading_metadata: { model: getModel("grading", env.AI_SETTINGS).id, policyVersion: "rubric-v2", promptVersion: env.AI_PROMPT_REVISION ?? "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() },
       transcript: finalTranscript,
       provisional_score: feedback.score,
       provisional_feedback: toJson(feedback)

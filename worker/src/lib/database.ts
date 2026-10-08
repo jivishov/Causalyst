@@ -6,7 +6,7 @@ import type { Database as GeneratedDatabase, Json } from "./database.generated";
 type Attempts = GeneratedDatabase["public"]["Tables"]["attempts"];
 export type Database = Omit<GeneratedDatabase, "public"> & {
   public: Omit<GeneratedDatabase["public"], "Tables" | "Functions"> & {
-    Functions: Omit<GeneratedDatabase["public"]["Functions"], keyof import("./aiSettings").AiSettingsFunctions> & import("./aiSettings").AiSettingsFunctions;
+    Functions: Omit<GeneratedDatabase["public"]["Functions"], keyof import("./aiSettings").AiSettingsFunctions | keyof import("./aiPrompts").AiPromptFunctions> & import("./aiSettings").AiSettingsFunctions & import("./aiPrompts").AiPromptFunctions;
     Tables: Omit<GeneratedDatabase["public"]["Tables"], "attempts"> & {
       attempts: Omit<Attempts, "Insert"> & {
         Insert: Omit<Attempts["Insert"], "assessment_version_id"> & { assessment_version_id?: never };

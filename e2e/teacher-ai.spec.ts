@@ -1,3 +1,4 @@
+import { teacherPromptFixture } from "./helpers/teacherPrompts";
 import { test, expect } from "@playwright/test";
 import { AI_MODEL_ROLES, modelCapabilityForRole, type TeacherAiSettings } from "../shared/src/index";
 
@@ -24,7 +25,8 @@ test("teacher provider lists, model assignments, and token controls work on desk
     const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
     if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
     let json: unknown = {};
-    if (path === "/api/teacher/setup-status") json = { setupAvailable: false };
+    if (path === "/api/teacher/ai-prompts") json = teacherPromptFixture(route.request().url());
+    else if (path === "/api/teacher/setup-status") json = { setupAvailable: false };
     else if (path === "/api/teacher/me") json = { profile: { id: user.id, displayName: "Preview teacher", email: user.email, role: "teacher" } };
     else if (path === "/api/teacher/courses") json = { courses: [] };
     else if (path === "/api/teacher/assessments") json = { assessments: [] };

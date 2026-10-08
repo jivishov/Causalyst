@@ -115,6 +115,7 @@ Runtime-only attachment data must stay server-side. Attachments should be staged
 | Courses | Implemented foundation | Teacher can list/create/update/archive/unarchive owned courses; DB table remains `classes`; course codes stay globally unique. |
 | Roster | Implemented foundation | Teacher can preview/commit CSV roster imports per course, issue one-time PINs, and view roster claim status through Worker-mediated routes and dashboard UI. |
 | Assignments | Implemented | Teacher assessment library and assignment CRUD are implemented with archive/reassign behavior; student visibility is limited to open, active assignments. |
+| Teacher AI prompts | Implemented | Prefilled system/user prompts for each active AI step, per-type teacher defaults, assessment and class-assignment overrides, atomic saves, and next-action updates that preserve saved work. See [teacher AI prompts](teacher-ai-prompts.md). |
 | Simulation artifact storage | Implemented | Generated simulation HTML is stored in `simulation-derived`, and student preview uses a Worker-mediated artifact route with ownership checks. |
 | Review | Implemented foundation | Teacher can list/filter attempts, open attempt detail, and preview/download artifacts through Worker ownership checks without exposing storage keys. |
 | Gradebook | Implemented foundation | Gradebook entries now reconcile per course assignment/roster matrix, teacher finalization controls exist in review + gradebook pages, and publish state is tracked. |

@@ -7,6 +7,7 @@ import type { Env } from "./env";
 import { HttpError } from "./http";
 import { modelCatalog, simulationCodeModelCatalog } from "./models";
 import { decryptProviderSecret, encryptProviderSecret } from "./providerSecrets";
+import { resolvePromptContext, promptRevision, type StoredPromptContext } from "./aiPrompts";
 
 export const PROVIDER_ENV = { openai: "OPENAI_API_KEY", kimi: "MOONSHOT_API_KEY", zai: "ZAI_API_KEY" } as const;
 export interface StoredAiSettings {
@@ -18,7 +19,7 @@ export interface StoredAiSettings {
   forceDefaultSimulationModel: boolean;
 }
 export interface AiSettingsRecord { settings: StoredAiSettings | null; updatedAt: string | null }
-export interface AttemptAiContext { teacherId: string; runtime: StoredAiSettings | null; settings: StoredAiSettings | null }
+export interface AttemptAiContext { teacherId: string; runtime: StoredAiSettings | null; settings: StoredAiSettings | null; promptContext?: StoredPromptContext }
 
 export function defaultAiSettings(env: Env): StoredAiSettings {
   const settings: StoredAiSettings = {
@@ -167,7 +168,9 @@ export async function resolveAttemptAiEnv(db: AppDatabaseClient, env: Env, attem
     if (captured.error || !captured.data) throw new HttpError(503, "Could not preserve assessment AI settings");
     runtime = captured.data as unknown as StoredAiSettings;
   }
-  const resolved = await runtimeAiEnv(runtime, context.teacherId, env);
+  const resolved = { ...await runtimeAiEnv(runtime, context.teacherId, env),
+    AI_PROMPTS: context.promptContext ? resolvePromptContext(context.promptContext).prompts : undefined,
+    AI_PROMPT_REVISION: promptRevision(context.promptContext) };
   if (!options.currentSimulationModels || !context.settings) return resolved;
   return { ...resolved, AI_SETTINGS: { ...runtime,
     codeModels: context.settings.codeModels,

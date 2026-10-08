@@ -1,3 +1,4 @@
+import { TeacherAiPromptEditor, useTeacherAiPrompts } from "./TeacherAiPromptEditor";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Archive, AudioLines, ClipboardList, Eye, FileText, MessageCircle, Orbit, Pencil, Plus, RotateCcw, Save, Search, Sparkles, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -27,7 +28,7 @@ import { TeacherPageToolbar } from "./TeacherPageToolbar";
 import { TeacherAssessmentAiPanel } from "./TeacherAssessmentAiPanel";
 
 type AssessmentEditorMode = "create" | "edit";
-type BuilderTab = "prompt" | "rubric" | "settings";
+type BuilderTab = "prompt" | "rubric" | "settings" | "aiPrompts";
 
 interface RubricDraftRow {
   id?: string;
@@ -52,6 +53,7 @@ export function TeacherAssessmentsPage() {
     setError
   } = useTeacherWorkspaceData();
   const [assessmentMode, setAssessmentMode] = useState<AssessmentEditorMode>("create");
+  const [editingAssessmentUpdatedAt, setEditingAssessmentUpdatedAt] = useState<string | undefined>(undefined);
   const [editingAssessmentId, setEditingAssessmentId] = useState<string | null>(null);
   const [assessmentType, setAssessmentType] = useState<AssessmentType>("voice");
   const [assessmentTitle, setAssessmentTitle] = useState("");
@@ -83,6 +85,8 @@ export function TeacherAssessmentsPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const previewDialog = useRef<HTMLDialogElement>(null);
+  const promptState = useTeacherAiPrompts({ type: assessmentType, scope: "assessment",
+    assessmentId: editingAssessmentId, resetKey: aiEditorKey });
   const filteredAssessments = assessments.filter(assessment => (!typeFilter || assessment.type === typeFilter) && `${assessment.title} ${assessment.prompt}`.toLowerCase().includes(search.trim().toLowerCase()));
 
   useEffect(() => {
@@ -152,6 +156,7 @@ export function TeacherAssessmentsPage() {
     setBuilderTab("prompt");
     setAssessmentMode("edit");
     setEditingAssessmentId(assessment.id);
+    setEditingAssessmentUpdatedAt(assessment.updatedAt);
     setBuilderOpen(true);
     setAssessmentType(assessment.type);
     setAssessmentTitle(assessment.title);
@@ -271,12 +276,15 @@ export function TeacherAssessmentsPage() {
     setAssessmentSaving(true);
     setError(null);
     try {
+      if (!promptState.saveFields) { setBuilderTab("aiPrompts"); throw new Error("Load AI prompts before saving. Your assessment draft is kept."); }
       const rubric = buildRubricPayload();
       if (rubric.length === 0) {
         setBuilderTab("rubric");
         throw new Error("Add at least one complete rubric row before saving.");
       }
       const payload = {
+        ...promptState.saveFields,
+        expectedUpdatedAt: assessmentMode === "edit" ? editingAssessmentUpdatedAt : undefined,
         type: assessmentType,
         title: assessmentTitle,
         prompt: assessmentPrompt,
@@ -386,10 +394,10 @@ export function TeacherAssessmentsPage() {
             <div>
               <h2>{assessmentMode === "edit" ? "Edit Assessment" : "Assessment Builder"}</h2>
             </div>
-            <div className="teacher-builder-tabs" role="tablist" aria-label="Assessment builder sections">{(["prompt", "rubric", "settings"] as const).map((tab, index, tabs) => <button type="button" key={tab} role="tab" id={`builder-tab-${tab}`} aria-controls={`builder-panel-${tab}`} aria-selected={builderTab === tab} tabIndex={builderTab === tab ? 0 : -1} onClick={() => setBuilderTab(tab)} onKeyDown={event => {
+            <div className="teacher-builder-tabs" role="tablist" aria-label="Assessment builder sections">{(["prompt", "rubric", "settings", "aiPrompts"] as const).map((tab, index, tabs) => <button type="button" key={tab} role="tab" id={`builder-tab-${tab}`} aria-controls={`builder-panel-${tab}`} aria-selected={builderTab === tab} tabIndex={builderTab === tab ? 0 : -1} onClick={() => setBuilderTab(tab)} onKeyDown={event => {
               const next = event.key === "ArrowRight" ? tabs[(index + 1) % tabs.length] : event.key === "ArrowLeft" ? tabs[(index + tabs.length - 1) % tabs.length] : event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[tabs.length - 1] : null;
               if (next) { event.preventDefault(); setBuilderTab(next); document.getElementById(`builder-tab-${next}`)?.focus(); }
-            }}>{tab === "prompt" ? "Prompt" : tab === "rubric" ? "Rubric" : "Models & settings"}</button>)}</div>
+            }}>{tab === "prompt" ? "Prompt" : tab === "rubric" ? "Rubric" : tab === "settings" ? "Models & settings" : "AI prompts"}</button>)}</div>
             <button className="secondary-button assessment-builder-close" type="button" aria-label="Close assessment builder" title="Close builder" onClick={() => {
               resetAssessmentForm();
               setBuilderOpen(false);
@@ -574,10 +582,14 @@ export function TeacherAssessmentsPage() {
             <p className="teacher-model-settings-note"><Link to="/teacher/ai-settings">Open classroom AI settings</Link> to manage provider keys, model assignments, reasoning, token limits, and Fast mode.</p>
             </div>
 
+            <section className="assessment-builder-section assessment-span-full teacher-builder-tabpanel" id="builder-panel-aiPrompts" role="tabpanel" aria-labelledby="builder-tab-aiPrompts" data-builder-tab="aiPrompts" hidden={builderTab !== "aiPrompts"}>
+              <TeacherAiPromptEditor state={promptState} scope="assessment" disabled={assessmentSaving || aiGenerating} />
+            </section>
+
             <div className="control-row assessment-span-full assessment-builder-save">
               <button className="secondary-button" type="button" onClick={() => previewDialog.current?.showModal()}><Eye size={15} />Student preview</button>
               <button className="secondary-button assessment-ai-toggle" type="button" aria-expanded={aiPanelOpen && aiAction === "assessment"} aria-controls="assessment-ai-panel" onClick={() => aiPanelOpen && aiAction === "assessment" ? setAiPanelOpen(false) : openAiAssistant("assessment")}><Sparkles size={15} />Generate assessment with AI</button>
-              <button className="primary-button" type="submit" disabled={assessmentSaving}>
+              <button className="primary-button" type="submit" disabled={assessmentSaving || !promptState.ready}>
                 <Save size={16} /> {assessmentSaving ? "Saving" : assessmentMode === "edit" ? "Save assessment" : "Create assessment"}
               </button>
               {assessmentMode === "edit" && (
@@ -589,7 +601,7 @@ export function TeacherAssessmentsPage() {
             </div>
             <TeacherAssessmentAiPanel key={aiEditorKey} open={aiPanelOpen} action={aiAction} type={assessmentType}
               draft={{ title: assessmentTitle, prompt: assessmentPrompt, expectedAnswer: assessmentExpectedAnswer, rubric: buildRubricPayload() }}
-              settings={aiSettings} onClose={() => setAiPanelOpen(false)} onBusyChange={setAiGenerating} onApply={applyAiDraft} />
+              settings={aiSettings} aiPrompts={promptState.overrides} assessmentId={editingAssessmentId} promptsReady={promptState.ready} onClose={() => setAiPanelOpen(false)} onBusyChange={setAiGenerating} onApply={applyAiDraft} />
             </fieldset>
           </form>
         </section>

@@ -1,3 +1,4 @@
+import { TeacherPromptDefaultsPanel } from "./TeacherAiPromptEditor";
 import { useEffect, useState } from "react";
 import { KeyRound, Plus, Save, ShieldCheck, SlidersHorizontal, Trash2 } from "lucide-react";
 import { AI_MODEL_ROLES, AI_PROVIDERS, AI_MODEL_CAPABILITIES, AI_TEXT_MODEL_ROLES, AI_MIN_OUTPUT_TOKENS, AI_MAX_OUTPUT_TOKENS, reasoningEffortsForModel, modelCapabilitiesForModel, modelCapabilityForRole, teacherProviderModels,
@@ -252,5 +253,6 @@ export function TeacherAiSettingsPage() {
     </fieldset>
     <div className="ai-settings-actions"><button className="secondary-button" type="button" disabled={disabled} onClick={() => { setApiKeys({}); setResetKeys({}); setMessage(null); void reload(); }}>Reload saved settings</button>
       <button className="primary-button" type="button" disabled={disabled} onClick={() => void save()}><Save size={16} />{saving ? "Saving…" : "Save settings"}</button></div>
+    <TeacherPromptDefaultsPanel />
   </div>;
 }

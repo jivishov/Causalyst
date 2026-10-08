@@ -1,3 +1,4 @@
+import type { AiPromptSaveFields } from "@alt-assessment/shared";
 import { protectPreviewDocument } from "./previewPolicy";
 import { consumeSimulationHtmlStream } from "./simulationStream";
 import type {
@@ -459,7 +460,7 @@ export function createTeacherAssessment(input: {
   expectedAnswer?: string | null;
   rubric: TeacherAssessment["rubric"];
   config?: Record<string, unknown>;
-}) {
+} & AiPromptSaveFields & { expectedUpdatedAt?: string }) {
   return teacherApiFetch<{ assessment: TeacherAssessment }>("/teacher/assessments", {
     method: "POST",
     body: JSON.stringify(input)
@@ -473,7 +474,7 @@ export function updateTeacherAssessment(assessmentId: string, input: {
   expectedAnswer?: string | null;
   rubric?: TeacherAssessment["rubric"];
   config?: Record<string, unknown>;
-}) {
+} & AiPromptSaveFields & { expectedUpdatedAt?: string }) {
   return teacherApiFetch<{ assessment: TeacherAssessment }>(`/teacher/assessments/${assessmentId}`, {
     method: "PUT",
     body: JSON.stringify(input)
@@ -586,7 +587,7 @@ export function createTeacherAssignment(input: {
   courseId: string;
   opensAt?: string | null;
   dueAt?: string | null;
-}) {
+} & AiPromptSaveFields & { expectedUpdatedAt?: string }) {
   return teacherApiFetch<{ assignment: TeacherAssignment }>("/teacher/assignments", {
     method: "POST",
     body: JSON.stringify(input)
@@ -598,7 +599,7 @@ export function updateTeacherAssignment(assignmentId: string, input: {
   courseId?: string;
   opensAt?: string | null;
   dueAt?: string | null;
-}) {
+} & AiPromptSaveFields & { expectedUpdatedAt?: string }) {
   return teacherApiFetch<{ assignment: TeacherAssignment }>(`/teacher/assignments/${assignmentId}`, {
     method: "PUT",
     body: JSON.stringify(input)

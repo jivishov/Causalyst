@@ -249,3 +249,28 @@
 .teacher-plugin-page .card p {line-height:1.6}
 .teacher-plugin-page .card input {width:100%;box-sizing:border-box;min-width:0}
 .teacher-plugin-actions {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+
+/* Prompt settings are scoped to a teacher's assessment or class assignment. */
+.teacher-prompt-editor{grid-column:1/-1;min-width:0;border:1px solid var(--teacher-border,#dce4ed);border-radius:12px;padding:14px;background:var(--teacher-surface,#fff)}
+.teacher-prompt-heading,.teacher-prompt-field-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.teacher-prompt-heading h3{display:flex;align-items:center;gap:7px;margin:0;font-size:15px}
+.teacher-prompt-badge{font-size:11px;font-weight:600;color:#486576;background:#edf4f7;padding:3px 8px;border-radius:20px;white-space:nowrap}
+.teacher-prompt-editor .field-help{margin:6px 0 10px;line-height:1.5}
+.teacher-prompt-stage{display:grid;gap:5px;max-width:480px;font-size:12px;font-weight:600}
+.teacher-prompt-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:14px;min-width:0;margin-top:12px}
+.teacher-prompt-fields>div{min-width:0}
+.teacher-prompt-field-heading label{font-size:13px;font-weight:650}
+.teacher-prompt-field-heading span{font-size:11px;color:#66798d;white-space:nowrap}
+.teacher-prompt-fields textarea{display:block;width:100%;box-sizing:border-box;min-height:190px;max-height:520px;resize:vertical;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;padding:10px;background:#fafcff;border:1px solid #cfdae5;border-radius:8px;color:#21374c}
+.teacher-prompt-fields textarea:focus{outline:2px solid #83aabf;outline-offset:2px}
+.teacher-prompt-reset{display:inline-flex;gap:5px;align-items:center;border:0;background:transparent;color:#365f77;font-size:11px;padding:6px 0;cursor:pointer}
+.teacher-prompt-reset:disabled{opacity:.5;cursor:default}
+.teacher-prompt-help{margin-top:8px;font-size:12px;color:#50677c}
+.teacher-prompt-help summary{cursor:pointer;font-weight:600}
+.teacher-prompt-help p{line-height:1.5}
+.teacher-prompt-variables{display:flex;flex-wrap:wrap;gap:6px}
+.teacher-prompt-variables code{font-size:11px;padding:3px 6px;background:#f0f5f9;border-radius:5px}
+.teacher-prompt-defaults{margin-top:18px}
+.teacher-prompt-defaults>.course-list-header{flex-wrap:wrap;gap:12px}
+.teacher-prompt-defaults>.course-list-header label{display:grid;gap:4px;font-size:12px;min-width:200px}
+.teacher-prompt-defaults .control-row{margin-top:12px}

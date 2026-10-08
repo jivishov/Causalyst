@@ -14,6 +14,8 @@ export interface Env {
   ALLOWED_ORIGINS?: string;
   TEACHER_PLUGIN_CLIENT_IDS?: string;
   AI_SETTINGS?: import("./aiSettings").StoredAiSettings;
+  AI_PROMPTS?: import("@alt-assessment/shared").AiPromptBundle;
+  AI_PROMPT_REVISION?: string;
 }
 
 export function requireEnv(env: Env, key: keyof Env): string {

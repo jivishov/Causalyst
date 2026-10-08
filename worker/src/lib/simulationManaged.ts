@@ -4,6 +4,8 @@ import type { SimulationGenerationJobRow } from "./simulationJobs";
 import type { ModelCatalogEntry } from "./models";
 
 export interface ManagedSimulationInput {
+  prompts?: import("@alt-assessment/shared").AiPromptBundle;
+  promptRevision?: string;
   job: SimulationGenerationJobRow;
   description: string;
   currentHtml?: string;

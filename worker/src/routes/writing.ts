@@ -29,7 +29,7 @@ export async function gradeWritingAttempt(request: Request, env: Env, db: AppDat
   await claimAttemptSubmission(db, userId, attempt.id, now, [artifact.id]);
 
   try {
-    const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+    const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS);
     let openaiFileId = artifact.openai_file_id;
     if (!openaiFileId) {
       const { data, error } = await db.storage.from(artifact.bucket).download(artifact.storage_key);
@@ -64,7 +64,7 @@ export async function gradeWritingAttempt(request: Request, env: Env, db: AppDat
 
     const { error: updateError } = await db.from("attempts").update({
       status: "graded",
-      grading_metadata: { model: getModel("visionGrading", env.AI_SETTINGS).id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() },
+      grading_metadata: { model: getModel("visionGrading", env.AI_SETTINGS).id, policyVersion: "rubric-v2", promptVersion: env.AI_PROMPT_REVISION ?? "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() },
       ocr_text: result.transcribedText,
       provisional_score: result.feedback.score,
       provisional_feedback: toJson(result.feedback)

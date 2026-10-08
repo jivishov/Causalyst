@@ -1185,6 +1185,15 @@ export type Database = {
       enroll_student_by_email: { Args: { p_user_id: string }; Returns: Json }
       get_attempt_ai_context: { Args: { p_attempt_id: string }; Returns: Json }
       get_teacher_ai_settings: { Args: { p_teacher_id: string }; Returns: Json }
+      get_teacher_prompt_context: {
+        Args: {
+          p_assessment_id: string
+          p_assignment_id: string
+          p_teacher_id: string
+          p_type: string
+        }
+        Returns: Json
+      }
       import_course_roster: {
         Args: { p_course_id: string; p_rows: Json; p_teacher_id: string }
         Returns: number
@@ -1227,6 +1236,29 @@ export type Database = {
           p_note: string
           p_score: number
           p_teacher_id: string
+        }
+        Returns: Json
+      }
+      save_teacher_resource_with_prompts: {
+        Args: {
+          p_expected_prompt_updated_at: string
+          p_expected_updated_at: string
+          p_patch: Json
+          p_prompts: Json
+          p_resource_id: string
+          p_scope: string
+          p_teacher_id: string
+        }
+        Returns: Json
+      }
+      set_teacher_ai_prompts: {
+        Args: {
+          p_expected_updated_at: string
+          p_prompts: Json
+          p_scope: string
+          p_scope_id: string
+          p_teacher_id: string
+          p_type: string
         }
         Returns: Json
       }

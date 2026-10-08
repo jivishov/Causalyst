@@ -3,13 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as dbLib from "../src/lib/db";
 import * as openaiLib from "../src/lib/openai";
 import * as evidenceLib from "../src/lib/realtimeEvidence";
-import { finalizeRealtimeVoice } from "../src/routes/voiceRealtime";
+import * as budgetLib from "../src/lib/aiBudget";
+import { resolvePromptContext } from "../src/lib/aiPrompts";
+import { connectRealtimeVoice, finalizeRealtimeVoice } from "../src/routes/voiceRealtime";
 
 function fixture() {
   const session: Record<string, any> = { id: "session", attempt_id: "attempt", student_id: "student", status: "active", expires_at: new Date(Date.now() - 500).toISOString(), model: "synthetic" };
   const rpc = vi.fn().mockResolvedValue({ error: null });
   const db = { rpc, from() {
     const chain = { select() { return this; }, eq() { return this; }, in() { return this; }, upsert() { return this; },
+      async insert() { return { error: null }; },
       update(value: unknown) { Object.assign(session, value); return this; },
       async maybeSingle() { return { data: session, error: null }; },
       then(resolve: (r: unknown) => void) { resolve({ data: session, error: null }); } };
@@ -27,6 +30,24 @@ describe("live voice grading boundary", () => {
     vi.spyOn(openaiLib, "openaiClient").mockReturnValue({} as never);
     vi.spyOn(dbLib, "requireAttempt").mockResolvedValue({ attempt: { id: "attempt", status: "draft" }, assessment: { type: "voice_realtime", prompt: "Explain", rubric: [], config: {} } } as never);
     vi.spyOn(dbLib, "logAudit").mockResolvedValue();
+  });
+  it("sends question context to live transcription without sending its answer key", async () => {
+    const { db } = fixture();
+    const prompt = "Explain pressure and volume at constant temperature.";
+    vi.spyOn(budgetLib, "reserveAiBudget").mockResolvedValue();
+    vi.mocked(dbLib.requireAttempt).mockResolvedValue({ attempt: { id: "attempt", status: "draft" },
+      assessment: { type: "voice_realtime", prompt, expectedAnswer: "PRIVATE_LIVE_KEY", rubric: [], config: {} } } as never);
+    vi.spyOn(evidenceLib, "realtimeEvidence").mockResolvedValue({ transcript: "", turns: 0 });
+    const provider = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("synthetic-sdp-answer", {
+      status: 201, headers: { Location: "https://api.openai.com/v1/realtime/calls/rtc_synthetic" } }));
+    const prompts = resolvePromptContext({ type: "voice_realtime", defaults: { transcription: { user: "Vocabulary for {{context}}" } } }).prompts;
+    const request = new Request("https://worker.test/api/voice/realtime/connect", { method: "POST",
+      body: JSON.stringify({ attemptId: "attempt", sdpOffer: "synthetic-sdp-offer" }) });
+    await connectRealtimeVoice(request, { OPENAI_API_KEY: "synthetic", REALTIME_SESSIONS: {}, AI_PROMPTS: prompts } as never, db as never, "student");
+    const form = provider.mock.calls[0][1]!.body as FormData;
+    const config = JSON.parse(form.get("session") as string);
+    expect(config.audio.input.transcription.prompt).toContain(prompt);
+    expect(JSON.stringify(config)).not.toContain("PRIVATE_LIVE_KEY");
   });
   it("accepts pre-cutoff provider evidence during finalization grace and ignores forged browser text", async () => {
     const { db, rpc } = fixture();

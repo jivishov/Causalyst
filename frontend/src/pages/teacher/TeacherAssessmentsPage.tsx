@@ -77,6 +77,7 @@ export function TeacherAssessmentsPage() {
   const [simulationCodeModelId, setSimulationCodeModelId] = useState<SimulationCodeModelId>(DEFAULT_SIMULATION_CODE_MODEL_ID);
   const [assessmentSaving, setAssessmentSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const editorBusy = assessmentSaving || aiGenerating;
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [aiAction, setAiAction] = useState<AssessmentBuilderAction>("assessment");
   const [aiEditorKey, setAiEditorKey] = useState(0);
@@ -320,8 +321,8 @@ export function TeacherAssessmentsPage() {
   return (
     <div className="teacher-assessment-page assessment-library-layout">
       <TeacherPageToolbar>
-        <label className="checkbox-row"><input type="checkbox" checked={includeArchivedAssessments} onChange={event => setIncludeArchivedAssessments(event.target.checked)} />Show archived</label>
-        <button className="primary-button" type="button" onClick={() => { resetAssessmentForm(); setBuilderOpen(true); }}><Plus size={15} />New assessment</button>
+        <label className="checkbox-row"><input type="checkbox" checked={includeArchivedAssessments} disabled={editorBusy} onChange={event => setIncludeArchivedAssessments(event.target.checked)} />Show archived</label>
+        <button className="primary-button" type="button" disabled={editorBusy} onClick={() => { resetAssessmentForm(); setBuilderOpen(true); }}><Plus size={15} />New assessment</button>
       </TeacherPageToolbar>
       <section className="course-list-panel assessment-library-panel" aria-label="Assessment library">
         <div className="course-list-header assessment-library-header">
@@ -339,6 +340,7 @@ export function TeacherAssessmentsPage() {
           <button
             className="secondary-button"
             type="button"
+            disabled={editorBusy}
             onClick={() => applyAssessmentTemplate(FINDING_TO_QUESTION_TEMPLATE)}
           >
             <ClipboardList size={15} /> Finding-to-Question
@@ -368,15 +370,15 @@ export function TeacherAssessmentsPage() {
                   </div>
                 </div>
                 <div className="course-actions">
-                  <button className="secondary-button" type="button" aria-pressed={editingAssessmentId === assessment.id && builderOpen} onClick={() => beginEditAssessment(assessment)}>
+                  <button className="secondary-button" type="button" disabled={editorBusy} aria-pressed={editingAssessmentId === assessment.id && builderOpen} onClick={() => beginEditAssessment(assessment)}>
                     <Pencil size={16} /> Edit
                   </button>
                   {assessment.archivedAt ? (
-                    <button className="secondary-button" type="button" onClick={() => toggleAssessmentArchived(assessment.id, false)}>
+                    <button className="secondary-button" type="button" disabled={editorBusy} onClick={() => toggleAssessmentArchived(assessment.id, false)}>
                       <RotateCcw size={16} /> Unarchive
                     </button>
                   ) : (
-                    <button className="secondary-button" type="button" onClick={() => toggleAssessmentArchived(assessment.id, true)}>
+                    <button className="secondary-button" type="button" disabled={editorBusy} onClick={() => toggleAssessmentArchived(assessment.id, true)}>
                       <Archive size={16} /> Archive
                     </button>
                   )}
@@ -398,7 +400,7 @@ export function TeacherAssessmentsPage() {
               const next = event.key === "ArrowRight" ? tabs[(index + 1) % tabs.length] : event.key === "ArrowLeft" ? tabs[(index + tabs.length - 1) % tabs.length] : event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[tabs.length - 1] : null;
               if (next) { event.preventDefault(); setBuilderTab(next); document.getElementById(`builder-tab-${next}`)?.focus(); }
             }}>{tab === "prompt" ? "Prompt" : tab === "rubric" ? "Rubric" : tab === "settings" ? "Models & settings" : "AI prompts"}</button>)}</div>
-            <button className="secondary-button assessment-builder-close" type="button" aria-label="Close assessment builder" title="Close builder" onClick={() => {
+            <button className="secondary-button assessment-builder-close" type="button" disabled={editorBusy} aria-label="Close assessment builder" title="Close builder" onClick={() => {
               resetAssessmentForm();
               setBuilderOpen(false);
             }}><X size={16} /></button>

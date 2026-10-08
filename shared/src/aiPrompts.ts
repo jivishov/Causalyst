@@ -28,7 +28,7 @@ export interface AiPromptSaveFields {
 }
 
 export const AI_PROMPT_STAGE_INFO: Record<AiPromptStage, Omit<AiPromptStageDefinition, "id">> = {
-  transcription: { label: "Audio transcription", description: "Speech recognition combines these instructions into its transcription prompt. Audio is always attached.", variables: ["context"], requiredVariables: [] },
+  transcription: { label: "Audio transcription", description: "Speech recognition combines customized instructions into one prompt. Context contains the assignment question, without its answer key. Audio is always attached; unchanged defaults preserve automatic speech recognition.", variables: ["assessmentPrompt"], requiredVariables: [] },
   voiceGrade: { label: "Voice feedback and grading", description: "Evaluate the recorded answer or completed live conversation against the saved rubric.", variables: ["assessmentPrompt", "expectedAnswer", "rubric", "scoringPolicy", "transcript"], requiredVariables: ["assessmentPrompt", "expectedAnswer", "rubric", "scoringPolicy", "transcript"] },
   realtimeVoice: { label: "Live voice conversation", description: "Guide the live assessor. System and user templates become session instructions. Answer keys are kept out of the conversation.", variables: ["assessmentPrompt", "rubric"], requiredVariables: ["assessmentPrompt", "rubric"] },
   writingGrade: { label: "Writing transcription and grading", description: "Read the uploaded work and return provisional rubric feedback. The original file is always attached.", variables: ["assessmentPrompt", "expectedAnswer", "rubric", "scoringPolicy"], requiredVariables: ["assessmentPrompt", "expectedAnswer", "rubric", "scoringPolicy"] },

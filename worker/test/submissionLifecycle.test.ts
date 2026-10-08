@@ -75,6 +75,7 @@ describe("submission lifecycle routing", () => {
 
     expect(attemptUpdates).toHaveLength(1);
     expect(attemptUpdates[0]).toMatchObject({ status: "error" });
+    expect(openaiLib.transcribeAudio).toHaveBeenCalledWith(expect.anything(), expect.any(File), { assessmentPrompt: "Prompt" });
   });
 
   it("marks writing attempts as error when provider grading fails after claim", async () => {

@@ -43,6 +43,25 @@ describe("teacher prompts in actual AI requests", () => {
     expect(result).toContain("Give detailed feedback.");
     expect(result).toContain("Original evidence"); expect(result).toContain("Teacher key"); expect(result).toContain('"r1"');
   });
+  it("adds missing evidence without duplicating a simulation already in the template", () => {
+    const currentHtml = "<html>UNIQUE_SAVED_SIMULATION</html>";
+    const result = renderPromptUser({ simulationRefine: { system: "Keep the source explanation", user: "Refine this: {{currentHtml}}" } }, "simulationRefine", {
+      currentHtml, studentDescription: "A particle moves to the right." });
+    expect(result.match(/UNIQUE_SAVED_SIMULATION/g)).toHaveLength(1);
+    expect(result).toContain("A particle moves to the right.");
+  });
+  it("provides the assignment question to custom transcription templates", async () => {
+    const prompts = resolvePromptContext({ type: "voice", defaults: { transcription: { user: "Scientific terminology for {{context}}" } } }).prompts;
+    const context = { assessmentPrompt: "Describe the pressure–volume relationship." };
+    expect(transcriptionPrompt(prompts, context)).toContain(context.assessmentPrompt);
+    const client = openaiClient("synthetic", undefined, undefined, prompts);
+    const create = vi.spyOn(client.audio.transcriptions, "create").mockResolvedValue({ text: "Pressure increases." } as never);
+    await transcribeAudio(client, new File(["audio"], "answer.wav"), context);
+    expect(create.mock.calls[0][0].prompt).toContain(context.assessmentPrompt);
+    expect(transcriptionPrompt(undefined, context)).toBeUndefined();
+    expect(transcriptionPrompt(prompts, { ...context, expectedAnswer: "PRIVATE_TRANSCRIPTION_KEY" } as typeof context)).not.toContain("PRIVATE_TRANSCRIPTION_KEY");
+    expect(() => parsePromptOverrides({ transcription: { user: "Terms for {{assessmentPrompt}}" } }, "voice")).not.toThrow();
+  });
   it("rejects unknown stages, invalid placeholders, and evidence variables in system prompts", () => {
     expect(() => parsePromptOverrides({ simulationHtml: { system: "Hello" } }, "voice")).toThrow(/not available/);
     expect(() => parsePromptOverrides({ voiceGrade: { user: "{{wrongVariable}}" } }, "voice")).toThrow(/Unknown variable/);

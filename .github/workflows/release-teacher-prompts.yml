@@ -1,4 +1,4 @@
-name: Release teacher assignment prompts
+name: Release teacher prompt refinements
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
       - name: Require the validated implementation
         env:
-          REVIEWED_SHA: 68416d4bf05f2096c2a4aeca5d15b8c233d09c22
+          REVIEWED_SHA: c5ee3150c11c5733fa812c878d5cfb342730c09b
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
           test "$(git diff --name-only "$REVIEWED_SHA" "$GITHUB_SHA")" = ".github/workflows/release-teacher-prompts.yml"
@@ -32,8 +32,8 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37728287580 });
-            if (checked.data.head_sha !== "68416d4bf05f2096c2a4aeca5d15b8c233d09c22" || checked.data.status !== "completed" || checked.data.conclusion !== "success") {
+            const checked = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37809940061 });
+            if (checked.data.head_sha !== "c5ee3150c11c5733fa812c878d5cfb342730c09b" || checked.data.status !== "completed" || checked.data.conclusion !== "success") {
               throw new Error("Full validation has not passed for the reviewed implementation.");
             }
       - name: Verify prepared prompt storage and ownership checks without reading student records

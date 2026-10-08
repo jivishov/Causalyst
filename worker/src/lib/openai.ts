@@ -33,11 +33,13 @@ export function enforceModelConfirmation(roles: ModelRole[], confirmed: boolean 
   }
 }
 
-export async function transcribeAudio(client: OpenAI, file: File): Promise<string> {
+interface TranscriptionPromptContext { assessmentPrompt: string }
+
+export async function transcribeAudio(client: OpenAI, file: File, context?: TranscriptionPromptContext): Promise<string> {
   const model = clientModel(client, "transcription");
   const result = await client.audio.transcriptions.create({
     file,
-    prompt: transcriptionPrompt(clientPrompts.get(client)),
+    prompt: transcriptionPrompt(clientPrompts.get(client), context),
     model: model.id
   });
   return result.text;
@@ -726,10 +728,10 @@ function decodeBase64(value: string): Uint8Array {
   return bytes;
 }
 
-export function transcriptionPrompt(prompts?: AiPromptBundle): string | undefined {
+export function transcriptionPrompt(prompts?: AiPromptBundle, context?: TranscriptionPromptContext): string | undefined {
   const pair = prompts?.transcription;
   const builtIn = BUILT_IN_PROMPTS.transcription!;
   // Preserve the existing speech recognition behavior until a teacher customizes it.
   if (!pair || (pair.system === builtIn.system && pair.user === builtIn.user)) return undefined;
-  return renderPromptSystem(prompts, "transcription") + "\n" + renderPromptUser(prompts, "transcription", {});
+  return renderPromptSystem(prompts, "transcription") + "\n" + renderPromptUser(prompts, "transcription", context ? { assessmentPrompt: context.assessmentPrompt } : {});
 }

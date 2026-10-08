@@ -14,9 +14,13 @@ The AI step selector includes the steps used by that assessment type: speech rec
 
 Use the listed `{{variables}}` in the user prompt to insert assignment context and student evidence. Values are JSON encoded and substituted once; template-like text inside a student answer stays ordinary evidence. Required evidence and attached files are included even if a template omits them. Place evidence variables in the user prompt; system prompts contain instructions.
 
+Only missing required fields are appended automatically, so a large simulation or transcript already present in the template is not repeated. For audio transcription, `{{assessmentPrompt}}` supplies the assignment question; `{{context}}` contains that same question without answer keys or rubric guidance. The unchanged transcription defaults preserve automatic speech recognition.
+
 Teachers can change instructional behavior while the app retains the required response structure, rubric identifiers and point limits, and simulation sandbox restrictions. Live conversations do not receive the expected answer. Speech recognition and image generation combine the two templates because those APIs accept a single instruction prompt. Unmodified speech recognition preserves the existing request without an optional provider prompt.
 
 Changes apply at the next AI action, including existing drafts. Running requests and queued simulation jobs retain the prompts captured when they started. Changing prompts does not rewrite saved student work, the frozen question/rubric, existing artifacts, or previously recorded grades. A teacher can explicitly run another AI action to use the updated prompts.
+
+The assessment and assignment editors temporarily disable changes and editor-switching controls while saving. The assessment editor does the same while its AI draft assistant runs. This prevents a pending response from clearing a newly opened draft.
 
 ## Access and deployment
 

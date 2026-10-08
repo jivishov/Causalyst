@@ -16,6 +16,7 @@ async function fixture(page: Page) {
   const assessmentPrompts = new Map<TeacherAssessment["type"], AiPromptOverrides>();
   const assignmentPrompts = new Map<string, AiPromptOverrides>();
   let failSave = false;
+  let saveDelay: Promise<void> | null = null;
   await page.route("http://127.0.0.1:8787/api/**", async route => {
     const req = route.request(), url = new URL(req.url()), path = url.pathname;
     const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
@@ -37,6 +38,7 @@ async function fixture(page: Page) {
     else if (path === "/api/teacher/assessments") json = { assessments: [assessment] };
     else if (path === "/api/teacher/assessments/gas" && req.method() === "PUT") {
       const body = req.postDataJSON(); saved.push(body); assessment = { ...assessment, ...body }; assessmentPrompts.set(assessment.type, body.aiPrompts); json = { assessment };
+      if (saveDelay) { await saveDelay; saveDelay = null; }
     }
     else if (path === "/api/teacher/assignments" && req.method() === "POST") {
       const body = req.postDataJSON(); saved.push(body);
@@ -49,14 +51,57 @@ async function fixture(page: Page) {
       if (failSave) return route.fulfill({ status: 409, headers, json: { error: "This assignment or its prompts changed in another tab. Reload before saving. Your draft is kept." } });
       const body = req.postDataJSON(); saved.push(body);
       const id = path.split("/").at(-1)!; assignmentPrompts.set(id, body.aiPrompts); json = { assignment: assignments.find(item => item.id === id) };
+      if (saveDelay) { await saveDelay; saveDelay = null; }
     }
     else if (path === "/api/teacher/assignments") json = { assignments };
     else if (path === "/api/teacher/attempts") json = { attempts: [] };
     else if (path === "/api/teacher/gradebook") json = { entries: [] };
     await route.fulfill({ headers, json });
   });
-  return { saved, assignmentPrompts, fail: () => { failSave = true; } };
+  return { saved, assignmentPrompts, fail: () => { failSave = true; }, pauseNextSave: () => {
+    let resume!: () => void;
+    saveDelay = new Promise<void>(resolve => { resume = resolve; });
+    return resume;
+  } };
 }
+
+test("a pending assignment save cannot discard a different prompt draft", async ({ page }) => {
+  const f = await fixture(page);
+  await page.goto("teacher/assignments?assessment=gas");
+  await page.getByRole("button", { name: "Create assignment", exact: true }).click();
+  await expect(page.locator(".course-row")).toHaveCount(1);
+  await page.locator(".course-row").getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByLabel("AI step", { exact: true }).selectOption("simulationHtml");
+  await page.getByLabel("System prompt", { exact: true }).fill("Keep this assignment's own instructions.");
+  const resume = f.pauseNextSave();
+  await page.getByRole("button", { name: "Save assignment", exact: true }).click();
+  try {
+    await expect.poll(() => f.saved.length).toBe(2);
+    await expect(page.getByLabel("Assessment", { exact: true })).toBeDisabled();
+    await expect(page.getByLabel("Course", { exact: true })).toBeDisabled();
+    await expect(page.getByLabel("Opens at", { exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Cancel edit", exact: true })).toBeDisabled();
+    await expect(page.locator(".course-row").getByRole("button", { name: "Edit", exact: true })).toBeDisabled();
+    await expect(page.locator(".course-row").getByRole("button", { name: "Archive", exact: true })).toBeDisabled();
+  } finally { resume(); }
+  await expect(page.getByRole("button", { name: "Create assignment", exact: true })).toBeEnabled();
+  expect(f.saved[1].aiPrompts.simulationHtml.system).toBe("Keep this assignment's own instructions.");
+});
+
+test("a pending assessment save cannot switch or reset the prompt editor", async ({ page }) => {
+  const f = await fixture(page);
+  await page.goto("teacher/assessments");
+  await page.getByRole("article", { name: "Gas laws", exact: true }).getByRole("button", { name: "Edit", exact: true }).click();
+  const resume = f.pauseNextSave();
+  await page.getByRole("button", { name: "Save assessment", exact: true }).click();
+  try {
+    await expect.poll(() => f.saved.length).toBe(1);
+    await expect(page.getByRole("button", { name: "New assessment", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Close assessment builder", exact: true })).toBeDisabled();
+    await expect(page.getByRole("article", { name: "Gas laws", exact: true }).getByRole("button", { name: "Edit", exact: true })).toBeDisabled();
+  } finally { resume(); }
+  await expect(page.getByRole("button", { name: "New assessment", exact: true }).first()).toBeEnabled();
+});
 
 test("two class assignments have independent system and user prompts and stale saves keep the draft", async ({ page }, info) => {
   const f = await fixture(page);

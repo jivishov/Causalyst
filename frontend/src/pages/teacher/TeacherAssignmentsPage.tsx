@@ -143,6 +143,7 @@ export function TeacherAssignmentsPage() {
           <input
             type="checkbox"
             checked={includeArchivedAssignments}
+            disabled={assignmentSaving}
             onChange={(event) => setIncludeArchivedAssignments(event.target.checked)}
           />
           Show archived
@@ -151,7 +152,7 @@ export function TeacherAssignmentsPage() {
       <form className="assignment-form" onSubmit={submitAssignment}>
         <label>
           Assessment
-          <select aria-label="Assessment" value={assignmentAssessmentId} onChange={(event) => setAssignmentAssessmentId(event.target.value)} required>
+          <select aria-label="Assessment" value={assignmentAssessmentId} disabled={assignmentSaving} onChange={(event) => setAssignmentAssessmentId(event.target.value)} required>
             {activeAssessments.length === 0 ? (
               <option value="">Create an assessment first</option>
             ) : (
@@ -165,7 +166,7 @@ export function TeacherAssignmentsPage() {
         </label>
         <label>
           Course
-          <select aria-label="Course" value={assignmentCourseId} onChange={(event) => setAssignmentCourseId(event.target.value)} required>
+          <select aria-label="Course" value={assignmentCourseId} disabled={assignmentSaving} onChange={(event) => setAssignmentCourseId(event.target.value)} required>
             {courses.length === 0 ? (
               <option value="">Create a course first</option>
             ) : (
@@ -179,11 +180,11 @@ export function TeacherAssignmentsPage() {
         </label>
         <label>
           Opens at
-          <input type="datetime-local" value={assignmentOpensAt} onChange={(event) => setAssignmentOpensAt(event.target.value)} />
+          <input type="datetime-local" value={assignmentOpensAt} disabled={assignmentSaving} onChange={(event) => setAssignmentOpensAt(event.target.value)} />
         </label>
         <label>
           Due at
-          <input type="datetime-local" value={assignmentDueAt} onChange={(event) => setAssignmentDueAt(event.target.value)} />
+          <input type="datetime-local" value={assignmentDueAt} disabled={assignmentSaving} onChange={(event) => setAssignmentDueAt(event.target.value)} />
         </label>
         <TeacherAiPromptEditor state={promptState} scope="assignment" disabled={assignmentSaving} />
         <div className="control-row">
@@ -191,7 +192,7 @@ export function TeacherAssignmentsPage() {
             <CalendarRange size={16} /> {assignmentSaving ? "Saving" : editingAssignmentId ? "Save assignment" : "Create assignment"}
           </button>
           {editingAssignmentId && (
-            <button className="secondary-button" type="button" onClick={resetAssignmentForm}>
+            <button className="secondary-button" type="button" disabled={assignmentSaving} onClick={resetAssignmentForm}>
               Cancel edit
             </button>
           )}
@@ -217,15 +218,15 @@ export function TeacherAssignmentsPage() {
                 {assignment.archivedAt && <span className="archive-badge">Archived</span>}
               </div>
               <div className="course-actions">
-                <button className="secondary-button" type="button" onClick={() => beginEditAssignment(assignment)}>
+                <button className="secondary-button" type="button" disabled={assignmentSaving} onClick={() => beginEditAssignment(assignment)}>
                   <Pencil size={16} /> Edit
                 </button>
                 {assignment.archivedAt ? (
-                  <button className="secondary-button" type="button" onClick={() => toggleAssignmentArchived(assignment.id, false)}>
+                  <button className="secondary-button" type="button" disabled={assignmentSaving} onClick={() => toggleAssignmentArchived(assignment.id, false)}>
                     <RotateCcw size={16} /> Unarchive
                   </button>
                 ) : (
-                  <button className="secondary-button" type="button" onClick={() => toggleAssignmentArchived(assignment.id, true)}>
+                  <button className="secondary-button" type="button" disabled={assignmentSaving} onClick={() => toggleAssignmentArchived(assignment.id, true)}>
                     <Archive size={16} /> Archive
                   </button>
                 )}

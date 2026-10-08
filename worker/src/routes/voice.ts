@@ -35,7 +35,7 @@ export async function gradeVoiceAttempt(request: Request, env: Env, db: AppDatab
 
     const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS);
     const audioFile = new File([await data.arrayBuffer()], artifact.original_filename, { type: artifact.mime_type });
-    const transcript = await transcribeAudio(client, audioFile);
+    const transcript = await transcribeAudio(client, audioFile, { assessmentPrompt: assessment.prompt });
     const finalTranscript = transcript.trim();
     if (!finalTranscript) throw new HttpError(422, "No speech was transcribed. Please record a new attempt or ask your teacher to review the recording.");
     const feedback = await gradeVoice(client, {

@@ -109,7 +109,7 @@ export async function connectRealtimeVoice(request: Request, env: Env, db: AppDa
     }),
     audio: {
       input: {
-        transcription: { model: getModel("transcription", env.AI_SETTINGS).id, prompt: transcriptionPrompt(env.AI_PROMPTS) },
+        transcription: { model: getModel("transcription", env.AI_SETTINGS).id, prompt: transcriptionPrompt(env.AI_PROMPTS, { assessmentPrompt: assessment.prompt }) },
         turn_detection: {
           type: "server_vad",
           create_response: true,

@@ -1,3 +1,4 @@
+import { teacherPromptFixture } from "./helpers/teacherPrompts";
 import { test, expect, type Page } from "@playwright/test";
 import type { TeacherAssessment } from "../shared/src/index";
 
@@ -17,7 +18,8 @@ async function teacherFixture(page: Page) {
     const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
     if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
     let json: unknown = {};
-    if (path === "/api/teacher/setup-status") json = { setupAvailable: false };
+    if (path === "/api/teacher/ai-prompts") json = teacherPromptFixture(route.request().url());
+    else if (path === "/api/teacher/setup-status") json = { setupAvailable: false };
     else if (path === "/api/teacher/me") json = { profile: { id: user.id, displayName: "Demo teacher", email: user.email, role: "teacher" } };
     else if (path === "/api/teacher/courses") json = { courses: [course] };
     else if (path.endsWith("/roster")) json = { courseId: course.id, students: [] };

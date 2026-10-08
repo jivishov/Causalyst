@@ -8,7 +8,8 @@ import { markAttemptSubmissionError } from "../lib/attemptLifecycle";
 import { requireAttempt, logAudit, toGradeFeedback } from "../lib/db";
 import type { Env } from "../lib/env";
 import { HttpError, getRequiredString, readJson } from "../lib/http";
-import { openaiClient, gradeVoice, enforceModelConfirmation } from "../lib/openai";
+import { openaiClient, gradeVoice, enforceModelConfirmation, transcriptionPrompt } from "../lib/openai";
+import { renderPromptSystem, renderPromptUser } from "../lib/aiPrompts";
 import { getModel } from "../lib/models";
 
 const OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
@@ -103,11 +104,12 @@ export async function connectRealtimeVoice(request: Request, env: Env, db: AppDa
     instructions: buildRealtimeInstructions({
       prompt: assessment.prompt,
       expectedAnswer: assessment.expectedAnswer ?? null,
-      rubric: assessment.rubric
+      rubric: assessment.rubric,
+      prompts: env.AI_PROMPTS
     }),
     audio: {
       input: {
-        transcription: { model: getModel("transcription", env.AI_SETTINGS).id },
+        transcription: { model: getModel("transcription", env.AI_SETTINGS).id, prompt: transcriptionPrompt(env.AI_PROMPTS) },
         turn_detection: {
           type: "server_vad",
           create_response: true,
@@ -175,7 +177,7 @@ export async function connectRealtimeVoice(request: Request, env: Env, db: AppDa
       expiresAt
     };
   } catch (error) {
-    if (/^rtc_[\w-]+$/.test(callId)) await openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS).realtime.calls.hangup(callId).catch(() => {});
+    if (/^rtc_[\w-]+$/.test(callId)) await openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS).realtime.calls.hangup(callId).catch(() => {});
     await markRealtimeSessionStatusBestEffort(db, userId, sessionId, "error");
     throw error;
   }
@@ -228,7 +230,7 @@ export async function finalizeRealtimeVoice(request: Request, env: Env, db: AppD
       "Live voice finalization is already in progress or unavailable", claimError.message);
     claimed = true;
 
-    const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+    const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS);
     const feedback = await gradeVoice(client, {
       prompt: assessment.prompt,
       expectedAnswer: assessment.expectedAnswer ?? null,
@@ -253,7 +255,7 @@ export async function finalizeRealtimeVoice(request: Request, env: Env, db: AppD
     const { error: gradeError } = await db.rpc("save_realtime_grade", {
       p_user_id: userId, p_session_id: session.id, p_transcript: transcript,
       p_feedback: toJson(normalizedFeedback), p_diagnostics: diagnostics,
-      p_metadata: { model: getModel("grading", env.AI_SETTINGS).id, policyVersion: "rubric-v2", promptVersion: "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() }
+      p_metadata: { model: getModel("grading", env.AI_SETTINGS).id, policyVersion: "rubric-v2", promptVersion: env.AI_PROMPT_REVISION ?? "grading-v2", assessmentVersionId: attempt.assessment_version_id, gradedAt: new Date().toISOString() }
     });
     if (gradeError) throw new HttpError(500, "Failed to finalize live voice grade", gradeError.message);
 
@@ -360,17 +362,11 @@ export function buildRealtimeInstructions(input: {
   prompt: string;
   expectedAnswer: string | null;
   rubric: unknown;
+  prompts?: import("@alt-assessment/shared").AiPromptBundle;
 }): string {
-  return [
-    "You are conducting a live voice-based assessment for a student.",
-    "Keep the conversation focused on the assessment prompt.",
-    "Ask concise follow-up questions only when the student's answer needs clarification.",
-    "Give brief spoken feedback during the session, but do not announce a final numeric grade.",
-    "Do not invent evidence not stated by the student.",
-    "At the end, summarize strengths and gaps in a classroom-appropriate tone.",
-    `Assessment prompt: ${input.prompt}`,
-    `Rubric: ${JSON.stringify(input.rubric ?? [])}`
-  ].join("\n");
+  return renderPromptSystem(input.prompts, "realtimeVoice") + "\n" + renderPromptUser(input.prompts, "realtimeVoice", {
+    assessmentPrompt: input.prompt, rubric: input.rubric ?? []
+  });
 }
 
 function resolveRealtimeMaxSessionSec(config: Record<string, unknown>): number {

@@ -10,13 +10,16 @@ interface Props {
   type: AssessmentType;
   draft: AssessmentBuilderDraft;
   settings: TeacherAiSettings | null;
+  aiPrompts?: import("@alt-assessment/shared").AiPromptOverrides;
+  assessmentId?: string | null;
+  promptsReady?: boolean;
   onClose: () => void;
   onBusyChange: (busy: boolean) => void;
   onApply: (draft: AssessmentBuilderDraft) => void;
 }
 const titles = { assessment: "Generate assessment with AI", rubric: "Generate rubric with AI", reviewRubric: "Review rubric with AI" };
 
-export function TeacherAssessmentAiPanel({ open, action, type, draft, settings, onClose, onBusyChange, onApply }: Props) {
+export function TeacherAssessmentAiPanel({ open, action, type, draft, settings, aiPrompts, assessmentId, promptsReady = true, onClose, onBusyChange, onApply }: Props) {
   const [assessmentRequest, setAssessmentRequest] = useState("");
   const [rubricRequest, setRubricRequest] = useState("");
   const [busy, setBusy] = useState(false);
@@ -41,9 +44,9 @@ export function TeacherAssessmentAiPanel({ open, action, type, draft, settings, 
   const request = action === "assessment" ? assessmentRequest : rubricRequest;
   const assignment = settings?.roleModels.assessmentBuilder;
   const catalogModel = settings && assignment ? teacherProviderModels(settings).find(model => assignment.catalogModelId ? model.id === assignment.catalogModelId : model.provider === "openai" && model.modelId === assignment.id) : null;
-  const fingerprint = JSON.stringify({ type, draft });
+  const fingerprint = JSON.stringify({ type, draft, aiPrompts });
   const proposalCurrent = proposalSource === fingerprint;
-  const canRun = !busy && (action === "assessment" ? Boolean(request.trim()) : Boolean(draft.prompt.trim()) && (action !== "reviewRubric" || draft.rubric.length > 0));
+  const canRun = !busy && promptsReady && (action === "assessment" ? Boolean(request.trim()) : Boolean(draft.prompt.trim()) && (action !== "reviewRubric" || draft.rubric.length > 0));
 
   function apply(next: AssessmentBuilderDraft) {
     setUndo(structuredClone(draft));
@@ -55,7 +58,7 @@ export function TeacherAssessmentAiPanel({ open, action, type, draft, settings, 
     const before = structuredClone(draft);
     try {
       const result = await teacherApiFetch<AssessmentBuilderAiResponse>("/teacher/assessments/generate", {
-        method: "POST", body: JSON.stringify({ action, type, request, assessment: before })
+        method: "POST", body: JSON.stringify({ action, type, request, assessment: before, assessmentId, aiPrompts })
       }, 300000);
       if (!mounted.current) return;
       setUsedModel(result.model);

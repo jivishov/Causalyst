@@ -1,3 +1,4 @@
+import type { AiPromptSaveFields } from "@alt-assessment/shared";
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import type { TeacherAssessment, TeacherAssignment, TeacherCourse } from "@alt-assessment/shared";
 import {
@@ -46,7 +47,7 @@ interface TeacherWorkspaceDataContextValue {
     expectedAnswer?: string | null;
     rubric: TeacherAssessment["rubric"];
     config?: Record<string, unknown>;
-  }) => Promise<TeacherAssessment>;
+  } & AiPromptSaveFields & { expectedUpdatedAt?: string }) => Promise<TeacherAssessment>;
   updateAssessmentById: (assessmentId: string, input: {
     type?: TeacherAssessment["type"];
     title?: string;
@@ -54,7 +55,7 @@ interface TeacherWorkspaceDataContextValue {
     expectedAnswer?: string | null;
     rubric?: TeacherAssessment["rubric"];
     config?: Record<string, unknown>;
-  }) => Promise<TeacherAssessment>;
+  } & AiPromptSaveFields & { expectedUpdatedAt?: string }) => Promise<TeacherAssessment>;
   setAssessmentArchived: (assessment: TeacherAssessment, archived: boolean) => Promise<void>;
   assignments: TeacherAssignment[];
   includeArchivedAssignments: boolean;
@@ -66,13 +67,13 @@ interface TeacherWorkspaceDataContextValue {
     courseId: string;
     opensAt?: string | null;
     dueAt?: string | null;
-  }) => Promise<TeacherAssignment>;
+  } & AiPromptSaveFields & { expectedUpdatedAt?: string }) => Promise<TeacherAssignment>;
   updateAssignmentById: (assignmentId: string, input: {
     assessmentId?: string;
     courseId?: string;
     opensAt?: string | null;
     dueAt?: string | null;
-  }) => Promise<TeacherAssignment>;
+  } & AiPromptSaveFields & { expectedUpdatedAt?: string }) => Promise<TeacherAssignment>;
   setAssignmentArchived: (assignment: TeacherAssignment, archived: boolean) => Promise<void>;
 }
 
@@ -177,7 +178,7 @@ export function TeacherWorkspaceDataProvider({ children }: { children: ReactNode
     expectedAnswer?: string | null;
     rubric: TeacherAssessment["rubric"];
     config?: Record<string, unknown>;
-  }) {
+  } & AiPromptSaveFields & { expectedUpdatedAt?: string }) {
     const created = await createTeacherAssessment(input);
     await refreshAssessments();
     await refreshAssignments();
@@ -191,7 +192,7 @@ export function TeacherWorkspaceDataProvider({ children }: { children: ReactNode
     expectedAnswer?: string | null;
     rubric?: TeacherAssessment["rubric"];
     config?: Record<string, unknown>;
-  }) {
+  } & AiPromptSaveFields & { expectedUpdatedAt?: string }) {
     const updated = await updateTeacherAssessment(assessmentId, input);
     await refreshAssessments();
     await refreshAssignments();
@@ -213,7 +214,7 @@ export function TeacherWorkspaceDataProvider({ children }: { children: ReactNode
     courseId: string;
     opensAt?: string | null;
     dueAt?: string | null;
-  }) {
+  } & AiPromptSaveFields & { expectedUpdatedAt?: string }) {
     const created = await createTeacherAssignment(input);
     await refreshAssignments();
     return created.assignment;
@@ -224,7 +225,7 @@ export function TeacherWorkspaceDataProvider({ children }: { children: ReactNode
     courseId?: string;
     opensAt?: string | null;
     dueAt?: string | null;
-  }) {
+  } & AiPromptSaveFields & { expectedUpdatedAt?: string }) {
     const updated = await updateTeacherAssignment(assignmentId, input);
     await refreshAssignments();
     return updated.assignment;

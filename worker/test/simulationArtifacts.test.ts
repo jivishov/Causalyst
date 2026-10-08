@@ -298,7 +298,7 @@ describe("simulation artifact flow", () => {
       WORKER_PUBLIC_BASE_URL: "https://worker.test"
     } as any, db, "student-1");
 
-    expect(openaiClientSpy).toHaveBeenCalledWith("moonshot-key", "https://api.moonshot.ai/v1", undefined);
+    expect(openaiClientSpy).toHaveBeenCalledWith("moonshot-key", "https://api.moonshot.ai/v1", undefined, undefined);
     expect(uploadFileSpy).not.toHaveBeenCalled();
     expect(chatSpy).toHaveBeenCalledWith(client, expect.objectContaining({
       id: "kimi:kimi-k2.6",

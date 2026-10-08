@@ -1,3 +1,4 @@
+import { TeacherAiPromptEditor, useTeacherAiPrompts } from "./TeacherAiPromptEditor";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Archive, CalendarRange, Pencil, RotateCcw } from "lucide-react";
 import type { AssessmentType, TeacherAssignment } from "@alt-assessment/shared";
@@ -29,7 +30,15 @@ export function TeacherAssignmentsPage() {
   const [assignmentCourseId, setAssignmentCourseId] = useState("");
   const [assignmentOpensAt, setAssignmentOpensAt] = useState("");
   const [assignmentDueAt, setAssignmentDueAt] = useState("");
+  const [assignmentResetKey, setAssignmentResetKey] = useState(0);
+  const [editingAssignmentUpdatedAt, setEditingAssignmentUpdatedAt] = useState<string | undefined>(undefined);
   const [assignmentSaving, setAssignmentSaving] = useState(false);
+
+  const selectedAssessment = assessments.find(item => item.id === assignmentAssessmentId);
+  const currentAssignment = assignments.find(item => item.id === editingAssignmentId);
+  const promptState = useTeacherAiPrompts({ type: selectedAssessment?.type ?? "voice", scope: "assignment",
+    assessmentId: assignmentAssessmentId || null, assignmentId: editingAssignmentId,
+    replacementAssessment: Boolean(currentAssignment && currentAssignment.assessmentId !== assignmentAssessmentId), resetKey: assignmentResetKey });
 
   useEffect(() => {
     if (activeAssessments.length === 0) {
@@ -56,13 +65,17 @@ export function TeacherAssignmentsPage() {
       setAssignmentCourseId(selectedCourseId || courses[0]?.id || "");
       return;
     }
-    if (!editingAssignmentId && selectedCourseId && selectedCourseId !== assignmentCourseId && courseIds.has(selectedCourseId)) {
-      setAssignmentCourseId(selectedCourseId);
-    }
   }, [assignmentCourseId, courses, selectedCourseId, editingAssignmentId]);
+
+  // Follow a sidebar class change without undoing a class chosen in this form.
+  useEffect(() => {
+    if (!editingAssignmentId && selectedCourseId && courses.some(course => course.id === selectedCourseId)) setAssignmentCourseId(selectedCourseId);
+  }, [selectedCourseId, courses, editingAssignmentId]);
 
   function beginEditAssignment(assignment: TeacherAssignment) {
     setEditingAssignmentId(assignment.id);
+    setEditingAssignmentUpdatedAt(assignment.updatedAt);
+    setAssignmentResetKey(current => current + 1);
     setAssignmentAssessmentId(assignment.assessmentId);
     setAssignmentCourseId(assignment.classId);
     setAssignmentOpensAt(toDateTimeLocalValue(assignment.opensAt));
@@ -71,6 +84,7 @@ export function TeacherAssignmentsPage() {
 
   function resetAssignmentForm() {
     setEditingAssignmentId(null);
+    setAssignmentResetKey(current => current + 1);
     setAssignmentAssessmentId(activeAssessments[0]?.id ?? "");
     setAssignmentCourseId(selectedCourseId || courses[0]?.id || "");
     setAssignmentOpensAt("");
@@ -88,7 +102,10 @@ export function TeacherAssignmentsPage() {
       if (!assignmentCourseId) {
         throw new Error("Choose a course.");
       }
+      if (!promptState.saveFields) throw new Error("Load AI prompts before saving. Your assignment draft is kept.");
       const payload = {
+        ...promptState.saveFields,
+        expectedUpdatedAt: editingAssignmentId ? editingAssignmentUpdatedAt : undefined,
         assessmentId: assignmentAssessmentId,
         courseId: assignmentCourseId,
         opensAt: assignmentOpensAt ? new Date(assignmentOpensAt).toISOString() : null,
@@ -168,8 +185,9 @@ export function TeacherAssignmentsPage() {
           Due at
           <input type="datetime-local" value={assignmentDueAt} onChange={(event) => setAssignmentDueAt(event.target.value)} />
         </label>
+        <TeacherAiPromptEditor state={promptState} scope="assignment" disabled={assignmentSaving} />
         <div className="control-row">
-          <button className="primary-button" type="submit" disabled={assignmentSaving || courses.length === 0 || activeAssessments.length === 0}>
+          <button className="primary-button" type="submit" disabled={assignmentSaving || !promptState.ready || courses.length === 0 || activeAssessments.length === 0}>
             <CalendarRange size={16} /> {assignmentSaving ? "Saving" : editingAssignmentId ? "Save assignment" : "Create assignment"}
           </button>
           {editingAssignmentId && (

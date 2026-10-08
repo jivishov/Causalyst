@@ -1,3 +1,4 @@
+import { promptFixture } from "./helpers/promptFixtures";
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
@@ -25,7 +26,7 @@ function fixture(): TeacherAiSettings {
 
 it("adds a provider model, assigns it through role dropdowns, and saves effort and token limits", async () => {
   const settings = fixture();
-  vi.mocked(teacherApiFetch).mockResolvedValue(settings);
+  vi.mocked(teacherApiFetch).mockImplementation(async path => path.startsWith("/teacher/ai-prompts") ? promptFixture() : settings as never);
   render(<TeacherAiSettingsPage />);
   await screen.findByText("Providers and model lists");
   const solEfforts = [...(screen.getByLabelText("OpenAI GPT-6.1 Sol reasoning") as HTMLSelectElement).options].map(option => option.value);
@@ -103,7 +104,7 @@ it("preserves assignments when a custom model's capability would become incompat
   const settings = fixture();
   settings.providerModels![0].modelId = "synthetic-multipurpose-model";
   for (const role of AI_MODEL_ROLES) if (modelCapabilityForRole(role) === "text") settings.roleModels[role].id = "synthetic-multipurpose-model";
-  vi.mocked(teacherApiFetch).mockResolvedValue(settings);
+  vi.mocked(teacherApiFetch).mockImplementation(async path => path.startsWith("/teacher/ai-prompts") ? promptFixture() : settings as never);
   render(<TeacherAiSettingsPage />);
   await screen.findByText("Providers and model lists");
   const card = screen.getAllByRole("article").find(card => within(card).queryByDisplayValue("synthetic-multipurpose-model"))!;

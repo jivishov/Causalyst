@@ -1,3 +1,4 @@
+import { teacherPromptFixture } from "./helpers/teacherPrompts";
 import { expect, test, type Page } from "@playwright/test";
 import { AI_MODEL_ROLES, modelCapabilityForRole, type TeacherAiSettings, type TeacherAssessment } from "../shared/src/index";
 
@@ -29,7 +30,8 @@ async function fixture(page: Page) {
     const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
     if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
     let json: unknown = {};
-    if (path === "/api/teacher/setup-status") json = { setupAvailable: false };
+    if (path === "/api/teacher/ai-prompts") json = teacherPromptFixture(route.request().url());
+    else if (path === "/api/teacher/setup-status") json = { setupAvailable: false };
     else if (path === "/api/teacher/me") json = { profile: { id: user.id, displayName: "Demo teacher", email: user.email, role: "teacher" } };
     else if (path === "/api/teacher/courses") json = { courses: [] };
     else if (path === "/api/teacher/ai-settings") json = settings;

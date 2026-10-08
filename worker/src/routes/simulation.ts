@@ -80,9 +80,9 @@ export async function generateSimulationSketch(request: Request, env: Env, db: A
     assessmentPrompt: assessment.prompt,
     description,
     config: assessment.config,
-    getClient: () => client ??= openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS)
+    getClient: () => client ??= openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS)
   });
-  client ??= openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+  client ??= openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS);
   const sketchRoleModel = getModel("simulationSketchImage", env.AI_SETTINGS).id;
   const sourceDescriptionSha256 = await hashSimulationDescription(description);
   const sketch = await generateSimulationSketchImage(client, { description });
@@ -185,10 +185,10 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
         const managed = await updateSimulationGenerationJob(db, userId, activeJob.id, { provider_status: "managed_queued" });
         // Once ownership is handed off, a lost acknowledgement must not fail a running job.
         reservedId = null;
-        await managedRequest(owner, "/init", { job: managed, description, model: toOpenAIModelCatalogEntry(simulationCodeModel) });
+        await managedRequest(owner, "/init", { job: managed, description, prompts: env.AI_PROMPTS, promptRevision: env.AI_PROMPT_REVISION, model: toOpenAIModelCatalogEntry(simulationCodeModel) });
         return { ...toStudentSimulationJob(managed), message: "Waiting for a generation slot..." };
       }
-      const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+      const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS);
       const sketchFileId = await ensureOpenAIFileForArtifact(db, client, userId, sketchArtifact);
       logSimulationRouteStage("/api/simulation/generate", attemptId, "sketch-file-ready-for-openai", routeStartedAt);
       const background = await startSimulationHtmlBackgroundResponse(client, {
@@ -219,7 +219,7 @@ export async function generateSimulation(request: Request, env: Env, db: AppData
     }
 
     const sketchDataUrl = await downloadArtifactDataUrl(db, sketchArtifact, "Failed to download simulation sketch artifact");
-    const client = openaiClient(requireSimulationCodeModelApiKey(env, simulationCodeModel), simulationCodeModel.baseURL, env.AI_SETTINGS);
+    const client = openaiClient(requireSimulationCodeModelApiKey(env, simulationCodeModel), simulationCodeModel.baseURL, env.AI_SETTINGS, env.AI_PROMPTS);
     const generated = await generateSimulationHtmlChatCompletion(client, simulationCodeModel, {
       description,
       sketchDataUrl
@@ -313,10 +313,10 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
         const owner = simulationOwner(env, activeJob.id);
         const managed = await updateSimulationGenerationJob(db, userId, activeJob.id, { provider_status: "managed_queued" });
         reservedId = null;
-        await managedRequest(owner, "/init", { job: managed, description, currentHtml, model: toOpenAIModelCatalogEntry(simulationCodeModel) });
+        await managedRequest(owner, "/init", { job: managed, description, currentHtml, prompts: env.AI_PROMPTS, promptRevision: env.AI_PROMPT_REVISION, model: toOpenAIModelCatalogEntry(simulationCodeModel) });
         return { ...toStudentSimulationJob(managed), message: "Waiting for a generation slot..." };
       }
-      const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+      const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS);
       const sketchFileId = await ensureOpenAIFileForArtifact(db, client, userId, sketchArtifact);
       logSimulationRouteStage("/api/simulation/refine", attemptId, "sketch-file-ready-for-openai", routeStartedAt);
       const background = await startRefineSimulationHtmlBackgroundResponse(client, {
@@ -348,7 +348,7 @@ export async function refineSimulation(request: Request, env: Env, db: AppDataba
     }
 
     const sketchDataUrl = await downloadArtifactDataUrl(db, sketchArtifact, "Failed to download simulation sketch artifact");
-    const client = openaiClient(requireSimulationCodeModelApiKey(env, simulationCodeModel), simulationCodeModel.baseURL, env.AI_SETTINGS);
+    const client = openaiClient(requireSimulationCodeModelApiKey(env, simulationCodeModel), simulationCodeModel.baseURL, env.AI_SETTINGS, env.AI_PROMPTS);
     const refined = await refineSimulationHtmlChatCompletion(client, simulationCodeModel, {
       description,
       sketchDataUrl,
@@ -517,7 +517,7 @@ export async function streamSimulationGenerationJob(request: Request, env: Env, 
             send({ type: "unavailable" });
             return;
           }
-          const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+          const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS);
           const stream = await streamSimulationBackgroundResponse(client, job.provider_response_id, cursor, upstreamAbort.signal);
           for await (const event of stream) {
             if (closed) break;
@@ -604,7 +604,7 @@ export async function getSimulationGenerationJob(_request: Request, env: Env, db
     return toStudentSimulationJob(failed);
   }
 
-  const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+  const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS);
   const now = Date.now();
   const expired = Date.parse(job.expires_at) <= now;
   let response: any;
@@ -676,7 +676,7 @@ export async function cancelSimulationGenerationJob(_request: Request, env: Env,
     return toStudentSimulationJob(current, await previewForCompletedSimulationJob(db, env, userId, current));
   }
   if (job.provider === "openai" && job.provider_response_id) {
-    await cancelSimulationBackgroundResponseBestEffort(openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS), job.provider_response_id, job.id);
+    await cancelSimulationBackgroundResponseBestEffort(openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS), job.provider_response_id, job.id);
   }
   const cancelledAt = new Date().toISOString();
   const cancelled = await updateSimulationGenerationJob(db, userId, job.id, {
@@ -939,10 +939,10 @@ export async function prepareManagedSimulation(db: AppDatabaseClient, env: Env, 
   const current = await requireSimulationGenerationJob(db, input.job.student_id, input.job.id);
   if (TERMINAL_SIMULATION_JOB_STATUSES.includes(current.status)) throw new HttpError(409, "Generation has already ended.");
   const artifact = await requireArtifact(db, input.job.student_id, input.job.sketch_artifact_id);
-  const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS);
+  const client = openaiClient(env.OPENAI_API_KEY, undefined, env.AI_SETTINGS, env.AI_PROMPTS);
   const sketchFileId = await ensureOpenAIFileForArtifact(db, client, input.job.student_id, artifact);
   return { description: input.description, currentHtml: input.currentHtml, sketchFileId,
-    model: input.model, htmlReasoningEffort: input.job.reasoning_effort };
+    prompts: input.prompts ?? env.AI_PROMPTS, model: input.model, htmlReasoningEffort: input.job.reasoning_effort };
 }
 
 export async function setManagedSimulationState(db: AppDatabaseClient, original: SimulationGenerationJobRow,

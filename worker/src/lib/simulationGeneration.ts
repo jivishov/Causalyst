@@ -165,7 +165,7 @@ export class SimulationGeneration {
     let checkedKnownResponse = false;
     try {
       const runtime = await resolveAttemptAiEnv(db, this.env, this.input.job.attempt_id);
-      const client = openaiClient(runtime.OPENAI_API_KEY, undefined, runtime.AI_SETTINGS);
+      const client = openaiClient(runtime.OPENAI_API_KEY, undefined, runtime.AI_SETTINGS, runtime.AI_PROMPTS);
       if (this.state.phase === "saving") {
         if (Date.now() - (this.state.saveStartedAt ?? Date.now()) > 60 * 60_000) {
           await this.finish("failed", "The model finished, but saving remained unavailable. Your sketch is saved.");

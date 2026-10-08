@@ -8,6 +8,7 @@ import type { Env } from "./lib/env";
 import { validateWorkerSecrets } from "./lib/env";
 import { getTeacherAiSettings, updateTeacherAiSettings, testTeacherAiSettings } from "./routes/teacherAiSettings";
 import { generateTeacherAssessmentDraft } from "./routes/teacherAssessmentBuilder";
+import { getTeacherAiPrompts, setTeacherPromptDefaults } from "./routes/teacherAiPrompts";
 import { teacherPluginConfig, teacherPluginMcp, teacherPluginResourceMetadata, TEACHER_MCP_PATH, TEACHER_MCP_METADATA_PATH } from "./lib/teacherPlugin";
 import { studentLogin, studentSession } from "./routes/student";
 import { listStudentSubmissions } from "./routes/studentSubmissions";
@@ -80,6 +81,10 @@ export interface RouteMetadata {
 }
 
 const routes: readonly RouteDefinition[] = [
+  teacherRoute("GET", "/api/teacher/ai-prompts", /^\/api\/teacher\/ai-prompts$/, async (request, env, _match, auth) =>
+    jsonResponse(request, env, await getTeacherAiPrompts(request, serviceSupabase(env), auth.userId), { headers: { "Cache-Control": "no-store" } })),
+  teacherRoute("PUT", "/api/teacher/ai-prompts/defaults", /^\/api\/teacher\/ai-prompts\/defaults$/, async (request, env, _match, auth) =>
+    jsonResponse(request, env, await setTeacherPromptDefaults(request, serviceSupabase(env), auth.userId), { headers: { "Cache-Control": "no-store" } })),
   publicRoute("GET", TEACHER_MCP_METADATA_PATH, /^\/\.well-known\/oauth-protected-resource\/mcp\/teacher$/, (request, env) => jsonResponse(request, env, teacherPluginResourceMetadata(request, env), { headers: { "Cache-Control": "no-store" } })),
   { method: "POST", path: TEACHER_MCP_PATH, pattern: /^\/mcp\/teacher$/, auth: "teacher", handler: teacherPluginMcp },
   { method: "GET", path: TEACHER_MCP_PATH, pattern: /^\/mcp\/teacher$/, auth: "teacher", handler: teacherPluginMcp },

@@ -86,7 +86,7 @@ export function TeacherAssessmentsPage() {
   const [typeFilter, setTypeFilter] = useState("");
   const previewDialog = useRef<HTMLDialogElement>(null);
   const promptState = useTeacherAiPrompts({ type: assessmentType, scope: "assessment",
-    assessmentId: assessments.find(item => item.id === editingAssessmentId)?.type === assessmentType ? editingAssessmentId : null, resetKey: aiEditorKey });
+    assessmentId: editingAssessmentId, resetKey: aiEditorKey });
   const filteredAssessments = assessments.filter(assessment => (!typeFilter || assessment.type === typeFilter) && `${assessment.title} ${assessment.prompt}`.toLowerCase().includes(search.trim().toLowerCase()));
 
   useEffect(() => {

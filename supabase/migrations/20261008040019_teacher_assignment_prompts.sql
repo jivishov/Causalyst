@@ -37,6 +37,9 @@ begin
     select type into v_type from public.assessments where id = p_assessment_id and created_by = p_teacher_id;
     if not found then raise insufficient_privilege using message = 'Assessment not found'; end if;
   end if;
+  -- Editors may preview another type before saving the parent change. Keep
+  -- historical type-specific revisions available for reverting that change.
+  if p_type is not null then v_type := p_type; end if;
   if v_type is null or v_type not in ('voice','voice_realtime','writing','simulation') then
     raise check_violation using message = 'Assessment type required';
   end if;
@@ -59,9 +62,9 @@ begin
   if p_scope = 'defaults' and p_scope_id = p_teacher_id then
     v_context := public.get_teacher_prompt_context(p_teacher_id, p_type, null, null);
   elsif p_scope = 'assessment' then
-    v_context := public.get_teacher_prompt_context(p_teacher_id, p_type, p_scope_id, null);
+    v_context := public.get_teacher_prompt_context(p_teacher_id, null, p_scope_id, null);
   elsif p_scope = 'assignment' then
-    v_context := public.get_teacher_prompt_context(p_teacher_id, p_type, null, p_scope_id);
+    v_context := public.get_teacher_prompt_context(p_teacher_id, null, null, p_scope_id);
   else raise insufficient_privilege using message = 'Invalid prompt scope'; end if;
   if v_context->>'type' <> p_type then raise check_violation using message = 'Assessment type changed'; end if;
   select updated_at into v_updated_at from private.teacher_ai_prompts

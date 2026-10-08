@@ -40,6 +40,19 @@ begin
  ctx := public.get_teacher_prompt_context(t,null,null,x1);
  perform public.set_teacher_ai_prompts(t,'assignment',x1,'simulation','{}',ctx->>'assignmentUpdatedAt');
  if public.get_attempt_ai_context(attempt)->'promptContext'->'assignment' <> '{}'::jsonb then raise exception 'Reset did not restore inheritance'; end if;
+ -- A format change and later reversion reload the correct revision instead of
+ -- colliding with historical prompts. Existing attempts still use their type.
+ ctx := public.get_teacher_prompt_context(t,'voice',a,null);
+ if ctx->>'type' <> 'voice' or ctx->'assessment' <> 'null'::jsonb then raise exception 'New format did not load its own prompts'; end if;
+ select updated_at::text into core_revision from public.assessments where id=a;
+ result := public.save_teacher_resource_with_prompts(t,'assessment',a,'{"type":"voice"}','{"voiceGrade":{"system":"Changed format"}}',core_revision,ctx->>'assessmentUpdatedAt');
+ if public.get_attempt_ai_context(attempt)->'promptContext'->>'type' <> 'simulation'
+  or public.get_attempt_ai_context(attempt)->'promptContext'->'assessment'->'simulationHtml'->>'system' <> 'New assessment' then raise exception 'Format change altered existing attempt prompts'; end if;
+ ctx := public.get_teacher_prompt_context(t,'simulation',a,null);
+ if ctx->'assessment'->'simulationHtml'->>'system' <> 'New assessment' or ctx->>'assessmentUpdatedAt' is null then raise exception 'Historical format lost its prompt revision'; end if;
+ result := public.save_teacher_resource_with_prompts(t,'assessment',a,'{"type":"simulation"}',ctx->'assessment',result->>'updated_at',ctx->>'assessmentUpdatedAt');
+ if result->>'type' <> 'simulation' then raise exception 'Returning to a previous format failed'; end if;
+ begin perform public.set_teacher_ai_prompts(t,'assessment',a,'voice','{}',null); raise exception 'Prompts saved under wrong active type'; exception when check_violation then null; end;
  begin perform public.get_teacher_prompt_context(other_t,null,null,x1); raise exception 'Other teacher read prompts'; exception when insufficient_privilege then null; end;
  begin perform public.set_teacher_ai_prompts(other_t,'assignment',x1,'simulation','{}',null); raise exception 'Other teacher changed prompts'; exception when insufficient_privilege then null; end;
  begin perform public.set_teacher_ai_prompts(s,'defaults',s,'voice','{}',null); raise exception 'Student changed defaults'; exception when insufficient_privilege then null; end;

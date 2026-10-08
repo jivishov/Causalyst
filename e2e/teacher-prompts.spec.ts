@@ -13,7 +13,7 @@ async function fixture(page: Page) {
   let assessment: TeacherAssessment = { id: "gas", type: "simulation", title: "Gas laws", prompt: "Explain gas pressure and volume", expectedAnswer: "PRIVATE ANSWER KEY", rubric: [{ id: "r1", name: "Reasoning", maxPoints: 10, description: "Supported relationships" }], config: {}, createdAt: "2026-10-01", updatedAt: "2026-10-01", archivedAt: null };
   const assignments: TeacherAssignment[] = [];
   const saved: any[] = [];
-  let assessmentPrompts: AiPromptOverrides = {};
+  const assessmentPrompts = new Map<TeacherAssessment["type"], AiPromptOverrides>();
   const assignmentPrompts = new Map<string, AiPromptOverrides>();
   let failSave = false;
   await page.route("http://127.0.0.1:8787/api/**", async route => {
@@ -29,12 +29,14 @@ async function fixture(page: Page) {
     else if (path === "/api/teacher/ai-prompts") {
       const scope = url.searchParams.has("assignmentId") ? "assignment" : url.searchParams.has("assessmentId") ? "assessment" : "defaults";
       const id = url.searchParams.get("assignmentId");
-      json = resolvePromptContext({ type: (url.searchParams.get("type") ?? assessment.type) as TeacherAssessment["type"], assessment: assessmentPrompts,
+      const type = (url.searchParams.get("type") ?? assessment.type) as TeacherAssessment["type"];
+      json = resolvePromptContext({ type, assessment: assessmentPrompts.get(type),
+        assessmentUpdatedAt: assessmentPrompts.has(type) ? "2026-10-08T04:00:00Z" : null,
         assignment: id ? assignmentPrompts.get(id) : {}, assignmentUpdatedAt: id ? "2026-10-08T04:00:00Z" : null }, scope, id ?? assessment.id);
     }
     else if (path === "/api/teacher/assessments") json = { assessments: [assessment] };
     else if (path === "/api/teacher/assessments/gas" && req.method() === "PUT") {
-      const body = req.postDataJSON(); saved.push(body); assessment = { ...assessment, ...body }; assessmentPrompts = body.aiPrompts; json = { assessment };
+      const body = req.postDataJSON(); saved.push(body); assessment = { ...assessment, ...body }; assessmentPrompts.set(assessment.type, body.aiPrompts); json = { assessment };
     }
     else if (path === "/api/teacher/assignments" && req.method() === "POST") {
       const body = req.postDataJSON(); saved.push(body);
@@ -106,4 +108,22 @@ test("assessment prompts are prefilled, editable and saved with the assessment",
   await expect(page.getByRole("button", { name: "Save assessment", exact: true })).toBeHidden();
   expect(f.saved[0].aiPrompts.simulationSketch).toEqual({ system: "Use only student evidence in a clean labeled diagram.", user: "Draw this explanation: {{studentDescription}}" });
   expect(f.saved[0].expectedAnswer).toBe("PRIVATE ANSWER KEY");
+  // Returning to a previous format must restore its prompts and revision.
+  await page.getByRole("article", { name: "Gas laws", exact: true }).getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByLabel("Type", { exact: true }).selectOption("voice");
+  await page.getByRole("tab", { name: "AI prompts", exact: true }).click();
+  await page.getByLabel("AI step", { exact: true }).selectOption("voiceGrade");
+  await page.getByLabel("System prompt", { exact: true }).fill("Voice format grading instructions.");
+  await page.getByRole("button", { name: "Save assessment", exact: true }).click();
+  await expect.poll(() => f.saved.length).toBe(2);
+  await expect(page.getByRole("button", { name: "Save assessment", exact: true })).toBeHidden();
+  await page.getByRole("article", { name: "Gas laws", exact: true }).getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByLabel("Type", { exact: true }).selectOption("simulation");
+  await page.getByRole("tab", { name: "AI prompts", exact: true }).click();
+  await page.getByLabel("AI step", { exact: true }).selectOption("simulationSketch");
+  await expect(page.getByLabel("System prompt", { exact: true })).toHaveValue("Use only student evidence in a clean labeled diagram.");
+  await page.getByRole("button", { name: "Save assessment", exact: true }).click();
+  await expect.poll(() => f.saved.length).toBe(3);
+  expect(f.saved[2].expectedPromptUpdatedAt).toBe("2026-10-08T04:00:00Z");
+  expect(f.saved[2].expectedAnswer).toBe("PRIVATE ANSWER KEY");
 });

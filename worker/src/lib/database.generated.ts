@@ -1284,7 +1284,12 @@ export type Database = {
         Returns: boolean
       }
       temporary_command: {
-        Args: { p_actor: string; p_connection: string; p_input: Json; p_op: string }
+        Args: {
+          p_actor: string
+          p_connection: string
+          p_input: Json
+          p_op: string
+        }
         Returns: Json
       }
     }

@@ -1,0 +1,8 @@
+{
+  "name": "explain-teacher",
+  "version": "1.1.0",
+  "description": "Create and review Explain assessments and process temporary student explanations in the connected AI client.",
+  "author": { "name": "Explain", "url": "https://explain.az" },
+  "homepage": "https://explain.az/teacher/chatgpt-plugin",
+  "repository": "https://github.com/jivishov/Causalyst"
+}

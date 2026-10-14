@@ -1,17 +1,19 @@
 ---
 name: explain-teacher
-description: Create and revise classroom assessments and rubrics, review student submissions and scientific fidelity, and save approved assessments or unpublished teacher grades to an authenticated Explain teacher account. Use when the teacher invokes the Explain plugin in ChatGPT or Codex. Perform AI work in the current conversation rather than calling paid AI APIs.
+description: Create and review Explain assessments, process temporary guest explanations into simulations, and save teacher-approved results through the connected Explain account. Use for Explain classroom workflows in the connected AI client; perform AI work in this conversation.
 ---
 
 # Explain
 
 Use the connected teacher's MCP tools. Call `get_teacher_profile` before saving changes. If tools are unavailable, explain that the connection must be installed; do not ask for credentials, bearer tokens, or API keys in chat.
 
-Perform reasoning and content generation in the current conversation in ChatGPT or Codex. The MCP server only reads and saves data. Use the conversation's selected model and available tools. Do not invoke Explain's `/assessments/generate` route, API key tests, or other paid AI endpoints. Do not claim unlimited usage, control of the ChatGPT model through Explain's API settings, or replacement of students' automatic requests.
+Perform reasoning and content generation in the current connected AI conversation. The MCP server reads, validates and saves data. Use the host's selected model and available tools. Do not invoke Explain's `/assessments/generate` route, API key tests, or other paid AI endpoints. Do not claim unlimited usage, control of the host model through Explain's API settings, or replacement of existing automatic student requests.
 
 Use Codex signed in with the teacher’s ChatGPT account for subscription usage. An API-key-authenticated Codex host uses API billing; the plugin cannot change the host’s billing mode.
 
 ## Create or revise an assessment
+
+For setup, call `get_explain_capabilities` only. For temporary guest assignments, client generation, or offline evidence exports, read [the temporary workflow](references/temporary-workflow.md) before acting. Preserve the permanent-assignment workflows below.
 
 1. Use `prepare_assessment` with the teacher's objectives, grade level, subject, time, selected assessment type, and constraints. For an existing assessment, find its ID with `list_assessments` and read it.
 2. Generate the draft yourself: title, student-facing prompt, teacher-only expectedAnswer, and an analytic rubric. Align observable rubric criteria and integer points to the task. Keep answers and teacher guidance out of the student prompt. For simulations, ask students to explain and test causal relationships rather than write code.

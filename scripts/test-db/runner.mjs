@@ -2,6 +2,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import pg from 'pg';
 import { runConcurrency } from './concurrency.mjs';
+import { runTemporaryConcurrency } from './temporary-concurrency.mjs';
 
 // Refuse remote targets: this command creates roles and fixture schemas.
 const url = process.env.TEST_DATABASE_URL;
@@ -39,7 +40,7 @@ try {
   }
   await exec(await readFile(new URL('./legacy-backfill.upgrade.sql', import.meta.url), 'utf8'));
   console.log('PASS legacy-backfill.upgrade.sql (pre-upgrade 2,300-row fixture)');
-  if (url) await runConcurrency(url);
+  if (url) { await runConcurrency(url); await runTemporaryConcurrency(url); }
   console.log(`Replayed ${files.length} migrations; ${checks.length} SQL suites passed (${url ? 'native PostgreSQL' : 'PGlite PostgreSQL; pgcrypto declaration skipped'}).`);
 } catch (error) {
   console.error(`${error.code ?? "ERROR"}: ${error.message}; ${error.where ?? ""}`);

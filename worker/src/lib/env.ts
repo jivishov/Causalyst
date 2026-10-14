@@ -1,4 +1,7 @@
 export interface Env {
+  TEMPORARY_SITE_ORIGIN?: string;
+  TEMPORARY_API_ORIGIN?: string;
+  TEACHER_ADMISSION_ENFORCED?: string;
   REALTIME_SESSIONS?: DurableObjectNamespace;
   SIMULATION_GENERATIONS?: DurableObjectNamespace;
   SIMULATION_SCHEDULER?: DurableObjectNamespace;

@@ -10,6 +10,7 @@ export const STUDENT_PROTECTED_ROUTES = [
 ] as const;
 
 export const TEACHER_CHILD_ROUTES = [
+  { label: "temporary", path: "temporary", auth: "teacher" },
   { label: "courses", path: "", index: true, auth: "teacher" },
   { label: "assessments", path: "assessments", auth: "teacher" },
   { label: "assignments", path: "assignments", auth: "teacher" },

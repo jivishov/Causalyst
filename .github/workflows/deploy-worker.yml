@@ -71,6 +71,9 @@ jobs:
             --var SUPABASE_JWKS_URL:${{ vars.SUPABASE_JWKS_URL }}
             --var APP_ENV:${{ vars.APP_ENV }}
             --var TEACHER_PLUGIN_CLIENT_IDS:${{ vars.TEACHER_PLUGIN_CLIENT_IDS }}
+              --var TEACHER_ADMISSION_ENFORCED:${{ vars.TEACHER_ADMISSION_ENFORCED || 'false' }}
+              --var TEMPORARY_SITE_ORIGIN:${{ vars.TEMPORARY_SITE_ORIGIN || 'https://explain.az' }}
+              --var TEMPORARY_API_ORIGIN:${{ vars.TEMPORARY_API_ORIGIN || 'https://api.explain.az' }}
             --var ALLOWED_ORIGINS:${{ format('{0},https://explain.az,https://www.explain.az', vars.ALLOWED_ORIGINS) }}
           secrets: |
             SUPABASE_SERVICE_ROLE_KEY

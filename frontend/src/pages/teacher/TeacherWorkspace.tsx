@@ -245,6 +245,7 @@ function TeacherWorkspaceShell({ profile, onSignOut }: { profile: TeacherProfile
   const location = useLocation();
   const navItems = useMemo(
     () => [
+        { to: "/teacher/temporary", label: "Temporary assignments", description: "Private student links and downloadable evidence.", end: false, Icon: ClipboardCheck },
       { to: "/teacher", label: "Courses & roster", description: "Your classes, students, and enrollment in one place.", end: true, Icon: BookOpen },
       { to: "/teacher/ai-settings", label: "AI settings", description: "Provider keys, assessment models, and student model choices.", Icon: SlidersHorizontal },
       { to: "/teacher/chatgpt-plugin", label: "ChatGPT plugin", description: "Create and review with your ChatGPT account.", Icon: MessageSquareText },
@@ -322,7 +323,8 @@ function teacherIdentitySummary(profile: TeacherProfile): string {
   return email ? `${name} · ${email}` : name;
 }
 
-export function resolvePostAuthTeacherPath(pathname: string): "/teacher" | "/teacher/assessments" | "/teacher/assignments" | "/teacher/review" | "/teacher/gradebook" | "/teacher/ai-settings" | "/teacher/chatgpt-plugin" {
+export function resolvePostAuthTeacherPath(pathname: string): "/teacher" | "/teacher/assessments" | "/teacher/assignments" | "/teacher/review" | "/teacher/gradebook" | "/teacher/ai-settings" | "/teacher/chatgpt-plugin" | "/teacher/temporary" {
+  if (pathname === "/teacher/temporary") return "/teacher/temporary";
   if (pathname === "/teacher/chatgpt-plugin") return "/teacher/chatgpt-plugin";
   if (pathname === "/teacher/ai-settings") return "/teacher/ai-settings";
   if (pathname === "/teacher/assessments" || pathname.startsWith("/teacher/assessments/")) {

@@ -1,8 +1,10 @@
 import { runRetention } from "./lib/retention";
+import { cleanupTemporary, admitTeacher } from "./lib/temporary";
+import { temporaryHttp } from "./routes/temporary";
 export { RealtimeEvidence } from "./lib/realtimeEvidence";
 export { SimulationGeneration, SimulationScheduler } from "./lib/simulationGeneration";
 import { requireStudentAuth, requireTeacherAuthSession, requireUser, type AuthContext } from "./lib/auth";
-import { corsHeaders, jsonResponse, toErrorResponse } from "./lib/http";
+import { corsHeaders, jsonResponse, toErrorResponse, HttpError } from "./lib/http";
 import { serviceSupabase } from "./lib/supabase";
 import type { Env } from "./lib/env";
 import { validateWorkerSecrets } from "./lib/env";
@@ -341,10 +343,13 @@ export const routeMetadata: readonly RouteMetadata[] = routes.map(({ method, pat
 export default {
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(runRetention(serviceSupabase(env), env));
+    ctx.waitUntil(cleanupTemporary(serviceSupabase(env)).catch(() => { console.error("temporary_cleanup_unavailable"); }));
   },
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
       validateWorkerSecrets(env);
+
+      if (/^\/api\/(?:guest\/|teacher\/temporary(?:\/|$))/.test(new URL(request.url).pathname)) return await temporaryHttp(request,env);
 
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: corsHeaders(request, env) });
@@ -386,6 +391,13 @@ function withStudent(handler: AuthenticatedHandler): Handler {
 function withTeacher(handler: AuthenticatedHandler): Handler {
   return async (request, env, match) => {
     const auth = requireTeacherAuthSession(await requireUser(request, env));
+    const path=new URL(request.url).pathname;
+    if (!path.endsWith("/setup")) {
+      const db=serviceSupabase(env);
+      if (env.TEACHER_ADMISSION_ENFORCED === "true" || path === "/api/teacher/me") await admitTeacher(db,auth);
+      const {data,error}=await db.rpc("teacher_admitted",{p_user:auth.userId});
+      if(error||data!==true)throw new HttpError(error?503:403,"Teacher access is unavailable");
+    }
     return handler(request, env, match, auth);
   };
 }

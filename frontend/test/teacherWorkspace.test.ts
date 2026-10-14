@@ -4,6 +4,7 @@ import { resolveTeacherSelectedCourseId } from "../src/pages/teacher/TeacherWork
 
 describe("teacher workspace routing", () => {
   it("keeps known deep links after auth", () => {
+    expect(resolvePostAuthTeacherPath("/teacher/temporary")).toBe("/teacher/temporary");
     expect(resolvePostAuthTeacherPath("/teacher")).toBe("/teacher");
     expect(resolvePostAuthTeacherPath("/teacher/assessments")).toBe("/teacher/assessments");
     expect(resolvePostAuthTeacherPath("/teacher/assignments")).toBe("/teacher/assignments");

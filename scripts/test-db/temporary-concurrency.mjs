@@ -38,7 +38,7 @@ export async function runTemporaryConcurrency(url) {
     );
     const source = (
       await pool.query(
-        "insert into assessments(id,type,title,prompt,created_by) values($1,'simulation','Concurrency fixture','Explain',$2) returning updated_at",
+        "insert into assessments(id,type,title,prompt,created_by) values($1,'simulation','Concurrency fixture','Explain',$2) returning updated_at::text as updated_at",
         [assessment, teacher],
       )
     ).rows[0];
@@ -46,7 +46,7 @@ export async function runTemporaryConcurrency(url) {
       assessmentId: assessment,
       hours: 72,
       closesAt: new Date(Date.now() + 86400000).toISOString(),
-      sourceUpdatedAt: source.updated_at.toISOString(),
+      sourceUpdatedAt: source.updated_at,
       key: randomUUID(),
     };
     const published = await Promise.all(

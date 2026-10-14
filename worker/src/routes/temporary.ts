@@ -117,8 +117,11 @@ export async function temporaryHttp(
       if (path === "/api/guest/work" && request.method === "GET")
         return send({ ...(await guestState(db, hash, publicId)), csrf });
       if (path === "/api/guest/work" && request.method === "POST") {
-        if (request.headers.get("X-Explain-CSRF") !== csrf)
-          throw temporaryFailure("ACCESS_REVOKED");
+        const supplied = request.headers.get("X-Explain-CSRF") ?? "";
+        let mismatch = supplied.length ^ csrf.length;
+        for (let i = 0; i < csrf.length; i++)
+          mismatch |= (supplied.charCodeAt(i) || 0) ^ csrf.charCodeAt(i);
+        if (mismatch !== 0) throw temporaryFailure("ACCESS_REVOKED");
         return send(
           await saveGuest(
             db,

@@ -39,6 +39,7 @@ export function TeacherTemporaryPage() {
     >([]),
     [assessmentId, setAssessmentId] = useState(""),
     [hours, setHours] = useState(72),
+    [retentionOptions, setRetentionOptions] = useState([24, 48, 72]),
     [closes, setCloses] = useState(
       new Date(
         Date.now() + 12 * 3600000 - new Date().getTimezoneOffset() * 60000,
@@ -100,10 +101,17 @@ export function TeacherTemporaryPage() {
   }
   useEffect(() => {
     void run(async () => {
-      const c = await temporaryApi<{ owner: boolean }>(
-        "/api/teacher/temporary/capabilities",
-      );
+      const c = await temporaryApi<{
+        owner: boolean;
+        retentionHours: number[];
+      }>("/api/teacher/temporary/capabilities");
       setOwner(c.owner);
+      setRetentionOptions(c.retentionHours);
+      setHours((previous) =>
+        c.retentionHours.includes(previous)
+          ? previous
+          : c.retentionHours[c.retentionHours.length - 1],
+      );
       const a = await temporaryApi<{
         assessments: Array<{ id: string; title: string; type: string }>;
       }>("/api/teacher/assessments");
@@ -367,7 +375,7 @@ export function TeacherTemporaryPage() {
               value={hours}
               onChange={(e) => setHours(Number(e.target.value))}
             >
-              {[24, 48, 72].map((n) => (
+              {retentionOptions.map((n) => (
                 <option key={n} value={n}>
                   {n} hours
                 </option>

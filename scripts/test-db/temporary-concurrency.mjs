@@ -131,14 +131,11 @@ export async function runTemporaryConcurrency(url) {
       "update explain_temporary.external_generation_jobs set lease_until=now()-interval '1 minute' where id=$1",
       [old.id],
     );
-    // Release the second client's other work to keep the connection's lease quota bounded.
-    for (const j of batches[1].jobs)
-      await call("release", teacher, sessions[1], {
-        assignmentId: a.id,
-        jobId: j.id,
-        responseId: j.response_id,
-        fence: j.fence,
-      });
+    // Isolate the stale lease case without assuming which concurrent client won FIFO order.
+    await pool.query(
+      "update explain_temporary.external_generation_jobs set status='failed',attempts=3,connection=null,lease_until=null where assignment_id=$1 and id<>$2",
+      [a.id, old.id],
+    );
     const next = await call("claim", teacher, sessions[1], {
       assignmentId: a.id,
       key: randomUUID(),
@@ -155,14 +152,24 @@ export async function runTemporaryConcurrency(url) {
       }),
       /LEASE_EXPIRED/,
     );
-    const locker=await pool.connect();
+    const locker = await pool.connect();
     try {
-      await locker.query('begin');
-      await locker.query("update explain_temporary.temporary_assignments set published_at=clock_timestamp()-interval '2 hours',closes_at=clock_timestamp()-interval '1 hour',expires_at=clock_timestamp()+interval '300 milliseconds' where id=$1",[a.id]);
-      const late=call('evidence',teacher,sessions[0],{assignmentId:a.id,responseId:old.response_id});
-      const denied=assert.rejects(late,/ASSIGNMENT_EXPIRED/);
-      await delay(700);await locker.query('commit');await denied;
-    } finally {locker.release();}
+      await locker.query("begin");
+      await locker.query(
+        "update explain_temporary.temporary_assignments set published_at=clock_timestamp()-interval '2 hours',closes_at=clock_timestamp()-interval '1 hour',expires_at=clock_timestamp()+interval '300 milliseconds' where id=$1",
+        [a.id],
+      );
+      const late = call("evidence", teacher, sessions[0], {
+        assignmentId: a.id,
+        responseId: old.response_id,
+      });
+      const denied = assert.rejects(late, /ASSIGNMENT_EXPIRED/);
+      await delay(700);
+      await locker.query("commit");
+      await denied;
+    } finally {
+      locker.release();
+    }
     console.log(
       "PASS native temporary 30-way submissions, duplicate retries, parallel claims and stale reservation fencing",
     );

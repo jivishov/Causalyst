@@ -12,6 +12,7 @@ import {
   downloadEvidence,
   escapeHtml,
 } from "../../lib/temporaryReports";
+import { temporaryExportParticipants } from "../../lib/temporaryNavigation";
 import "../../temporary.css";
 
 interface Detail {
@@ -51,7 +52,9 @@ export function TeacherTemporaryPage() {
     [links, setLinks] = useState<
       Array<{ id: string; code: string; url: string }>
     >([]),
-    [selected, setSelected] = useState<string[]>([]),
+    [selected, setSelected] = useState<string[]>(() =>
+      temporaryExportParticipants(params),
+    ),
     [earlier, setEarlier] = useState(params.get("earlier") === "1"),
     [includeDrafts, setIncludeDrafts] = useState(false),
     [labels, setLabels] = useState(""),

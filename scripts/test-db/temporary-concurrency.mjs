@@ -1,6 +1,7 @@
 import pg from "pg";
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
+import { setTimeout as delay } from "node:timers/promises";
 
 /** Native PostgreSQL only; this function is called by the disposable DB runner. */
 export async function runTemporaryConcurrency(url) {
@@ -154,6 +155,14 @@ export async function runTemporaryConcurrency(url) {
       }),
       /LEASE_EXPIRED/,
     );
+    const locker=await pool.connect();
+    try {
+      await locker.query('begin');
+      await locker.query("update explain_temporary.temporary_assignments set published_at=clock_timestamp()-interval '2 hours',closes_at=clock_timestamp()-interval '1 hour',expires_at=clock_timestamp()+interval '300 milliseconds' where id=$1",[a.id]);
+      const late=call('evidence',teacher,sessions[0],{assignmentId:a.id,responseId:old.response_id});
+      const denied=assert.rejects(late,/ASSIGNMENT_EXPIRED/);
+      await delay(700);await locker.query('commit');await denied;
+    } finally {locker.release();}
     console.log(
       "PASS native temporary 30-way submissions, duplicate retries, parallel claims and stale reservation fencing",
     );

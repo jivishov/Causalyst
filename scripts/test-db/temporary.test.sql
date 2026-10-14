@@ -54,6 +54,10 @@ begin
  b:=temporary_command('submit',null,repeat('d',64),jsonb_build_object('key',submitkey,'expectedVersion',0));
  if b->>'id'<>r->>'id' then raise exception 'Submit retry duplicated evidence'; end if;
  jobs:=temporary_command('claim',owner_id,'a1000000-0000-4000-8000-000000000001',jsonb_build_object('assignmentId',aid,'key',gen_random_uuid(),'limit',1));j:=jobs->'jobs'->0;
+ update external_generation_jobs set lease_until=clock_timestamp()-interval '1 minute' where id=(j->>'id')::uuid;
+ b:=temporary_command('guest',null,repeat('d',64),'{}');
+ if b->'job'->>'status'<>'queued' then raise exception 'An expired lease still claimed to be processing'; end if;
+ update external_generation_jobs set lease_until=(j->>'lease_until')::timestamptz where id=(j->>'id')::uuid;
  b:=temporary_command('claim',owner_id,'a1000000-0000-4000-8000-000000000005',jsonb_build_object('assignmentId',aid,'key',gen_random_uuid(),'limit',1));
  if jsonb_array_length(b->'jobs')<>0 then raise exception 'Two clients claimed one reservation'; end if;
  perform pg_temp.check_error(format('select temporary_command(''renew'',%L,%L,%L)',owner_id,'a1000000-0000-4000-8000-000000000005',jsonb_build_object('assignmentId',aid,'responseId',rid,'jobId',j->>'id','fence',j->>'fence')),'LEASE_EXPIRED');

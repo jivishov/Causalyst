@@ -166,7 +166,7 @@ begin
   select * into r from response_revisions where participant_id=p.id order by revision desc limit 1;
   select * into j from external_generation_jobs where response_id=r.id;
   return jsonb_build_object('assignment',to_jsonb(a),'participant',jsonb_build_object('id',p.id,'code',p.code,'draft_id',p.draft_id,'draft_version',p.draft_version),
-   'response',to_jsonb(r),'job',to_jsonb(j));
+   'response',to_jsonb(r),'job',to_jsonb(j)||jsonb_build_object('status',case when j.status='processing' and (j.lease_until is null or j.lease_until<=clock_timestamp()) then case when j.attempts>=3 then 'failed' else 'queued' end else j.status end));
  end if;
  if p_actor is null and p_op in ('draft','submit') then
   if a.closes_at<=clock_timestamp() then raise exception 'ASSIGNMENT_CLOSED'; end if;
@@ -208,13 +208,13 @@ begin
  if p_op='retry' then
   if not s.processing_enabled then raise exception 'ACCESS_REVOKED'; end if;
   update external_generation_jobs set status='queued',attempts=0,generation_version=generation_version+1,fence=fence+1,connection=null,run_key=null,lease_until=null
-   where assignment_id=a.id and response_id=(p_input->>'responseId')::uuid and status='failed' and generation_version<3;
+   where assignment_id=a.id and response_id=(p_input->>'responseId')::uuid and (status='failed' or (status='processing' and lease_until<=clock_timestamp() and attempts>=3)) and generation_version<3;
   if not found then raise exception 'REVISION_CONFLICT'; end if;
   return jsonb_build_object('queued',true);
  end if;
  if p_op='detail' then
   return jsonb_build_object('assignment',to_jsonb(a),'participants',coalesce((select jsonb_agg(jsonb_build_object('id',id,'code',code,'hasDraft',draft_id is not null,'draftVersion',draft_version)) from guest_participants where assignment_id=a.id),'[]'::jsonb),
-  'revisions',coalesce((select jsonb_agg(jsonb_build_object('id',rr.id,'participantId',rr.participant_id,'code',gp.code,'revision',rr.revision,'submittedAt',rr.submitted_at,'status',jj.status,'artifactId',jj.artifact_id,
+  'revisions',coalesce((select jsonb_agg(jsonb_build_object('id',rr.id,'participantId',rr.participant_id,'code',gp.code,'revision',rr.revision,'submittedAt',rr.submitted_at,'status',case when jj.status='processing' and (jj.lease_until is null or jj.lease_until<=clock_timestamp()) then case when jj.attempts>=3 then 'failed' else 'queued' end else jj.status end,'artifactId',jj.artifact_id,
    'gradeId',(select gg.id from temporary_grade_revisions gg where gg.response_id=rr.id order by revision desc limit 1),'gradeVersion',(select count(*) from temporary_grade_revisions gg where gg.response_id=rr.id))) from response_revisions rr join guest_participants gp on gp.id=rr.participant_id join external_generation_jobs jj on jj.response_id=rr.id where rr.assignment_id=a.id),'[]'::jsonb));
  end if;
  if p_op='claim' then
@@ -273,7 +273,7 @@ begin
    if p_input ? 'gradeId' then select * into g from temporary_grade_revisions where id=nullif(p_input->>'gradeId','')::uuid and response_id=r.id;
    else select * into g from temporary_grade_revisions where response_id=r.id order by revision desc limit 1; end if;
    if nullif(p_input->>'gradeId','') is not null and g.id is null then raise exception 'NOT_FOUND'; end if;
-   return jsonb_build_object('assignment',to_jsonb(a),'response',to_jsonb(r),'job',to_jsonb(j),'grade',to_jsonb(g),'code',p.code);
+   return jsonb_build_object('assignment',to_jsonb(a),'response',to_jsonb(r),'job',to_jsonb(j)||jsonb_build_object('status',case when j.status='processing' and (j.lease_until is null or j.lease_until<=clock_timestamp()) then case when j.attempts>=3 then 'failed' else 'queued' end else j.status end),'grade',to_jsonb(g),'code',p.code);
   end if;
  end if;
  raise exception 'VALIDATION_FAILED';

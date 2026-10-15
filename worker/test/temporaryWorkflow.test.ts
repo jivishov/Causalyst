@@ -424,6 +424,11 @@ describe("synthetic student-to-MCP-to-evidence path", () => {
       submit: true,
     };
     const saved = await saveGuest(db, session, submission, a.publicId);
+    expect(Object.keys(saved).sort()).toEqual([
+      "id",
+      "revision",
+      "submittedAt",
+    ]);
     const count = objects.size;
     // A lost reply can be retried immediately at the rate/quota boundary.
     await pg.query(

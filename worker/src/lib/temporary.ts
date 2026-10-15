@@ -425,7 +425,7 @@ export async function saveGuest(
     submit: boolean;
   },
   publicId?: string,
-) {
+): Promise<Row> {
   if (
     new TextEncoder().encode(input.text).byteLength >
       TEMPORARY_LIMITS.responseBytes ||
@@ -442,7 +442,7 @@ export async function saveGuest(
     ),
     a = object(state.assignment);
   if (input.submit && str(object(state.response), "id"))
-    return object(state.response);
+    return savedSubmission(object(state.response));
   const o = await stage(
     db,
     null,
@@ -474,13 +474,29 @@ export async function saveGuest(
     });
     contextId = str(c, "id");
   }
-  return command(db, input.submit ? "submit" : "draft", null, sessionHash, {
-    expectedVersion: input.expectedVersion,
-    key: input.key,
-    identity,
-    objectId: str(o, "id"),
-    contextId,
-  });
+  const saved = await command(
+    db,
+    input.submit ? "submit" : "draft",
+    null,
+    sessionHash,
+    {
+      expectedVersion: input.expectedVersion,
+      key: input.key,
+      identity,
+      objectId: str(o, "id"),
+      contextId,
+    },
+  );
+  return input.submit
+    ? savedSubmission(saved)
+    : { version: num(saved, "version") };
+}
+function savedSubmission(r: Row): Row {
+  return {
+    id: str(r, "id"),
+    revision: num(r, "revision"),
+    submittedAt: str(r, "submitted_at"),
+  };
 }
 export async function claim(
   db: AppDatabaseClient,

@@ -126,4 +126,26 @@ describe("guest HTTP trust boundary", () => {
       retryable: true,
     });
   });
+  it("rejects pinned reads when another private link replaces the browser cookie", async () => {
+    const path = `/api/guest/work?publicId=${publicId}`;
+    const previousSession = await digest(`${cookie}:csrf`);
+    const response = await temporaryHttp(
+      req(path, undefined, {
+        Cookie: `__Host-explain-guest=${"c".repeat(64)}`,
+        "X-Explain-CSRF": previousSession,
+      }),
+      env,
+    );
+    expect(response.status).toBe(403);
+    expect(guestState).not.toHaveBeenCalled();
+    const accepted = await temporaryHttp(
+      req(path, undefined, {
+        Cookie: `__Host-explain-guest=${cookie}`,
+        "X-Explain-CSRF": previousSession,
+      }),
+      env,
+    );
+    expect(accepted.status).toBe(200);
+    expect(guestState).toHaveBeenCalledTimes(1);
+  });
 });

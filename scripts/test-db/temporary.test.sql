@@ -35,8 +35,9 @@ declare a jsonb; b jsonb; q jsonb; c jsonb; o jsonb; ctx jsonb; r jsonb; jobs js
 begin
  a:=temporary_command('publish',owner_id,'a1000000-0000-4000-8000-000000000001',jsonb_build_object('assessmentId','a2000000-0000-4000-8000-000000000001','hours',72,'closesAt',now()+interval '24 hours','key',pubkey,'sourceUpdatedAt',(select updated_at from assessments where id='a2000000-0000-4000-8000-000000000001')));
  aid:=(a->>'id')::uuid;
- b:=temporary_command('publish',owner_id,'a1000000-0000-4000-8000-000000000001',jsonb_build_object('assessmentId','a2000000-0000-4000-8000-000000000001','hours',72,'closesAt',now()+interval '24 hours','key',pubkey));
+ b:=temporary_command('publish',owner_id,'a1000000-0000-4000-8000-000000000001',jsonb_build_object('assessmentId','a2000000-0000-4000-8000-000000000001','hours',72,'closesAt',now()+interval '24 hours','key',pubkey,'sourceUpdatedAt',a->>'source_updated_at'));
  if b->>'id'<>a->>'id' then raise exception 'Publish retry duplicated activity'; end if;
+ perform pg_temp.check_error(format('select temporary_command(''publish'',%L,%L,%L)',owner_id,owner_id,jsonb_build_object('assessmentId',a->>'assessment_id','hours',72,'closesAt',a->>'closes_at','key',pubkey,'sourceUpdatedAt',(a->>'source_updated_at')::timestamptz+interval '1 second')),'REVISION_CONFLICT');
  perform pg_temp.check_error(format('select temporary_command(''detail'',%L,%L,%L)',colleague,colleague,jsonb_build_object('assignmentId',aid)),'NOT_FOUND');
  q:=temporary_command('stage',owner_id,'a1000000-0000-4000-8000-000000000001',jsonb_build_object('assignmentId',aid,'kind','question','bytes',100,'digest',repeat('a',64)));
  c:=temporary_command('stage',owner_id,'a1000000-0000-4000-8000-000000000001',jsonb_build_object('assignmentId',aid,'kind','context','bytes',100,'digest',repeat('a',64)));
@@ -50,9 +51,10 @@ begin
  ctx:=temporary_command('stage',null,repeat('d',64),jsonb_build_object('kind','context','bytes',100,'digest',repeat('a',64)));
  -- A second participant cannot attach the first participant's staged text.
  perform pg_temp.check_error(format('select temporary_command(''submit'',null,%L,%L)',repeat('e',64),jsonb_build_object('objectId',o->>'id','contextId',ctx->>'id','key',gen_random_uuid(),'expectedVersion',0)),'VALIDATION_FAILED');
- r:=temporary_command('submit',null,repeat('d',64),jsonb_build_object('objectId',o->>'id','contextId',ctx->>'id','key',submitkey,'expectedVersion',0));rid:=(r->>'id')::uuid;
- b:=temporary_command('submit',null,repeat('d',64),jsonb_build_object('key',submitkey,'expectedVersion',0));
+ r:=temporary_command('submit',null,repeat('d',64),jsonb_build_object('objectId',o->>'id','contextId',ctx->>'id','key',submitkey,'expectedVersion',0,'identity',repeat('a',64)));rid:=(r->>'id')::uuid;
+ b:=temporary_command('submit',null,repeat('d',64),jsonb_build_object('key',submitkey,'expectedVersion',0,'identity',repeat('a',64)));
  if b->>'id'<>r->>'id' then raise exception 'Submit retry duplicated evidence'; end if;
+ perform pg_temp.check_error(format('select temporary_command(''submit_status'',null,%L,%L)',repeat('d',64),jsonb_build_object('key',submitkey,'identity',repeat('b',64))),'REVISION_CONFLICT');
  jobs:=temporary_command('claim',owner_id,'a1000000-0000-4000-8000-000000000001',jsonb_build_object('assignmentId',aid,'key',gen_random_uuid(),'limit',1));j:=jobs->'jobs'->0;
  update external_generation_jobs set lease_until=clock_timestamp()-interval '1 minute' where id=(j->>'id')::uuid;
  b:=temporary_command('guest',null,repeat('d',64),'{}');
@@ -70,6 +72,10 @@ begin
  update temporary_assignments set published_at=now()-interval '2 hours',closes_at=now()-interval '1 hour' where id=aid;
  perform temporary_command('evidence',owner_id,'a1000000-0000-4000-8000-000000000001',jsonb_build_object('assignmentId',aid,'responseId',rid));
  perform pg_temp.check_error(format('select temporary_command(''draft'',null,%L,%L)',repeat('d',64),jsonb_build_object('expectedVersion',1)),'ASSIGNMENT_CLOSED');
+ b:=temporary_command('submit_status',null,repeat('d',64),jsonb_build_object('key',submitkey,'identity',repeat('a',64)));
+ if b->'response'->>'id'<>rid::text then raise exception 'Closing blocked recovery of an accepted submission'; end if;
+ b:=temporary_command('submit',null,repeat('d',64),jsonb_build_object('key',submitkey,'identity',repeat('a',64)));
+ if b->>'id'<>rid::text then raise exception 'Commit retry failed after closing'; end if;
  -- Reissue invalidates old cookies without touching submitted work.
  perform temporary_command('reissue',owner_id,'a1000000-0000-4000-8000-000000000001',jsonb_build_object('assignmentId',aid,'participantId',pid,'tokenHash',repeat('f',64)));
  perform pg_temp.check_error(format('select temporary_command(''guest'',null,%L,''{}'')',repeat('d',64)),'ACCESS_REVOKED');
@@ -88,6 +94,25 @@ begin
  end loop;
  perform temporary_command('cleanup_finish',null,null,'{}');
  if exists(select 1 from temporary_assignments where id=aid) then raise exception 'Expired metadata retained after successful cleanup'; end if;
+end $$;
+-- Owner emergency revocation does not weaken ordinary evidence ownership.
+do $$ declare resource uuid:=gen_random_uuid(); a jsonb; q jsonb; c jsonb;
+ owner_id uuid:='a1000000-0000-4000-8000-000000000001'; colleague uuid:='a1000000-0000-4000-8000-000000000002';
+begin
+ insert into assessments(id,type,title,prompt,created_by) values(resource,'simulation','Synthetic colleague activity','Explain.',colleague);
+ a:=temporary_command('publish',colleague,colleague::text,jsonb_build_object('assessmentId',resource,'hours',24,'closesAt',now()+interval '1 hour','key',gen_random_uuid(),'sourceUpdatedAt',(select updated_at from assessments where id=resource)));
+ q:=temporary_command('stage',colleague,colleague::text,jsonb_build_object('assignmentId',a->>'id','kind','question','bytes',100,'digest',repeat('a',64)));
+ c:=temporary_command('stage',colleague,colleague::text,jsonb_build_object('assignmentId',a->>'id','kind','context','bytes',100,'digest',repeat('a',64)));
+ perform temporary_command('publish_commit',colleague,colleague::text,jsonb_build_object('assignmentId',a->>'id','questionId',q->>'id','contextId',c->>'id'));
+ perform pg_temp.check_error(format('select temporary_command(''detail'',%L,%L,%L)',owner_id,owner_id,jsonb_build_object('assignmentId',a->>'id')),'NOT_FOUND');
+ perform pg_temp.check_error(format('select temporary_command(''admin_revoke'',%L,%L,%L)',colleague,colleague,jsonb_build_object('assignmentId',a->>'id')),'ACCESS_REVOKED');
+ perform temporary_command('admin_invite',owner_id,owner_id::text,'{"email":"colleague@example.test","active":false}');
+ q:=temporary_command('admin_list',owner_id,owner_id::text,'{}');
+ if not q->'activities' @> jsonb_build_array(jsonb_build_object('id',a->>'id')) then raise exception 'Owner could not find disabled teacher activity'; end if;
+ perform temporary_command('admin_revoke',owner_id,owner_id::text,jsonb_build_object('assignmentId',a->>'id'));
+ if not (select revoked from temporary_assignments where id=(a->>'id')::uuid) then raise exception 'Owner emergency revocation failed'; end if;
+ q:=temporary_command('cleanup_list',null,null,'{}');
+ if not q->'objects' @> jsonb_build_array(jsonb_build_object('id',c->>'id')) then raise exception 'Emergency revocation did not schedule cleanup'; end if;
 end $$;
 select temporary_command('admin_invite','a1000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','{"email":"colleague@example.test","active":false}');
 select pg_temp.check_error($q$select temporary_command('capabilities','a1000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000002','{}')$q$,'ACCESS_REVOKED');

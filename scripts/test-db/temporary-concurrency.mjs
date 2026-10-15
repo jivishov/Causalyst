@@ -93,6 +93,7 @@ export async function runTemporaryConcurrency(url) {
           ctx = await stage("context", session, null);
         const submit = {
           objectId: response.id,
+          identity: response.digest,
           contextId: ctx.id,
           key: randomUUID(),
           expectedVersion: 0,

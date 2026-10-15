@@ -73,7 +73,7 @@ create table explain_temporary.external_generation_jobs (
 );
 create table explain_temporary.temporary_grade_revisions (
  id uuid primary key default gen_random_uuid(), assignment_id uuid not null, participant_id uuid not null, response_id uuid not null,
- artifact_id uuid, object_id uuid not null, grade_key uuid not null, revision integer not null, created_at timestamptz not null default now(),
+ artifact_id uuid, object_id uuid not null, grade_key uuid not null, request_digest text not null check(request_digest ~ '^[a-f0-9]{64}$'), revision integer not null, created_at timestamptz not null default now(),
  foreign key(assignment_id,participant_id,response_id) references explain_temporary.response_revisions(assignment_id,participant_id,id) on delete cascade,
  foreign key(assignment_id,artifact_id) references explain_temporary.temporary_objects(assignment_id,id),
  foreign key(assignment_id,object_id) references explain_temporary.temporary_objects(assignment_id,id),

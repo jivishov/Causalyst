@@ -12,7 +12,9 @@ import {
   saveGuest,
   evidence,
   cleanupTemporary,
+  publishTemporary,
 } from "../src/lib/temporary";
+import * as simulationRuntime from "../src/lib/temporarySimulation";
 import type { AuthContext } from "../src/lib/auth";
 import type { Env } from "../src/lib/env";
 vi.mock("../src/routes/teacherAssessments", () => ({
@@ -291,22 +293,73 @@ describe("synthetic student-to-MCP-to-evidence path", () => {
         arguments: commit,
       });
       expect(again.structuredContent).toEqual(saved.structuredContent);
+      const transform = vi
+        .spyOn(simulationRuntime, "prepareTemporarySimulationHtml")
+        .mockImplementation(() => {
+          throw new Error("A later runtime must not change accepted evidence");
+        });
+      try {
+        const replay = await client.callTool({
+          name: "save_simulation_result",
+          arguments: commit,
+        });
+        expect(replay.structuredContent).toEqual(saved.structuredContent);
+        const changed = await client.callTool({
+          name: "save_simulation_result",
+          arguments: { ...commit, html: source + "<!-- changed -->" },
+        });
+        expect(changed.structuredContent).toMatchObject({
+          code: "REVISION_CONFLICT",
+        });
+        expect(transform).not.toHaveBeenCalled();
+      } finally {
+        transform.mockRestore();
+      }
+      const gradeInput = {
+        assignmentId: a.id,
+        responseId: input.responseId,
+        artifactId: z
+          .object({ artifactId: z.string() })
+          .parse(saved.structuredContent).artifactId,
+        score: 82,
+        comment: "Teacher approved synthetic grade",
+        expectedGradeVersion: 0,
+        key: crypto.randomUUID(),
+        approved: true,
+      };
       const grade = await client.callTool({
         name: "save_temporary_grade",
-        arguments: {
-          assignmentId: a.id,
-          responseId: input.responseId,
-          artifactId: z
-            .object({ artifactId: z.string() })
-            .parse(saved.structuredContent).artifactId,
-          score: 82,
-          comment: "Teacher approved synthetic grade",
-          expectedGradeVersion: 0,
-          key: crypto.randomUUID(),
-          approved: true,
-        },
+        arguments: gradeInput,
       });
       expect(grade.isError).not.toBe(true);
+      const objectCount = objects.size;
+      await pg.query(
+        "update explain_temporary.temporary_assignments set used_bytes=(select max_bytes from explain_temporary.temporary_settings) where id=$1",
+        [a.id],
+      );
+      const gradeReplay = await client.callTool({
+        name: "save_temporary_grade",
+        arguments: gradeInput,
+      });
+      expect(gradeReplay.structuredContent).toEqual(grade.structuredContent);
+      expect(objects.size).toBe(objectCount);
+      const changedGrade = await client.callTool({
+        name: "save_temporary_grade",
+        arguments: { ...gradeInput, score: 99 },
+      });
+      expect(changedGrade.structuredContent).toMatchObject({
+        code: "REVISION_CONFLICT",
+      });
+      const invalidSelection = await client.callTool({
+        name: "prepare_evidence_export",
+        arguments: {
+          assignmentId: a.id,
+          participantIds: [crypto.randomUUID()],
+        },
+      });
+      expect(invalidSelection.structuredContent).toMatchObject({
+        code: "NOT_FOUND",
+      });
       const report = await evidence(db, auth, {
         assignmentId: a.id,
         responseId: input.responseId,
@@ -333,5 +386,96 @@ describe("synthetic student-to-MCP-to-evidence path", () => {
       await client.close();
       await server.close();
     }
+  }, 30000);
+  it("recovers accepted publication and submission replies without uploading again, while respecting revocation and expiry", async () => {
+    const publication = {
+      assessmentId,
+      hours: 72 as const,
+      closesAt: new Date(Date.now() + 86400000).toISOString(),
+      key: crypto.randomUUID(),
+    };
+    const a = await publishTemporary(db, auth, publication);
+    vi.mocked(listTeacherAssessments).mockClear();
+    const objectsBefore = objects.size;
+    await pg.exec(
+      "update explain_temporary.temporary_settings set enabled=false",
+    );
+    expect(await publishTemporary(db, auth, publication)).toEqual(a);
+    expect(listTeacherAssessments).not.toHaveBeenCalled();
+    expect(objects.size).toBe(objectsBefore);
+    await expect(
+      publishTemporary(db, auth, { ...publication, hours: 24 }),
+    ).rejects.toMatchObject({ code: "REVISION_CONFLICT" });
+    await pg.exec(
+      "update explain_temporary.temporary_settings set enabled=true",
+    );
+    const link = (await distribute(db, auth, a.id, 1, "https://explain.test"))
+      .links[0];
+    const session = await digest(crypto.randomUUID());
+    await command(db, "exchange", null, null, {
+      publicId: a.publicId,
+      tokenHash: await digest(new URL(link.url).hash.slice(1)),
+      sessionHash: session,
+    });
+    const submission = {
+      text: "Əlaqə: təzyiq ↑\n日本語 😀 e\u0301",
+      expectedVersion: 0,
+      key: crypto.randomUUID(),
+      submit: true,
+    };
+    const saved = await saveGuest(db, session, submission, a.publicId);
+    const count = objects.size;
+    // A lost reply can be retried immediately at the rate/quota boundary.
+    await pg.query(
+      "update explain_temporary.temporary_assignments set used_bytes=(select max_bytes from explain_temporary.temporary_settings) where id=$1",
+      [a.id],
+    );
+    expect(await saveGuest(db, session, submission, a.publicId)).toEqual(saved);
+    await pg.query(
+      "update explain_temporary.temporary_assignments set published_at=now()-interval '2 hours',closes_at=now()-interval '1 hour' where id=$1",
+      [a.id],
+    );
+    expect(await saveGuest(db, session, submission, a.publicId)).toEqual(saved);
+    expect(objects.size).toBe(count);
+    await expect(
+      saveGuest(
+        db,
+        session,
+        { ...submission, text: "Different evidence" },
+        a.publicId,
+      ),
+    ).rejects.toMatchObject({ code: "REVISION_CONFLICT" });
+    await expect(
+      saveGuest(
+        db,
+        session,
+        { ...submission, key: crypto.randomUUID() },
+        a.publicId,
+      ),
+    ).rejects.toMatchObject({ code: "ASSIGNMENT_CLOSED" });
+    await expect(
+      saveGuest(db, session, submission, crypto.randomUUID()),
+    ).rejects.toMatchObject({ code: "ACCESS_REVOKED" });
+    const report = await evidence(db, auth, {
+      assignmentId: a.id,
+      responseId: String(saved.id),
+    });
+    expect(report.response).toBe(submission.text);
+    await pg.exec("update explain_temporary.teacher_access set active=false");
+    await expect(publishTemporary(db, auth, publication)).rejects.toMatchObject(
+      { code: "ACCESS_REVOKED" },
+    );
+    await pg.exec("update explain_temporary.teacher_access set active=true");
+    await pg.query(
+      "update explain_temporary.temporary_assignments set published_at=now()-interval '4 days',closes_at=now()-interval '3 days',expires_at=now()-interval '1 day' where id=$1",
+      [a.id],
+    );
+    await expect(
+      saveGuest(db, session, submission, a.publicId),
+    ).rejects.toMatchObject({ code: "ASSIGNMENT_EXPIRED" });
+    await expect(publishTemporary(db, auth, publication)).rejects.toMatchObject(
+      { code: "ASSIGNMENT_EXPIRED" },
+    );
+    await cleanupTemporary(db);
   }, 30000);
 });

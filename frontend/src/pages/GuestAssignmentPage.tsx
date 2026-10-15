@@ -25,11 +25,25 @@ export function GuestAssignmentPage() {
   useEffect(() => {
     boot.current ??= (async () => {
       const token = window.location.hash.slice(1);
+      let exchangedCsrf: string | undefined;
       if (token) {
-        await temporaryApi("/api/guest/exchange", { publicId, token }, true);
+        const exchanged = await temporaryApi<{ csrf: string }>(
+          "/api/guest/exchange",
+          { publicId, token },
+          true,
+        );
+        exchangedCsrf = exchanged.csrf;
         history.replaceState(null, "", window.location.pathname);
       }
-      return temporaryApi<GuestState>(workPath, undefined, true);
+      const next = await temporaryApi<GuestState>(
+        workPath,
+        undefined,
+        true,
+        exchangedCsrf,
+      );
+      if (exchangedCsrf && next.csrf !== exchangedCsrf)
+        throw new TemporaryRequestError("ACCESS_REVOKED");
+      return next;
     })();
     let alive = true;
     boot.current
@@ -68,6 +82,10 @@ export function GuestAssignmentPage() {
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [state?.simulation?.html]);
+  function requireSameSession(next: GuestState) {
+    if (next.csrf !== csrf.current)
+      throw new TemporaryRequestError("ACCESS_REVOKED");
+  }
   async function save(submit = false) {
     if (saving.current || terminal || !state) return;
     saving.current = true;
@@ -87,7 +105,13 @@ export function GuestAssignmentPage() {
         true,
         csrf.current,
       );
-      const next = await temporaryApi<GuestState>(workPath, undefined, true);
+      const next = await temporaryApi<GuestState>(
+        workPath,
+        undefined,
+        true,
+        csrf.current,
+      );
+      requireSameSession(next);
       version.current = next.draftVersion;
       saved.current = sent;
       setState(next);
@@ -111,10 +135,10 @@ export function GuestAssignmentPage() {
           workPath,
           undefined,
           true,
+          csrf.current,
         ).catch(() => null);
-        if (next) {
+        if (next && next.csrf === csrf.current) {
           version.current = next.draftVersion;
-          csrf.current = next.csrf;
         }
       }
       setMessage("Not saved");
@@ -148,10 +172,11 @@ export function GuestAssignmentPage() {
             workPath,
             undefined,
             true,
+            csrf.current,
           );
+          requireSameSession(next);
           if (!stopped) {
             setState(next);
-            csrf.current = next.csrf;
           }
           delay = 8000;
         } catch (e) {
@@ -161,7 +186,9 @@ export function GuestAssignmentPage() {
             ["ASSIGNMENT_EXPIRED", "ACCESS_REVOKED"].includes(e.code)
           ) {
             setTerminal(true);
-            setError("Hosted access has ended. Contact your teacher.");
+            setError(
+              "This private session has ended or changed. Reopen your own link or ask your teacher for help.",
+            );
             return;
           }
         }

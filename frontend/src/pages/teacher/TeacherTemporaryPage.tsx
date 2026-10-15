@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type {
   TemporaryAssignment,
@@ -29,6 +29,11 @@ interface Invitation {
   email: string;
   active: boolean;
   redeemed: boolean;
+}
+interface ManagedActivity {
+  id: string;
+  teacherEmail: string;
+  expiresAt: string;
 }
 export function TeacherTemporaryPage() {
   const [params, setParams] = useSearchParams(),
@@ -67,6 +72,7 @@ export function TeacherTemporaryPage() {
     [owner, setOwner] = useState(false),
     [cleanupFailures, setCleanupFailures] = useState(0),
     [invitations, setInvitations] = useState<Invitation[]>([]),
+    [managedActivities, setManagedActivities] = useState<ManagedActivity[]>([]),
     [inviteEmail, setInviteEmail] = useState(""),
     [settings, setSettings] = useState({
       enabled: false,
@@ -75,6 +81,17 @@ export function TeacherTemporaryPage() {
       maxHours: 72,
     });
   const assignmentId = params.get("assignment");
+  const mutationKeys = useRef(
+    new Map<string, { payload: string; key: string }>(),
+  );
+  function mutationKey(operation: string, input: unknown) {
+    const payload = JSON.stringify(input),
+      previous = mutationKeys.current.get(operation);
+    if (previous?.payload === payload) return previous.key;
+    const key = crypto.randomUUID();
+    mutationKeys.current.set(operation, { payload, key });
+    return key;
+  }
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setMessage("");
@@ -119,6 +136,7 @@ export function TeacherTemporaryPage() {
       if (c.owner) {
         const adm = await temporaryApi<{
           invitations: Invitation[];
+          activities: ManagedActivity[];
           cleanupFailures: number;
           settings: {
             enabled: boolean;
@@ -128,6 +146,7 @@ export function TeacherTemporaryPage() {
           };
         }>("/api/teacher/temporary/admin");
         setInvitations(adm.invitations);
+        setManagedActivities(adm.activities);
         setCleanupFailures(adm.cleanupFailures);
         setSettings({
           enabled: adm.settings.enabled,
@@ -165,7 +184,7 @@ export function TeacherTemporaryPage() {
   async function exportRows(
     participantIds?: string[],
     single = false,
-    onlyResponseId?: string,
+    clickedRevision?: TemporaryRevision,
   ) {
     if (!assignmentId || !detail) return;
     const current = await refresh();
@@ -178,10 +197,11 @@ export function TeacherTemporaryPage() {
         latest.get(r.participantId)!.revision < r.revision
       )
         latest.set(r.participantId, r);
-    let pinned = earlier
-      ? current.revisions.filter((r) => ids.includes(r.participantId))
-      : [...latest.values()].filter((r) => ids.includes(r.participantId));
-    if (onlyResponseId) pinned = pinned.filter((r) => r.id === onlyResponseId);
+    const pinned = clickedRevision
+      ? [{ ...clickedRevision }]
+      : earlier
+        ? current.revisions.filter((r) => ids.includes(r.participantId))
+        : [...latest.values()].filter((r) => ids.includes(r.participantId));
     const localNames = new Map(
       labels.split(/\r?\n/).map((line) => {
         const i = line.indexOf(",");
@@ -194,12 +214,22 @@ export function TeacherTemporaryPage() {
       entries: Array<{ name: string; content: string }> = [],
       manifest: Array<{
         code: string;
+        participantId?: string;
         responseId: string | null;
         artifactId?: string | null;
         gradeId?: string | null;
         status: string;
         error?: string;
       }> = [];
+    for (const id of ids)
+      if (!current.participants.some((p) => p.id === id))
+        manifest.push({
+          code: "Unavailable participant",
+          participantId: id,
+          responseId: null,
+          status: "omitted",
+          error: "The selected participant is unavailable in this assignment.",
+        });
     for (const p of current.participants.filter((p) => ids.includes(p.id)))
       if (
         !pinned.some((r) => r.participantId === p.id) &&
@@ -395,15 +425,19 @@ export function TeacherTemporaryPage() {
             className="temporary-primary"
             onClick={() => {
               void run(async () => {
+                const input = {
+                  assessmentId,
+                  hours,
+                  closesAt: new Date(closes).toISOString(),
+                };
                 const a = await temporaryApi<TemporaryAssignment>(
                   "/api/teacher/temporary",
                   {
-                    assessmentId,
-                    hours,
-                    closesAt: new Date(closes).toISOString(),
-                    key: crypto.randomUUID(),
+                    ...input,
+                    key: mutationKey("publish", input),
                   },
                 );
+                mutationKeys.current.delete("publish");
                 setParams({ assignment: a.id });
               });
             }}
@@ -660,7 +694,7 @@ export function TeacherTemporaryPage() {
                         disabled={busy}
                         onClick={() => {
                           void run(() =>
-                            exportRows([r.participantId], true, r.id),
+                            exportRows([r.participantId], true, { ...r }),
                           );
                         }}
                       >
@@ -711,18 +745,22 @@ export function TeacherTemporaryPage() {
                   disabled={busy}
                   onClick={() => {
                     void run(async () => {
+                      const input = {
+                        responseId: report.revision.id,
+                        artifactId: report.revision.artifactId,
+                        score,
+                        comment,
+                        expectedGradeVersion: gradeVersion,
+                        approved: true,
+                      };
                       await temporaryApi(
                         `/api/teacher/temporary/${assignmentId}/grade`,
                         {
-                          responseId: report.revision.id,
-                          artifactId: report.revision.artifactId,
-                          score,
-                          comment,
-                          expectedGradeVersion: gradeVersion,
-                          key: crypto.randomUUID(),
-                          approved: true,
+                          ...input,
+                          key: mutationKey("grade", { assignmentId, ...input }),
                         },
                       );
+                      mutationKeys.current.delete("grade");
                       await view(report.revision);
                       await refresh();
                       setMessage(
@@ -804,6 +842,49 @@ export function TeacherTemporaryPage() {
               </button>
             </div>
           ))}
+          <details>
+            <summary>Emergency activity revocation</summary>
+            <p>
+              Revoke all hosted access to an activity and start cleanup,
+              including work owned by a disabled teacher. Student evidence stays
+              restricted to its teacher.
+            </p>
+            {managedActivities.map((a) => (
+              <div key={a.id} className="temporary-actions">
+                <span>
+                  {a.teacherEmail} | {a.id} | expires{" "}
+                  {new Date(a.expiresAt).toLocaleString()}
+                </span>
+                <button
+                  disabled={busy}
+                  onClick={() => {
+                    void run(async () => {
+                      await temporaryApi("/api/teacher/temporary/admin", {
+                        operation: "revoke",
+                        assignmentId: a.id,
+                      });
+                      setManagedActivities((previous) =>
+                        previous.filter((p) => p.id !== a.id),
+                      );
+                      setActivities((previous) =>
+                        previous.filter((p) => p.id !== a.id),
+                      );
+                      if (assignmentId === a.id) {
+                        setDetail(null);
+                        setReport(null);
+                        setLinks([]);
+                      }
+                      setMessage(
+                        "Hosted access revoked. Content cleanup is scheduled.",
+                      );
+                    });
+                  }}
+                >
+                  Revoke hosted access and start cleanup
+                </button>
+              </div>
+            ))}
+          </details>
           <details>
             <summary>Temporary mode controls</summary>
             <div className="temporary-actions">

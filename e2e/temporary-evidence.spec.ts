@@ -1,4 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import { pathToFileURL } from "node:url";
 import { buildTemporaryReport } from "../frontend/src/lib/temporaryReports";
 import type { TemporaryReport } from "@alt-assessment/shared";
 const assignment = {
@@ -42,19 +45,24 @@ const report: TemporaryReport = {
 test("downloaded report runs with networking disabled, preserving source and reset", async ({
   page,
   context,
-}) => {
+}, testInfo) => {
   await context.setOffline(true);
   const requests: string[] = [];
   page.on("request", (r) => {
     if (/^https?:/.test(r.url())) requests.push(r.url());
   });
-  await page.setContent(
+  const reportFile = testInfo.outputPath("standalone-report.html");
+  await mkdir(dirname(reportFile), { recursive: true });
+  await writeFile(
+    reportFile,
     buildTemporaryReport(
       report,
       "2026-10-14T13:00:00Z",
       "<script>window.bad=true</script>",
     ),
+    "utf8",
   );
+  await page.goto(pathToFileURL(reportFile).href);
   await expect(page.locator("#response")).toHaveText(report.response);
   await expect(page.locator("#source")).toHaveText(html);
   await page

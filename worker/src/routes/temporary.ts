@@ -114,14 +114,18 @@ export async function temporaryHttp(
       const csrf = await digest(`${cookie}:csrf`),
         hash = await digest(cookie);
       const publicId = uuid.parse(url.searchParams.get("publicId"));
-      if (path === "/api/guest/work" && request.method === "GET")
-        return send({ ...(await guestState(db, hash, publicId)), csrf });
-      if (path === "/api/guest/work" && request.method === "POST") {
+      // Once a tab is open, its session value also pins reads against cookie
+      // replacement by another private link in the same browser.
+      if (request.method === "POST" || request.headers.has("X-Explain-CSRF")) {
         const supplied = request.headers.get("X-Explain-CSRF") ?? "";
         let mismatch = supplied.length ^ csrf.length;
         for (let i = 0; i < csrf.length; i++)
           mismatch |= (supplied.charCodeAt(i) || 0) ^ csrf.charCodeAt(i);
         if (mismatch !== 0) throw temporaryFailure("ACCESS_REVOKED");
+      }
+      if (path === "/api/guest/work" && request.method === "GET")
+        return send({ ...(await guestState(db, hash, publicId)), csrf });
+      if (path === "/api/guest/work" && request.method === "POST") {
         return send(
           await saveGuest(
             db,
@@ -149,6 +153,9 @@ export async function temporaryHttp(
     if (path === "/api/teacher/temporary/admin" && request.method === "POST") {
       const b = z
         .discriminatedUnion("operation", [
+          z
+            .object({ operation: z.literal("revoke"), assignmentId: uuid })
+            .strict(),
           z
             .object({
               operation: z.literal("invite"),

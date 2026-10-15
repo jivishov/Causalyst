@@ -15,13 +15,21 @@ begin
  if p_op like 'admin_%' then
   if not exists(select 1 from application_owner_grants where user_id=p_actor)
     or not exists(select 1 from teacher_access where teacher_id=p_actor and active) then raise exception 'ACCESS_REVOKED'; end if;
-  if p_op='admin_list' then return jsonb_build_object('invitations',coalesce((select jsonb_agg(jsonb_build_object('email',email,'active',active,'redeemed',teacher_id is not null)) from teacher_access),'[]'::jsonb),'settings',jsonb_build_object('enabled',s.enabled,'processing_enabled',s.processing_enabled,'enforce_admission',s.enforce_admission,'max_hours',s.max_hours,'max_participants',s.max_participants,'max_revisions',s.max_revisions,'max_bytes',s.max_bytes,'max_jobs',s.max_jobs),'cleanupFailures',(select count(*) from temporary_objects where failures>=3)+(select count(*) from cleanup_work where failures>=3)); end if;
+  if p_op='admin_list' then return jsonb_build_object('invitations',coalesce((select jsonb_agg(jsonb_build_object('email',email,'active',active,'redeemed',teacher_id is not null)) from teacher_access),'[]'::jsonb),
+   'activities',coalesce((select jsonb_agg(jsonb_build_object('id',ta.id,'teacherEmail',t.email,'expiresAt',ta.expires_at)) from temporary_assignments ta join teacher_access t on t.teacher_id=ta.teacher_id where not ta.revoked and ta.expires_at>clock_timestamp() and ta.snapshot_id is not null),'[]'::jsonb),
+   'settings',jsonb_build_object('enabled',s.enabled,'processing_enabled',s.processing_enabled,'enforce_admission',s.enforce_admission,'max_hours',s.max_hours,'max_participants',s.max_participants,'max_revisions',s.max_revisions,'max_bytes',s.max_bytes,'max_jobs',s.max_jobs),'cleanupFailures',(select count(*) from temporary_objects where failures>=3)+(select count(*) from cleanup_work where failures>=3)); end if;
   if p_op='admin_invite' then
    email_value:=lower(trim(p_input->>'email'));
    if email_value is null or length(email_value)>254 or email_value !~ '^[^ @]+@[^ @]+\.[^ @]+$' then raise exception 'VALIDATION_FAILED'; end if;
    if coalesce((p_input->>'active')::boolean,false)=false and exists(select 1 from teacher_access t join application_owner_grants ow on ow.user_id=t.teacher_id where email=email_value) then raise exception 'ACCESS_REVOKED'; end if;
    insert into teacher_access(email,active,actor_id) values(email_value,(p_input->>'active')::boolean,p_actor)
    on conflict(email) do update set active=excluded.active,actor_id=p_actor,revoked_at=case when excluded.active then null else now() end;
+  elsif p_op='admin_revoke' then
+   -- Explicit owner emergency action, including activities of disabled teachers.
+   -- This does not grant access to their responses, simulations or grades.
+   perform 1 from temporary_assignments where id=(p_input->>'assignmentId')::uuid for update;
+   if not found then raise exception 'NOT_FOUND'; end if;
+   update temporary_assignments set revoked=true where id=(p_input->>'assignmentId')::uuid;
   elsif p_op='admin_settings' then
    if (p_input->>'enabled')::boolean and not (p_input->>'enforceAdmission')::boolean then raise exception 'VALIDATION_FAILED'; end if;
    if (p_input->>'enforceAdmission')::boolean and exists(select 1 from profiles q where role='teacher' and not exists(select 1 from teacher_access t where t.teacher_id=q.id)) then raise exception 'VALIDATION_FAILED'; end if;
@@ -78,14 +86,17 @@ begin
   if p_op='capabilities' then return jsonb_build_object('enabled',s.enabled,'processingEnabled',s.processing_enabled,'maxHours',s.max_hours,'participantLimit',s.max_participants,'revisionLimit',s.max_revisions,'storedByteLimit',s.max_bytes,'activeJobLimit',s.max_jobs,'owner',exists(select 1 from application_owner_grants where user_id=p_actor)); end if;
   if p_op='list' then return jsonb_build_object('assignments',coalesce((select jsonb_agg(to_jsonb(q)) from
     (select id,public_id,assessment_id,published_at,closes_at,expires_at from temporary_assignments where teacher_id=p_actor and snapshot_id is not null and not revoked and expires_at>clock_timestamp() order by published_at desc limit 100) q),'[]'::jsonb)); end if;
-  if p_op='publish' then
-   if not s.enabled then raise exception 'ACCESS_REVOKED'; end if;
+  if p_op in ('publish','publish_status') then
    select * into a from temporary_assignments where teacher_id=p_actor and publish_key=(p_input->>'key')::uuid for update;
    if found then
-    if a.expires_at<=clock_timestamp() then raise exception 'ASSIGNMENT_EXPIRED'; end if;
-    if a.assessment_id<>(p_input->>'assessmentId')::uuid then raise exception 'REVISION_CONFLICT'; end if;
+    if a.expires_at<=clock_timestamp() or a.revoked then raise exception 'ASSIGNMENT_EXPIRED'; end if;
+    if a.assessment_id<>(p_input->>'assessmentId')::uuid or a.closes_at is distinct from (p_input->>'closesAt')::timestamptz
+     or a.expires_at-a.published_at is distinct from make_interval(hours=>(p_input->>'hours')::integer) then raise exception 'REVISION_CONFLICT'; end if;
+    if a.snapshot_id is null and p_op='publish' and a.source_updated_at is distinct from (p_input->>'sourceUpdatedAt')::timestamptz then raise exception 'REVISION_CONFLICT'; end if;
     return to_jsonb(a);
    end if;
+   if p_op='publish_status' then return '{}'::jsonb; end if;
+   if not s.enabled then raise exception 'ACCESS_REVOKED'; end if;
    if (select count(*) from temporary_assignments where teacher_id=p_actor and expires_at>clock_timestamp())>=10 then raise exception 'QUOTA_EXCEEDED'; end if;
    n:=(p_input->>'hours')::integer;
    if n not in (24,48,72) or n>s.max_hours then raise exception 'VALIDATION_FAILED'; end if;
@@ -126,10 +137,10 @@ begin
   return jsonb_build_object('expiresAt',a.expires_at);
  end if;
  if p_op='stage' then
-  n:=(p_input->>'bytes')::integer;
-  if n<1 or n>750000 or a.used_bytes+n>s.max_bytes then raise exception 'QUOTA_EXCEEDED'; end if;
   if p_actor is null then select * into p from guest_participants where id=p.id for update; end if;
   if p_actor is null and (a.closes_at<=clock_timestamp() or p_input->>'kind' not in ('draft','response','context')) then raise exception 'ASSIGNMENT_CLOSED'; end if;
+  n:=(p_input->>'bytes')::integer;
+  if n<1 or n>750000 or a.used_bytes+n>s.max_bytes then raise exception 'QUOTA_EXCEEDED'; end if;
   if p_actor is null and p_input->>'kind'<>'context' and p.last_save_at>now()-interval '1 second' then raise exception 'RATE_LIMITED'; end if;
   insert into temporary_objects(assignment_id,participant_id,kind,bytes,digest,delete_after)
    values(a.id,case when p_actor is null then p.id else null end,p_input->>'kind',n,p_input->>'digest',a.expires_at) returning * into o;
@@ -139,6 +150,7 @@ begin
  end if;
  if p_actor is not null and p_op='publish_commit' then
   if a.snapshot_id is not null then return to_jsonb(a); end if;
+  if not s.enabled then raise exception 'ACCESS_REVOKED'; end if;
   if (select count(*) from temporary_objects where assignment_id=a.id and ((id=(p_input->>'questionId')::uuid and kind='question') or (id=(p_input->>'contextId')::uuid and kind='context')) and not committed and created_at>clock_timestamp()-interval '30 minutes')<>2 then raise exception 'VALIDATION_FAILED'; end if;
   update temporary_objects set committed=true where id in ((p_input->>'questionId')::uuid,(p_input->>'contextId')::uuid);
   update temporary_assignments set snapshot_id=(p_input->>'questionId')::uuid,context_id=(p_input->>'contextId')::uuid where id=a.id returning * into a;
@@ -162,6 +174,13 @@ begin
   return jsonb_build_object('id',p.id,'code',p.code);
  end if;
  if p_actor is not null and p_op='revoke' then update temporary_assignments set revoked=true where id=a.id; return '{}'::jsonb; end if;
+ -- Recovery reads precede staging, rate/quota checks and submission closing.
+ -- Credentials and hosted expiry have already been checked above.
+ if p_actor is null and p_op='submit_status' then
+  select * into r from response_revisions where participant_id=p.id and submit_key=(p_input->>'key')::uuid;
+  if found and not exists(select 1 from temporary_objects where id=r.response_id and digest=p_input->>'identity') then raise exception 'REVISION_CONFLICT'; end if;
+  return jsonb_build_object('assignment',to_jsonb(a),'response',to_jsonb(r));
+ end if;
  if p_op='guest' then
   select * into r from response_revisions where participant_id=p.id order by revision desc limit 1;
   select * into j from external_generation_jobs where response_id=r.id;
@@ -169,16 +188,20 @@ begin
    'response',to_jsonb(r),'job',to_jsonb(j)||jsonb_build_object('status',case when j.status='processing' and (j.lease_until is null or j.lease_until<=clock_timestamp()) then case when j.attempts>=3 then 'failed' else 'queued' end else j.status end));
  end if;
  if p_actor is null and p_op in ('draft','submit') then
-  if a.closes_at<=clock_timestamp() then raise exception 'ASSIGNMENT_CLOSED'; end if;
   select * into p from guest_participants where id=p.id for update;
   if p_op='submit' then
    select * into r from response_revisions where participant_id=p.id and submit_key=(p_input->>'key')::uuid;
-   if found then return to_jsonb(r); end if;
+   if found then
+    if not exists(select 1 from temporary_objects where id=r.response_id and digest=p_input->>'identity') then raise exception 'REVISION_CONFLICT'; end if;
+    return to_jsonb(r);
+   end if;
   end if;
+  if a.closes_at<=clock_timestamp() then raise exception 'ASSIGNMENT_CLOSED'; end if;
   if p.draft_version<>(p_input->>'expectedVersion')::integer then raise exception 'REVISION_CONFLICT'; end if;
   select * into o from temporary_objects where id=(p_input->>'objectId')::uuid and assignment_id=a.id and not committed
    and participant_id=p.id and created_at>clock_timestamp()-interval '30 minutes' and kind=case when p_op='draft' then 'draft' else 'response' end;
   if not found then raise exception 'VALIDATION_FAILED'; end if;
+  if p_op='submit' and o.digest is distinct from p_input->>'identity' then raise exception 'VALIDATION_FAILED'; end if;
   if p_op='draft' then
    update temporary_objects set delete_after=now() where id=p.draft_id;
    update guest_participants set draft_id=o.id,draft_version=draft_version+1 where id=p.id;
@@ -232,7 +255,7 @@ begin
   select jsonb_agg(to_jsonb(claimed)) into result from claimed;
   return jsonb_build_object('jobs',coalesce(result,'[]'::jsonb),'assignment',to_jsonb(a));
  end if;
- if p_op in ('renew','release','result','grade','evidence') then
+ if p_op in ('renew','release','result','grade','grade_status','evidence') then
   select * into r from response_revisions where id=(p_input->>'responseId')::uuid and assignment_id=a.id;
   if not found then raise exception 'NOT_FOUND'; end if;
   select * into j from external_generation_jobs where response_id=r.id for update;
@@ -251,9 +274,13 @@ begin
    update external_generation_jobs set status='ready',artifact_id=o.id,result_digest=p_input->>'identity' where id=j.id;
    return jsonb_build_object('saved',true,'artifactId',o.id);
   end if;
-  if p_op='grade' then
+  if p_op in ('grade','grade_status') then
    select * into g from temporary_grade_revisions where response_id=r.id and grade_key=(p_input->>'key')::uuid;
-   if found then return jsonb_build_object('gradeId',g.id); end if;
+   if found then
+    if g.request_digest is distinct from p_input->>'identity' then raise exception 'REVISION_CONFLICT'; end if;
+    return jsonb_build_object('gradeId',g.id);
+   end if;
+   if p_op='grade_status' then return '{}'::jsonb; end if;
    if j.artifact_id is distinct from nullif(p_input->>'artifactId','')::uuid then raise exception 'REVISION_CONFLICT'; end if;
    select count(*) into n from temporary_grade_revisions where response_id=r.id;
    if n<>coalesce((p_input->>'expectedGradeVersion')::integer,0) then raise exception 'REVISION_CONFLICT'; end if;
@@ -261,8 +288,8 @@ begin
    select * into o from temporary_objects where id=(p_input->>'objectId')::uuid and assignment_id=a.id and kind='grade' and not committed and created_at>clock_timestamp()-interval '30 minutes';
    if not found then raise exception 'VALIDATION_FAILED'; end if;
    update temporary_objects set committed=true where id=o.id;
-   insert into temporary_grade_revisions(assignment_id,participant_id,response_id,artifact_id,object_id,grade_key,revision)
-    values(a.id,r.participant_id,r.id,j.artifact_id,o.id,(p_input->>'key')::uuid,n+1) returning * into g;
+   insert into temporary_grade_revisions(assignment_id,participant_id,response_id,artifact_id,object_id,grade_key,request_digest,revision)
+    values(a.id,r.participant_id,r.id,j.artifact_id,o.id,(p_input->>'key')::uuid,p_input->>'identity',n+1) returning * into g;
    return jsonb_build_object('gradeId',g.id);
   end if;
   if p_op='evidence' then

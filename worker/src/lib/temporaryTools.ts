@@ -17,6 +17,7 @@ import {
   saveGrade,
   saveResult,
   temporaryDetail,
+  temporaryFailure,
   temporarySite,
 } from "./temporary";
 import { HttpError } from "./http";
@@ -172,6 +173,12 @@ export function registerTemporaryTools(
     false,
     async (input) => {
       const detail = await temporaryDetail(db, auth, input.assignmentId);
+      if (
+        input.participantIds?.some(
+          (id) => !detail.participants.some((p) => p.id === id),
+        )
+      )
+        throw temporaryFailure("NOT_FOUND");
       return {
         exportUrl: `${temporarySite(env)}/teacher/temporary?assignment=${input.assignmentId}&export=1${input.participantIds ? `&participants=${input.participantIds.join(",")}` : ""}${input.includeEarlier ? "&earlier=1" : ""}`,
         assignment: detail.assignment,

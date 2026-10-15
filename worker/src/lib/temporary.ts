@@ -253,6 +253,14 @@ export async function publishTemporary(
   auth: AuthContext,
   input: z.infer<typeof publishSchema>,
 ) {
+  const accepted = await command(
+    db,
+    "publish_status",
+    auth.userId,
+    auth.sessionId ?? null,
+    input,
+  );
+  if (str(accepted, "snapshot_id")) return assignment(accepted);
   const source = (
     await listTeacherAssessments(db, auth.userId, false)
   ).assessments.find(
@@ -418,20 +426,23 @@ export async function saveGuest(
   },
   publicId?: string,
 ) {
-  const state = await command(
-      db,
-      "guest",
-      null,
-      sessionHash,
-      publicId ? { publicId } : {},
-    ),
-    a = object(state.assignment);
   if (
     new TextEncoder().encode(input.text).byteLength >
       TEMPORARY_LIMITS.responseBytes ||
     (input.submit && !input.text.trim())
   )
     throw temporaryFailure("VALIDATION_FAILED");
+  const identity = await digest(JSON.stringify({ text: input.text }));
+  const state = await command(
+      db,
+      input.submit ? "submit_status" : "guest",
+      null,
+      sessionHash,
+      { ...(publicId ? { publicId } : {}), key: input.key, identity },
+    ),
+    a = object(state.assignment);
+  if (input.submit && str(object(state.response), "id"))
+    return object(state.response);
   const o = await stage(
     db,
     null,
@@ -466,6 +477,7 @@ export async function saveGuest(
   return command(db, input.submit ? "submit" : "draft", null, sessionHash, {
     expectedVersion: input.expectedVersion,
     key: input.key,
+    identity,
     objectId: str(o, "id"),
     contextId,
   });
@@ -536,8 +548,7 @@ export async function saveResult(
   auth: AuthContext,
   input: z.infer<typeof resultSchema>,
 ) {
-  // Deterministic payload identity excludes the server's creation timestamp.
-  const html = prepareTemporarySimulationHtml(input.html);
+  // Identity follows the submitted source, independent of future runtime transforms.
   const e = await command(
       db,
       "evidence",
@@ -546,13 +557,18 @@ export async function saveResult(
       input,
     ),
     j = object(e.job);
-  const payload = {
-    html,
+  const reported = {
     model: input.model,
     client: input.client,
     assumptions: input.assumptions,
   };
-  const identity = await digest(JSON.stringify(payload));
+  const identity = await digest(
+    JSON.stringify({
+      contract: input.contract,
+      source: input.html,
+      ...reported,
+    }),
+  );
   const commit = {
     assignmentId: input.assignmentId,
     responseId: input.responseId,
@@ -562,13 +578,14 @@ export async function saveResult(
   };
   if (str(j, "status") === "ready")
     return command(db, "result", auth.userId, auth.sessionId ?? null, commit);
+  const html = prepareTemporarySimulationHtml(input.html);
   const o = await stage(
     db,
     auth.userId,
     auth.sessionId ?? null,
     input.assignmentId,
     "simulation",
-    { ...payload, generatedAt: new Date().toISOString() },
+    { html, ...reported, generatedAt: new Date().toISOString() },
   );
   // Identity and stored-byte digest are separate, both kept server-side.
   return command(db, "result", auth.userId, auth.sessionId ?? null, {
@@ -654,6 +671,25 @@ export async function saveGrade(
   },
 ) {
   if (!input.approved) throw temporaryFailure("VALIDATION_FAILED");
+  const identity = await digest(
+    JSON.stringify({
+      artifactId: input.artifactId,
+      score: input.score,
+      comment: input.comment,
+      expectedGradeVersion: input.expectedGradeVersion,
+    }),
+  );
+  const accepted = await command(
+    db,
+    "grade_status",
+    auth.userId,
+    auth.sessionId ?? null,
+    {
+      ...input,
+      identity,
+    },
+  );
+  if (str(accepted, "gradeId")) return accepted;
   const o = await stage(
     db,
     auth.userId,
@@ -668,6 +704,7 @@ export async function saveGrade(
   );
   return command(db, "grade", auth.userId, auth.sessionId ?? null, {
     ...input,
+    identity,
     objectId: str(o, "id"),
   });
 }

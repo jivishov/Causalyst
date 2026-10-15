@@ -8,13 +8,19 @@ Teachers publish an owned simulation assessment for 24, 48 or 72 hours, with a s
 
 The guest route `/s/:publicId` is outside the student authentication gate. Fragment credentials are exchanged for Secure, HttpOnly, host-only SameSite=Strict cookies. Reloads use the cookie. Reissue preserves work and invalidates older credentials and sessions. A code identifies a participant in the teacher's local records; it is not proof of identity. No guest student profile, email, roster or anonymous Supabase account is created.
 
+An open guest tab pins its reads and writes to the session established at load. Opening another participant's private link in the same browser stops the first tab rather than switching its identity or saving its draft to the other participant. Reopen the intended private link to continue.
+
 Drafts are autosaved with optimistic version checks. Submission creates an immutable response revision and a separate `teacher_client` job. Each new response snapshots the effective assessment/default HTML-generation prompt context. Earlier accepted simulations stay attached to their original responses. Teacher prompt defaults are unchanged by this feature. There is no provider inference call or API fallback in this mode.
 
 The connected client claims 1 job by default, at most 3. Reservations last 15 minutes, are capped at assignment expiry and use fencing versions. A client/session can renew or release its own claims. Expired leases display waiting/failed rather than indefinitely claiming active processing. Technical failures allow three attempts per generation version; the teacher can explicitly retry a failed generation up to three versions. There is one accepted artifact per job; retrying an identical successful save returns it. Model/client provenance is explicitly reported or unknown, never inferred from an OAuth client ID.
 
 Grades are immutable versions pinned to the response and optional simulation selected when graded. Saving from MCP requires the teacher's approval; the tools do not publish grades. The teacher UI's save button is the explicit approval action.
 
+Publication, submission and grade retries recover accepted records before reserving more storage. Reused keys with changed payloads conflict. An accepted submission can be recovered after submissions close, while current credentials and hosted expiry still apply. Accepted simulation retries compare the original client source and reported provenance, so a later validator/runtime version cannot rewrite or invalidate the saved result.
+
 The browser assembles HTML reports and selected/all ZIPs without inference. Reports preserve Unicode text, the exact effective simulation bundle, inert source, selected grade evidence and timestamps. Local names stay in tab memory and exported files. Missing latest simulations create labeled response-only reports. Earlier revisions and unsubmitted drafts are explicit options. Selection pins response/artifact/grade IDs before content fetching; omissions make the ZIP partial and are enumerated in its manifest. HTML uses a sandboxed frame and a download attachment, never application-origin execution.
+
+The individual HTML action pins the row the teacher clicked even when a newer response arrives during refresh. Unavailable explicit selections produce manifest omissions; they cannot become a complete empty export. The owner invitation page includes a separate emergency revocation list with activity references, teacher emails and expiry only. It can revoke a disabled colleague's activity without granting the owner access to their student evidence.
 
 ## Code and storage boundaries
 
@@ -55,7 +61,9 @@ Additional meaningful checks:
 - `worker/test/temporaryWorkflow.test.ts`: synthetic 30-participant submission, actual MCP transport round trip, idempotent result commit, grade pinning, digest checks and expiry deletion, with all network calls forbidden.
 - `scripts/test-db/temporary.test.sql`: verified admission, fresh sessions, provision/revoke/isolation, reissue, closed-vs-expired behavior, reservation fencing and persistent cleanup inventory.
 - `frontend/test/temporaryReports.test.ts`: exact response/source fidelity, escaping, missing-simulation labeling, deterministic ZIP structure and safe filenames.
-- `e2e/temporary-evidence.spec.ts`: offline report controls/reset with networking disabled; guest deep-link navigation/reload and responsive layout.
+- `frontend/test/temporaryTeacher.test.tsx` and `temporaryGuest.test.tsx`: clicked-revision export races, partial selections, lost publication replies, owner revocation and guest session replacement.
+- `worker/integration/temporary.test.ts`: the temporary workflow through disposable real PostgREST/private Storage, direct-access denials, and a failed deletion followed by successful cleanup.
+- `e2e/temporary-evidence.spec.ts`: an actual standalone `file://` report opened with networking disabled, preserving controls/reset and source; guest deep-link navigation/reload and responsive layout.
 
 `npm run build:plugins` creates allowlisted portable, native Codex and Claude Code profiles under ignored `dist/plugins/`. Existing native client ID/callback and internal identity remain unchanged. `scripts/build-explain-plugins.py --sync-sources` synchronizes the canonical skill and shared temporary guidance before packaging. It never changes installed host skills or live app registration. Claude Code's local manifest validator can validate the built profile; Claude web/Desktop connectors require their own actual supported setup, not this Code plugin archive.
 

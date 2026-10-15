@@ -43,6 +43,21 @@ jobs:
       - run: npm run build:worker
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
+      - name: Build the isolated staging frontend
+        run: npm run build --workspace frontend
+        env:
+          VITE_BASE_PATH: /
+          VITE_WORKER_URL: https://staging.explain.az
+          VITE_GUEST_API_ORIGIN: https://staging.explain.az
+          VITE_SUPABASE_URL: https://nscgqhsfudbnzfayvrnl.supabase.co
+          # Dry-run fixture only; deployment requires the project's public key.
+          VITE_SUPABASE_ANON_KEY: ci-public-key-not-for-deployment
+      - name: Scan the staging frontend
+        run: npm run security
+      - name: Validate staging assets, routing, bindings and Worker bundle
+        run: npm exec --workspace worker -- wrangler deploy --env staging --dry-run --outdir ../.worker-build/staging
+        env:
+          WRANGLER_SEND_METRICS: "false"
       - name: Save browser previews and failure evidence
         if: always()
         uses: actions/upload-artifact@v4

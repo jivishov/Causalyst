@@ -29,3 +29,42 @@ new_sqlite_classes = ["SimulationGeneration", "SimulationScheduler"]
 
 [triggers]
 crons = ["*/10 * * * *"]
+
+# Isolated pilot; the default Worker remains the live deployment.
+[env.staging]
+name = "explain-staging"
+workers_dev = false
+preview_urls = false
+routes = [{ pattern = "staging.explain.az", custom_domain = true }]
+
+[env.staging.assets]
+directory = "../frontend/dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api", "/api/*", "/mcp", "/mcp/*", "/.well-known/*"]
+
+[env.staging.vars]
+# Keep production security checks on this separate staging service.
+APP_ENV = "production"
+SUPABASE_URL = "https://nscgqhsfudbnzfayvrnl.supabase.co"
+SUPABASE_JWKS_URL = "https://nscgqhsfudbnzfayvrnl.supabase.co/auth/v1/.well-known/jwks.json"
+ALLOWED_ORIGINS = "https://staging.explain.az"
+TEMPORARY_SITE_ORIGIN = "https://staging.explain.az"
+TEMPORARY_API_ORIGIN = "https://staging.explain.az"
+TEACHER_ADMISSION_ENFORCED = "true"
+# Approve staging OAuth clients independently before MCP acceptance.
+TEACHER_PLUGIN_CLIENT_IDS = ""
+
+[[env.staging.durable_objects.bindings]]
+name = "REALTIME_SESSIONS"
+class_name = "RealtimeEvidence"
+
+[[env.staging.durable_objects.bindings]]
+name = "SIMULATION_GENERATIONS"
+class_name = "SimulationGeneration"
+
+[[env.staging.durable_objects.bindings]]
+name = "SIMULATION_SCHEDULER"
+class_name = "SimulationScheduler"
+
+[env.staging.triggers]
+crons = ["*/10 * * * *"]

@@ -117,6 +117,13 @@ export function TeacherTemporaryPage() {
     }
   }
   useEffect(() => {
+    setLinks([]);
+    setReport(null);
+    setDetail(null);
+    setLabels("");
+    setSelected(temporaryExportParticipants(params));
+    setEarlier(params.get("earlier") === "1");
+    setIncludeDrafts(false);
     void run(async () => {
       const c = await temporaryApi<{
         owner: boolean;
@@ -456,6 +463,7 @@ export function TeacherTemporaryPage() {
           Published assignments
           <select
             value={assignmentId ?? ""}
+            disabled={busy}
             onChange={(e) => {
               setLinks([]);
               setReport(null);
@@ -472,7 +480,7 @@ export function TeacherTemporaryPage() {
           </select>
         </label>
       </section>
-      {detail && assignmentId && (
+      {detail && assignmentId && detail.assignment.id === assignmentId && (
         <>
           <section>
             <h2>Distribute private links</h2>
@@ -706,7 +714,7 @@ export function TeacherTemporaryPage() {
               </tbody>
             </table>
           </section>
-          {report && (
+          {report && report.assignment.id === assignmentId && (
             <section>
               <h2>
                 Review {report.revision.code}, revision{" "}

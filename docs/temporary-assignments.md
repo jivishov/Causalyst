@@ -22,6 +22,8 @@ The browser assembles HTML reports and selected/all ZIPs without inference. Repo
 
 The individual HTML action pins the row the teacher clicked even when a newer response arrives during refresh. Unavailable explicit selections produce manifest omissions; they cannot become a complete empty export. The owner invitation page includes a separate emergency revocation list with activity references, teacher emails and expiry only. It can revoke a disabled colleague's activity without granting the owner access to their student evidence.
 
+Changing activities, including after publishing another one, clears earlier distribution links, review state and local names. Evidence from a previous activity is not rendered under the newly selected activity.
+
 ## Code and storage boundaries
 
 - `shared/src/temporary.ts`: versioned public wire contract and conservative defaults.

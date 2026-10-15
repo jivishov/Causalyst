@@ -253,3 +253,79 @@ it("offers the owner a separate emergency revoke action without requesting colle
       .mock.calls.some(([path]) => path.endsWith("/evidence")),
   ).toBe(false);
 });
+it("clears private distribution links and local labels when publication opens another activity", async () => {
+  const api = vi.mocked(temporaryApi).getMockImplementation()!;
+  const next = { ...assignment, id: "10000000-0000-4000-8000-000000000099" };
+  const privateUrl = `https://explain.test/s/${assignment.publicId}#private-one-time-secret`;
+  vi.mocked(temporaryApi).mockImplementation(async (path, body, ...args) => {
+    if (path.endsWith("/participants"))
+      return {
+        links: [{ id: ref.participantId, code: ref.code, url: privateUrl }],
+      } as never;
+    if (path === "/api/teacher/temporary" && body) return next as never;
+    if (path === "/api/teacher/temporary")
+      return { assignments: [assignment, next] } as never;
+    if (path === `/api/teacher/temporary/${next.id}`)
+      return { ...detail(), assignment: next } as never;
+    return api(path, body, ...args);
+  });
+  show();
+  const create = await screen.findByRole("button", {
+    name: "Create private links",
+  });
+  await waitFor(() =>
+    expect((create as HTMLButtonElement).disabled).toBe(false),
+  );
+  fireEvent.click(create);
+  expect(
+    (
+      await screen.findByRole("link", { name: "Open private link" })
+    ).getAttribute("href"),
+  ).toBe(privateUrl);
+  const labels = screen.getByLabelText(
+    "Local participant names",
+  ) as HTMLTextAreaElement;
+  fireEvent.change(labels, { target: { value: "P01-ABCD, Local name" } });
+  fireEvent.click(screen.getByLabelText("Include earlier submitted revisions"));
+  fireEvent.click(
+    screen.getByLabelText("Include unsubmitted drafts (labeled)"),
+  );
+  fireEvent.change(screen.getByLabelText("Simulation assessment"), {
+    target: { value: assignment.assessmentId },
+  });
+  const publish = screen.getByRole("button", {
+    name: "Publish temporary assignment",
+  });
+  await waitFor(() =>
+    expect((publish as HTMLButtonElement).disabled).toBe(false),
+  );
+  fireEvent.click(publish);
+  await waitFor(() =>
+    expect(
+      (screen.getByLabelText("Published assignments") as HTMLSelectElement)
+        .value,
+    ).toBe(next.id),
+  );
+  expect(screen.queryByRole("link", { name: "Open private link" })).toBeNull();
+  expect(
+    (
+      (await screen.findByLabelText(
+        "Local participant names",
+      )) as HTMLTextAreaElement
+    ).value,
+  ).toBe("");
+  expect(
+    (
+      screen.getByLabelText(
+        "Include earlier submitted revisions",
+      ) as HTMLInputElement
+    ).checked,
+  ).toBe(false);
+  expect(
+    (
+      screen.getByLabelText(
+        "Include unsubmitted drafts (labeled)",
+      ) as HTMLInputElement
+    ).checked,
+  ).toBe(false);
+});

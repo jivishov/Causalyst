@@ -1,6 +1,8 @@
 import { lazy, Suspense, type ReactElement } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
+const GuestAssignmentPage = lazy(() => import("./pages/GuestAssignmentPage").then(module=>({default:module.GuestAssignmentPage})));
+const TeacherTemporaryPage = lazy(() => import("./pages/teacher/TeacherTemporaryPage").then(module=>({default:module.TeacherTemporaryPage})));
 const AssessmentPage = lazy(() => import("./pages/AssessmentPage").then((module) => ({ default: module.AssessmentPage })));
 const AttemptResultPage = lazy(() => import("./pages/AttemptResultPage").then((module) => ({ default: module.AttemptResultPage })));
 const Dashboard = lazy(() => import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })));
@@ -38,6 +40,7 @@ const studentProtectedElements: Record<StudentProtectedRouteLabel, ReactElement>
 };
 
 const teacherElements: Record<TeacherChildRouteLabel, ReactElement> = {
+  temporary: <TeacherTemporaryPage />,
   courses: <TeacherCoursesPage />,
   assessments: <TeacherAssessmentsPage />,
   assignments: <TeacherAssignmentsPage />,
@@ -52,6 +55,7 @@ export default function App() {
   return (
     <Suspense fallback={<p className="status-line">Loading…</p>}>
     <Routes>
+      <Route path="/s/:publicId" element={<GuestAssignmentPage />} />
       <Route path="/teacher/reset-password" element={<TeacherPasswordReset />} />
       <Route path="/teacher/*" element={<TeacherWorkspace />}>
         {TEACHER_CHILD_ROUTES.map((route) => (

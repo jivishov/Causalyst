@@ -1,0 +1,204 @@
+.temporary-guest,
+.temporary-teacher {
+  color: #183a50;
+  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+  line-height: 1.55;
+}
+.temporary-guest {
+  max-width: 1440px;
+  margin: auto;
+  padding: 20px 30px;
+}
+.temporary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #c5d9e4;
+  padding-bottom: 12px;
+}
+.temporary-header svg {
+  max-width: 160px;
+}
+.temporary-deadlines {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #426778;
+  font-size: 14px;
+  padding: 12px 0;
+}
+.temporary-guest h1,
+.temporary-teacher h1 {
+  margin: 12px 0;
+  font-size: 28px;
+  line-height: 1.2;
+}
+.temporary-question {
+  font-size: 19px;
+  white-space: pre-wrap;
+  max-width: 85ch;
+}
+.temporary-work {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 24px;
+}
+.temporary-work h2 {
+  font-size: 20px;
+  margin: 12px 0;
+}
+.temporary-work textarea {
+  width: 100%;
+  min-height: 360px;
+  font-family: inherit;
+  font-size: 18px;
+  line-height: 1.6;
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid #91adbd;
+  border-radius: 8px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.temporary-work iframe {
+  width: 100%;
+  min-height: 540px;
+  border: 1px solid #91adbd;
+  border-radius: 8px;
+}
+.temporary-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 12px 0;
+}
+.temporary-guest button,
+.temporary-teacher button {
+  border: 1px solid #7596a9;
+  background: #fff;
+  border-radius: 6px;
+  padding: 9px 14px;
+  color: #183a50;
+  cursor: pointer;
+  font: inherit;
+}
+.temporary-guest button:disabled,
+.temporary-teacher button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.temporary-guest button.temporary-primary,
+.temporary-teacher button.temporary-primary {
+  background: #155c80;
+  color: white;
+  border-color: #155c80;
+}
+.temporary-guest :focus-visible,
+.temporary-teacher :focus-visible {
+  outline: 3px solid #d18115;
+  outline-offset: 3px;
+}
+.temporary-note {
+  font-size: 14px;
+  color: #426778;
+}
+.temporary-error {
+  border-left: 4px solid #a72929;
+  padding: 10px 14px;
+  background: #fff0ed;
+  color: #822424;
+}
+.temporary-preview-empty {
+  background: #eff6fa;
+  min-height: 380px;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: #426778;
+  border-radius: 8px;
+}
+.temporary-teacher section {
+  margin: 18px 0;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #c5d9e4;
+}
+.temporary-teacher input,
+.temporary-teacher select,
+.temporary-teacher textarea {
+  padding: 8px;
+  font: inherit;
+  max-width: 100%;
+  border: 1px solid #91adbd;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+.temporary-teacher label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.temporary-teacher table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+.temporary-teacher td,
+.temporary-teacher th {
+  text-align: left;
+  border-bottom: 1px solid #d8e5ec;
+  padding: 9px 8px;
+}
+.temporary-teacher a {
+  overflow-wrap: anywhere;
+}
+.temporary-form {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.temporary-form label {
+  flex-direction: column;
+  align-items: start;
+}
+.temporary-labels {
+  max-width: 460px;
+  width: 100%;
+  min-height: 90px;
+}
+.temporary-teacher .temporary-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.temporary-teacher pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 300px;
+  overflow: auto;
+}
+.temporary-teacher iframe {
+  width: 100%;
+  height: 500px;
+  border: 1px solid #91adbd;
+}
+@media (max-width: 900px) {
+  .temporary-work {
+    grid-template-columns: 1fr;
+  }
+  .temporary-guest {
+    padding: 16px;
+  }
+  .temporary-deadlines {
+    flex-direction: column;
+  }
+  .temporary-teacher table {
+    display: block;
+    overflow: auto;
+  }
+  .temporary-work textarea {
+    min-height: 280px;
+  }
+}

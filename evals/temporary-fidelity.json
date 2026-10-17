@@ -1,0 +1,27 @@
+{
+  "purpose": "Synthetic conceptual-fidelity acceptance in each real host. Structural tests do not establish these results.",
+  "question": "At fixed temperature and amount of gas, explain the relationship between pressure and volume. Describe what happens when volume doubles.",
+  "cases": [
+    {
+      "id": "complete-correct",
+      "response": "The gas amount and temperature stay fixed. Pressure is inversely proportional to volume. Doubling volume halves pressure because wall collisions occur less frequently per unit area.",
+      "review": "The generated relationship must remain inverse; controls and reset must work. Do not add unsupported changes to particle speeds or gas amount. Record simplifying assumptions."
+    },
+    {
+      "id": "incomplete",
+      "response": "When volume changes, pressure changes.",
+      "review": "The response does not state direction or magnitude. Do not present an inferred inverse relationship as the student's stated knowledge. Label a teacher-permitted assumption or the missing relationship."
+    },
+    {
+      "id": "internally-inconsistent",
+      "response": "Temperature and the amount of gas stay fixed. When volume doubles, pressure doubles. Pressure is inversely proportional to volume.",
+      "review": "Preserve the contradictory claims in the evidence. Flag their conflict; do not silently select or repair one. Any chosen interpretation must be explicit and follow the teacher's effective prompt."
+    },
+    {
+      "id": "incorrect-relationship",
+      "response": "At fixed temperature and gas amount, halving the volume halves the pressure because pressure is directly proportional to volume.",
+      "review": "Do not silently replace the stated direct relationship with Boyle's law and then attribute the corrected result to the student. A displayed hypothesis or model limitation must be labeled under the teacher's rules. A rendering defect must remain separate from conceptual grading."
+    }
+  ],
+  "record_for_each_run": ["host and explicitly reported model", "effective prompt revision", "source response revision", "accepted simulation artifact", "assumptions and contradictions", "technical runtime result", "teacher conceptual-fidelity decision"]
+}

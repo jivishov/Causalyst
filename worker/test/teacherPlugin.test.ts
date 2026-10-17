@@ -111,7 +111,7 @@ describe("teacher plugin protocol and workflows", () => {
   it("publishes OAuth metadata in both descriptor locations over HTTP", async () => {
     const response = await teacherPluginMcp(request({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }), env);
     const body = await response.json() as { result: { tools: Array<{ securitySchemes: unknown; _meta: { securitySchemes: unknown } }> } };
-    expect(body.result.tools).toHaveLength(13);
+    expect(body.result.tools).toHaveLength(24);
     expect(body.result.tools.every(tool => Array.isArray(tool.securitySchemes) && JSON.stringify(tool.securitySchemes) === JSON.stringify(tool._meta.securitySchemes))).toBe(true);
   });
   it("signals tool-level reauthentication when a profile lookup rejects credentials", async () => {
@@ -121,14 +121,15 @@ describe("teacher plugin protocol and workflows", () => {
     expect(result.isError).toBe(true);
     expect(result._meta?.["mcp/www_authenticate"]).toEqual([expect.stringContaining('error="invalid_token"')]);
   });
-  it("advertises OAuth, accurate write annotations, and no paid generation/publish tools", async () => {
+  it("advertises OAuth and temporary client generation without paid inference or grade publication tools", async () => {
     const connection = await connect();
     const { tools } = await connection.listTools();
-    expect(tools.length).toBe(13);
+    expect(tools.length).toBe(24);
     expect(tools.every(tool => tool._meta?.securitySchemes)).toBe(true);
     expect(tools.find(tool => tool.name === "get_teacher_profile")?.outputSchema).toMatchObject({ type: "object", required: ["id"], additionalProperties: false });
     expect(tools.find(tool => tool.name === "save_teacher_grade")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true, openWorldHint: false });
-    expect(tools.map(tool => tool.name).join(" ")).not.toMatch(/publish|generate_image|provider|api_key/);
+    expect(tools.map(tool => tool.name)).toEqual(expect.arrayContaining(["get_explain_capabilities","publish_temporary_assignment","save_simulation_result","retry_temporary_generation"]));
+    expect(tools.map(tool => tool.name).filter(name=>name!=="publish_temporary_assignment").join(" ")).not.toMatch(/publish|generate_image|provider|api_key/);
   });
   it("prepares AI work without calling an inference endpoint", async () => {
     const connection = await connect();

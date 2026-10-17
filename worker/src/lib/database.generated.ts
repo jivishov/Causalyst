@@ -1271,9 +1271,23 @@ export type Database = {
         }
         Returns: Json
       }
+      teacher_admission: {
+        Args: { p_session: string; p_user: string }
+        Returns: Json
+      }
+      teacher_admitted: { Args: { p_user: string }; Returns: boolean }
       teacher_plugin_session_active: {
         Args: { p_client_id: string; p_session_id: string; p_user_id: string }
         Returns: boolean
+      }
+      temporary_command: {
+        Args: {
+          p_actor: string
+          p_connection: string
+          p_input: Json
+          p_op: string
+        }
+        Returns: Json
       }
     }
     Enums: {

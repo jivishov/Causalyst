@@ -30,6 +30,8 @@ import {
 import { completeTeacherAuthCallbackIfPresent, isSupabaseConfigured, teacherSupabase } from "../../lib/supabase";
 import { TeacherWorkspaceDataProvider, useTeacherWorkspaceData } from "./TeacherWorkspaceData";
 import { ExplainLogo } from "../../components/ExplainLogo";
+import { temporaryReturnPath } from "../../lib/temporaryNavigation";
+const TEMPORARY_RETURN_KEY = "explain.teacher-temporary-return";
 const PLUGIN_PENDING_AUTH_KEY = "explain.teacher-plugin-authorization";
 
 type Mode = "signin" | "setup";
@@ -68,6 +70,13 @@ export function TeacherWorkspace() {
         .then((session) => {
           setProfile(session.profile);
           setAuthStatus("authenticated");
+          const temporaryPending=sessionStorage.getItem(TEMPORARY_RETURN_KEY);
+          if(temporaryPending && location.pathname === "/teacher") {
+            sessionStorage.removeItem(TEMPORARY_RETURN_KEY);
+            const parsed=new URL(temporaryPending,window.location.origin);
+            const target=temporaryReturnPath(parsed.pathname,parsed.search);
+            if(parsed.origin===window.location.origin&&target){navigate(target,{replace:true});return;}
+          }
           const pending = sessionStorage.getItem(PLUGIN_PENDING_AUTH_KEY);
           if (pending && location.pathname === "/teacher") navigate(`/teacher/chatgpt-plugin?authorization_id=${encodeURIComponent(pending)}`, { replace: true });
         })
@@ -83,6 +92,8 @@ export function TeacherWorkspace() {
     setError(null);
     setResetMessage(null);
     try {
+      const target=temporaryReturnPath(location.pathname,location.search);
+      if(target)sessionStorage.setItem(TEMPORARY_RETURN_KEY,target);
       await signInTeacherWithGoogle();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Teacher Google sign-in could not start.");
@@ -117,7 +128,7 @@ export function TeacherWorkspace() {
         }
       }
       const nextPath = resolvePostAuthTeacherPath(location.pathname);
-      navigate(nextPath + (nextPath === "/teacher/chatgpt-plugin" ? location.search : ""), { replace: true });
+      navigate(temporaryReturnPath(location.pathname,location.search) ?? nextPath + (nextPath === "/teacher/chatgpt-plugin" ? location.search : ""), { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Teacher sign-in failed");
     } finally {
@@ -245,6 +256,7 @@ function TeacherWorkspaceShell({ profile, onSignOut }: { profile: TeacherProfile
   const location = useLocation();
   const navItems = useMemo(
     () => [
+        { to: "/teacher/temporary", label: "Temporary assignments", description: "Private student links and downloadable evidence.", end: false, Icon: ClipboardCheck },
       { to: "/teacher", label: "Courses & roster", description: "Your classes, students, and enrollment in one place.", end: true, Icon: BookOpen },
       { to: "/teacher/ai-settings", label: "AI settings", description: "Provider keys, assessment models, and student model choices.", Icon: SlidersHorizontal },
       { to: "/teacher/chatgpt-plugin", label: "ChatGPT plugin", description: "Create and review with your ChatGPT account.", Icon: MessageSquareText },
@@ -322,7 +334,8 @@ function teacherIdentitySummary(profile: TeacherProfile): string {
   return email ? `${name} · ${email}` : name;
 }
 
-export function resolvePostAuthTeacherPath(pathname: string): "/teacher" | "/teacher/assessments" | "/teacher/assignments" | "/teacher/review" | "/teacher/gradebook" | "/teacher/ai-settings" | "/teacher/chatgpt-plugin" {
+export function resolvePostAuthTeacherPath(pathname: string): "/teacher" | "/teacher/assessments" | "/teacher/assignments" | "/teacher/review" | "/teacher/gradebook" | "/teacher/ai-settings" | "/teacher/chatgpt-plugin" | "/teacher/temporary" {
+  if (pathname === "/teacher/temporary") return "/teacher/temporary";
   if (pathname === "/teacher/chatgpt-plugin") return "/teacher/chatgpt-plugin";
   if (pathname === "/teacher/ai-settings") return "/teacher/ai-settings";
   if (pathname === "/teacher/assessments" || pathname.startsWith("/teacher/assessments/")) {

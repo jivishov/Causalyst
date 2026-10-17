@@ -13,22 +13,25 @@ The frontend and API share one HTTPS origin for guest HttpOnly SameSite=Strict c
 
 `APP_ENV=production` retains strong-secret and origin checks. `--env staging` selects the separate resources.
 
-## Recorded setup state, 15 October 2026
+## Recorded setup state, 17 October 2026
 
 - The existing paused staging database was restored and is healthy.
-- The committed teacher-assignment prompt and temporary-assignment schema migrations were applied.
+- All 37 migrations are applied, including the final committed `20261014182440_temporary_operations.sql`.
 - Verified 11 temporary tables with RLS, a private evidence bucket, and disabled creation/processing.
-- `20261014182440_temporary_operations.sql` is still pending. Inspect migration history before retrying an interrupted operation.
+- Verified `temporary_command(text,uuid,text,jsonb)` exists: `service_role` can execute it; `anon` and `authenticated` cannot.
+- Confirmed the connected Cloudflare account owns the active `explain.az` zone. A staging Worker has not been created.
 - Staging has no teacher profile or verified owner account yet.
 - The staging Worker, domain, secrets, website and plugin connection have not been deployed. There is no usable pilot URL yet.
 
-Local execution and browser automation currently fail at startup because Linux workspace permission paths were supplied to the Windows host. Resume in a working session.
+The Windows checkout was recovered to reviewed commit `9fe2d8c6aa8b71188ac72420f5b905372e6c6e25` exactly before this status update. Workspace type checks, all 593 unit tests, and all 11 SQL suites pass under Node 24. Unit suites use their standard test configuration; staging's public frontend variables apply to the deployment build. Local test caches and Wrangler logs must use a directory inside the writable checkout. Direct network access from this shell is restricted; account operations use the connected Supabase and Cloudflare integrations.
+
+The current session has no browser-control tool, Supabase management credential, or staging service credential. The Supabase connection can apply and verify migrations, but cannot retrieve service credentials or change Auth provider, redirect, hook, and OAuth-client configuration. These are the remaining setup dependencies; another database restore or migration replay is unnecessary. Do not put secret values in chat, repository files, or PR descriptions. Use the authenticated dashboards or local secure Wrangler prompts.
 
 ## Complete setup
 
 1. Require green Validate checks for the feature revision, including the staging package dry-run. Confirm the connected Cloudflare account owns `explain.az`.
-2. Apply the remaining committed operations migration to staging only. Verify `temporary_command` exists and can be executed by the service role, but not by `anon` or `authenticated`.
-3. Configure this project's Supabase Auth site URL and exact frontend callback URLs on `https://staging.explain.az`. Retain PKCE and explicit callback completion. Configure staging provider registration separately; do not change production Auth.
+2. Inspect migration history before proceeding. The final operations migration is already applied and its service-only execution privileges have been verified.
+3. Configure this project's Supabase Auth Site URL as `https://staging.explain.az` and allow the exact callback `https://staging.explain.az/auth/callback`. Retain PKCE and explicit callback completion. Configure staging provider registration separately; do not change production Auth.
 4. Set staging-only Worker secrets with interactive `wrangler secret put NAME --env staging` prompts: `SUPABASE_SERVICE_ROLE_KEY`, `PIN_PEPPER` (at least 32 high-entropy characters), and `TEACHER_SETUP_CODE` (at least 16 high-entropy characters). Obtain the service credential through the authenticated Supabase dashboard. Do not print, commit, pass secrets as command arguments, or reuse production secrets. Temporary teacher-client processing requires no provider API key.
 5. Build from the repository root with the public frontend environment below.
 
